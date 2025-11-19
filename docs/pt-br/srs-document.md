@@ -7,6 +7,7 @@
 # 2. Requisitos Funcionais
 
 ### RF001 – Gerenciamento de Usuário
+
 **Prioridade:** Deve ter
 
 **Dependências:** Nenhuma
@@ -14,6 +15,7 @@
 #### RF001.1 – Cadastro de Usuário
 
 **Critérios de Aceitação**
+
 * O sistema deve exigir os campos obrigatórios:
   * nome
   * email
@@ -35,6 +37,7 @@
 #### RF001.2 – Edição de Usuário
 
 **Critérios de Aceitação**
+
 * É permitido editar:
   * nome
   * email
@@ -51,6 +54,7 @@
   * alteração de senha
 
 #### RF001.3 – Exclusão de Usuário
+
 **Critérios de Aceitação**
 
 * A exclusão da conta deve exigir a confirmação da senha atual.
@@ -63,6 +67,7 @@
 ---
 
 ### RF002 – Gerenciamento de Organizações
+
 **Prioridade:** Deve ter
 
 **Dependências:** RF001
@@ -70,7 +75,8 @@
 #### RF002.1 – Cadastro de Organização
 
 **Critérios de Aceitação**
-* Deve ser informado um nome da organização
+
+* Deve ser informado um nome da organização.
 * O nome da organização deve ser único no sistema.
 * O usuário criador deve ser definido como **dono** da organização.
 * A organização padrão é criada automaticamente no momento de confirmação da conta (conforme RF001.1); este requisito cobre criações adicionais feitas pelo usuário.
@@ -78,12 +84,14 @@
 #### RF002.2 – Edição de Organização
 
 **Critérios de Aceitação**
-* É permitido editar o nome da organização
+
+* É permitido editar o nome da organização.
 * Somente donos ou administradores da organização podem editar esses dados.
 
 #### RF002.3 – Exclusão de Organização
 
 **Critérios de Aceitação**
+
 * A exclusão da organização deve ser bloqueada se existir **algum projeto ativo** associado a ela.
 * A operação deve exigir confirmação explícita do dono da organização.
 * A exclusão deve ser realizada via **soft delete** com período de retenção de 30 dias.
@@ -92,6 +100,7 @@
 ---
 
 ### RF003 – Gerenciamento de Nós
+
 **Prioridade:** Deve ter
 
 **Dependências:** RF001, RF002
@@ -99,7 +108,8 @@
 #### RF003.1 – Cadastro de Nó
 
 **Critérios de Aceitação**
-* Deve ser informado o campo nome (auto-gerado e editável)
+
+* Deve ser informado o campo nome (auto-gerado e editável).
 * Se o nome não for informado, o sistema deve gerar um nome padrão (por exemplo, com base em um identificador único).
 * O sistema deve gerar um **token de autenticação único**, exibido apenas no momento da criação.
 * O token deve possuir formato adequado para uso em autenticação (por exemplo, string opaca) e possuir **expiração configurável**.
@@ -108,6 +118,7 @@
 #### RF003.2 – Edição de Nó
 
 **Critérios de Aceitação**
+
 * É permitido editar o nome do nó, revogar o token de autenticação e alterar a expiração do token.
 * A alteração do nome não deve alterar o identificador interno do nó.
 * Não é obrigatório registrar log de auditoria para alterações.
@@ -115,6 +126,7 @@
 #### RF003.3 – Exclusão de Nó
 
 **Critérios de Aceitação**
+
 * A exclusão do nó deve ser bloqueada se ele estiver vinculado a um treinamento ativo.
 * Ao excluir um nó, o token de autenticação associado a ele deve ser invalidado imediatamente.
 * A exclusão do nó pode ser definitiva (sem soft delete) neste MVP.
@@ -122,6 +134,7 @@
 #### RF003.4 – Visualização de Nó
 
 **Critérios de Aceitação**
+
 * Para cada nó, devem ser exibidos, no mínimo:
   * nome
   * status: `running`, `online`, `offline`, `inativo`
@@ -134,6 +147,18 @@
   * última atividade
 * Detalhes de uso de recursos podem ser apresentados em dashboards específicos de monitoramento, sem sobrecarregar a tela principal de treinamento.
 
+#### RF003.5 – Registro e Autenticação de Aplicações de Treinamento
+
+**Critérios de Aceitação**
+
+* O sistema deve permitir registrar aplicações de treinamento externas (por exemplo, `ServerApp`) como nós lógicos ou entidades equivalentes.
+* Essas aplicações devem usar tokens de autenticação emitidos pela plataforma (conforme RF003.1) para:
+  * enviar telemetria via OTLP;
+  * reportar eventos de treinamento (início de rodada, conclusão, falha).
+* A plataforma deve rejeitar conexões ou eventos provenientes de aplicações de treinamento que:
+  * não apresentem token válido;
+  * estejam associadas a nós revogados ou expirados.
+
 ---
 
 ### RF004 – Gerenciamento de Projetos
@@ -145,7 +170,8 @@
 #### RF004.1 – Cadastro de Projeto
 
 **Critérios de Aceitação**
-* Deve ser informado o nome do projeto
+
+* Deve ser informado o nome do projeto.
 * O sistema deve gerar um **identificador único para o projeto**, que pode ser editável (por exemplo, um “slug” amigável).
 * O administrador criador deve ser registrado como **responsável inicial** pelo projeto.
 * O sistema deve permitir associar organizações convidadas ao projeto.
@@ -154,6 +180,7 @@
 #### RF004.2 – Edição de Projeto
 
 **Critérios de Aceitação**
+
 * É permitido editar:
   * nome
   * lista de organizações colaboradoras (participantes do projeto)
@@ -164,6 +191,7 @@
 #### RF004.3 – Exclusão de Projeto
 
 **Critérios de Aceitação**
+
 * A exclusão do projeto deve ser bloqueada se houver treinamentos ativos associados a ele.
 * A ação deve exigir confirmação explícita do administrador do projeto.
 * A exclusão pode ser feita via **soft delete** com retação de 30 dias.
@@ -172,6 +200,7 @@
 #### RF004.4 – Colaboração Multi-Organizacional
 
 **Critérios de Aceitação**
+
 * O sistema deve permitir **convidar organizações externas** para participar do projeto.
 * A organização convidada deve **aceitar explicitamente** o convite para participar.
 * Devem existir papéis de acesso no contexto do projeto, no mínimo:
@@ -194,6 +223,7 @@
 #### RF005.1 – Configuração Padrão de Treinamento
 
 **Critérios de Aceitação**
+
 * O sistema deve permitir criar **configurações de treinamento reutilizáveis** (templates), contendo, por exemplo:
   * modelo base ou referência ao modelo inicial
   * estratégia de treinamento federado/estratégia Flower
@@ -205,6 +235,7 @@
 #### RF005.2 – Configuração de Treinamento por Projeto e Início de Execução
 
 **Critérios de Aceitação**
+
 * Ao iniciar um treinamento, o sistema deve permitir:
   * selecionar uma configuração padrão de treinamento (RF005.1);
   * sobrescrever parâmetros específicos ao projeto/execução, como:
@@ -222,6 +253,7 @@
 #### RF005.3 – Controle de Execução
 
 **Critérios de Aceitação**
+
 * Deve ser possível:
   * pausar o treinamento
   * retomar o treinamento pausado
@@ -234,6 +266,7 @@
 #### RF005.4 – Persistência de Artefatos de Treinamento
 
 **Critérios de Aceitação**
+
 * O sistema deve permitir armazenar de forma persistente, em um bucket S3 compatível:
   * modelos globais resultantes de cada rodada de agregação;
   * o modelo final da execução;
@@ -290,11 +323,13 @@
 ### RF007 – Monitoramento e Observabilidade
 
 **Prioridade:** Deve ter
+
 **Dependências:** RF003, RF005
 
 #### RF007.1 – Monitoramento Global de Nós
 
 **Critérios de Aceitação**
+
 * O sistema deve exibir, em uma visão global de nós:
   * status (running/online/offline/inativo)
   * última atividade
@@ -308,6 +343,7 @@
 #### RF007.2 – Monitoramento de Treinamentos
 
 **Critérios de Aceitação**
+
 * Para um treinamento selecionado, o sistema deve exibir:
   * identificador da execução
   * projeto associado
@@ -330,6 +366,158 @@
   * apenas a organização proprietária do nó pode ver os gráficos do nó; ou
   * outras organizações participantes do projeto podem visualizar os gráficos de treinamento daquele nó específico.
 * Por padrão, a visualização de gráficos detalhados de um nó deve ser restrita à organização proprietária, a menos que explicitamente configurado para compartilhamento.
+
+#### RF007.4 – Coleta de Telemetria via OTEL
+
+**Critérios de Aceitação**
+
+* A plataforma deve expor um endpoint OTLP (HTTP ou gRPC) para recebimento de:
+  * métricas, logs e traces dos `ClientApp` por meio de um OTel Collector de clientes;
+  * métricas, logs e traces do `ServerApp`;
+  * métricas, logs e traces dos componentes internos da plataforma (Backend, WebSocket, etc.), conforme necessário.
+* Cada dado de telemetria recebido deve estar associado, quando aplicável, a:
+  * nó de origem;
+  * organização;
+  * projeto e/ou execução de treinamento.
+* A plataforma deve validar, para cada produtor de telemetria, o token de autenticação configurado para o nó ou serviço correspondente (conforme RF003.5).
+
+#### RF007.5 – Exportação para Stack de Observabilidade
+
+**Critérios de Aceitação**
+
+* O OTel Collector da plataforma deve ser capaz de exportar:
+  * métricas para o backend de métricas (ex.: Prometheus);
+  * logs para o backend de logs (ex.: Loki);
+  * traces para o backend de traces (ex.: Tempo).
+* O backend da aplicação deve conseguir consultar essas fontes de dados para:
+  * alimentar as telas de monitoramento definidas em RF007.1, RF007.2 e RF007.3;
+  * gerar eventos que serão enviados aos clientes via WebSocket (RF009).
+* Em caso de indisponibilidade temporária da stack de observabilidade, o sistema deve:
+  * enfileirar ou agrupar a telemetria em memória ou armazenamento local até um limite configurável;
+  * descartar dados excedentes de forma controlada, registrando estatísticas de perda quando ocorrer.
+
+---
+
+### RF008 – Autenticação e Autorização
+
+**Prioridade:** Deve ter
+
+**Dependências:** RF001, RF002, RF004
+
+#### RF008.1 – Autenticação de Usuário
+
+**Critérios de Aceitação**
+
+* O sistema deve permitir autenticação de usuários por:
+  * email e senha cadastrados (RF001.1); e/ou
+  * provedores de identidade integrados à plataforma, quando configurados.
+* O processo de login deve:
+  * validar credenciais;
+  * gerar token(s) de sessão (por exemplo, JWT) com tempo de expiração definido;
+  * associar a sessão ao usuário autenticado e à organização ativa.
+* O sistema deve permitir logout explícito, invalidando a sessão atual.
+* O sistema deve oferecer fluxo de recuperação de senha baseado em:
+  * envio de email com link de redefinição;
+  * validade máxima configurável para o link;
+  * obrigatoriedade de definir nova senha seguindo a política de complexidade vigente.
+
+#### RF008.2 – Autorização por Papéis, Organização e Projeto
+
+**Critérios de Aceitação**
+
+* Toda ação sensível (criação, edição, exclusão de usuários, organizações, nós, projetos, treinamentos e artefatos) deve verificar:
+  * se o usuário está autenticado;
+  * se pertence à organização alvo da operação;
+  * se possui papel adequado (dono, administrador, colaborador, observador, conforme contexto).
+* A plataforma deve garantir que:
+  * usuários só enxerguem projetos e nós vinculados às organizações das quais participam;
+  * apenas donos/administradores possam:
+    * gerenciar organização (RF002);
+    * gerenciar nós da organização (RF003);
+    * gerenciar projetos e treinamentos de que são responsáveis (RF004, RF005).
+* As regras de autorização devem ser aplicadas também:
+  * aos endpoints de download de artefatos (RF005.4);
+  * ao acesso a métricas e gráficos de nós e treinamentos (RF007.3).
+
+#### RF008.3 – Autenticação de Conexões de Telemetria e WebSocket
+
+**Critérios de Aceitação**
+
+* Toda conexão que envie telemetria OTLP para a plataforma deve:
+  * incluir token de autenticação do nó ou serviço emissor;
+  * ser recusada se o token estiver inválido, expirado ou revogado.
+* Toda conexão WebSocket deve:
+  * ser estabelecida com usuário autenticado (RF008.1);
+  * incluir informações que permitam ao backend determinar a organização e, quando aplicável, o projeto/treinamento associado;
+  * ser encerrada pelo servidor quando a sessão do usuário expirar ou for revogada.
+
+---
+
+### RF009 – Comunicação em Tempo Real (WebSocket)
+
+**Prioridade:** Deve ter
+
+**Dependências:** RF003, RF005, RF007, RF008
+
+#### RF009.1 – Canal de Atualizações de Treinamento
+
+**Critérios de Aceitação**
+
+* O sistema deve disponibilizar um endpoint WebSocket para envio de atualizações em tempo quase real relacionadas a:
+  * estado de execuções de treinamento (iniciado, em andamento, pausado, cancelado, concluído);
+  * progresso de rodadas (rodada atual, total previsto);
+  * métricas agregadas por rodada (por exemplo, loss, accuracy).
+* O cliente deve poder:
+  * assinar atualizações de um projeto e/ou execução específica;
+  * deixar de receber atualizações (unsubscribe) quando apropriado.
+* As mensagens enviadas pelo WebSocket devem respeitar as regras de autorização (RF008.2), garantindo que:
+  * usuários só recebam atualizações de projetos e treinamentos aos quais têm acesso;
+  * organizações não recebam detalhes de nós pertencentes a outras organizações, exceto quando explicitamente compartilhados (RF007.3).
+
+#### RF009.2 – Canal de Atualizações de Nós
+
+**Critérios de Aceitação**
+
+* O sistema deve utilizar o WebSocket para enviar aos clientes:
+  * mudanças de status de nós (online/offline/running/inativo);
+  * alertas relevantes (por exemplo, uso de recursos acima de limiar configurável).
+* A origem dos dados (telemetria recebida via OTLP) deve ser processada pelo backend, que:
+  * consolida as informações;
+  * filtra por organização e projeto;
+  * publica eventos no canal WebSocket adequado.
+* Em caso de reconexão do cliente, o sistema deve permitir:
+  * reenvio do estado atual dos nós e treinamentos relevantes; ou
+  * recuperação do estado via chamadas REST, complementadas por atualizações futuras via WebSocket.
+
+---
+
+### RF010 – Integração com Plataforma de Dados (Supabase)
+
+**Prioridade:** Deve ter
+
+**Dependências:** RF001, RF002, RF004, RF008
+
+#### RF010.1 – Persistência de Entidades Principais
+
+**Critérios de Aceitação**
+
+* O sistema deve utilizar uma plataforma de dados (por exemplo, Supabase) para persistir:
+  * usuários, perfis e credenciais relacionadas;
+  * organizações e seus relacionamentos com usuários;
+  * projetos, execuções de treinamento e associações com organizações;
+  * metadados de nós e de aplicações de treinamento.
+* Operações de criação, edição e exclusão definidas nos requisitos RF001–RF006 devem refletir-se de forma consistente no armazenamento subjacente.
+
+#### RF010.2 – Uso de Recursos de Autenticação Integrados
+
+**Critérios de Aceitação**
+
+* Quando disponível, a plataforma de dados deve ser utilizada para:
+  * gestão de usuários e credenciais (registro, login, recuperação de senha);
+  * emissão e validação de tokens de sessão, em alinhamento com RF008.1.
+* A camada de backend deve:
+  * validar tokens emitidos pela plataforma de dados;
+  * propagar a identidade do usuário autenticado para as camadas de autorização, monitoramento e geração de logs.
 
 ---
 
