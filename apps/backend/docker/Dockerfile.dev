@@ -1,0 +1,16 @@
+FROM node:25
+
+WORKDIR /usr/src/app
+
+RUN npm install -g pnpm
+
+COPY pnpm-workspace.yaml .
+COPY package.json .
+COPY pnpm-lock.yaml .
+COPY turbo.json .
+
+COPY apps/backend/package.json ./apps/backend/
+
+RUN pnpm install
+
+CMD ["pnpm", "run", "dev:backend"]
