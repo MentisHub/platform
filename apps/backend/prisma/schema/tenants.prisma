@@ -1,0 +1,78 @@
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum ProjectRole {
+  ADMIN
+  COLLABORATOR
+  OBSERVER
+}
+
+model Organization {
+  id   String @id @db.Uuid
+  name String @db.VarChar(255)
+  slug String @unique @db.VarChar(100)
+
+  ownerId String @map("owner_id") @db.Uuid
+  owner   User   @relation("OrganizationOwner", fields: [ownerId], references: [id])
+
+  members OrganizationMember[]
+  projects Project[]
+  nodes    Node[]
+  ca       OrganizationCA?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([ownerId])
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String       @map("user_id") @db.Uuid
+  user           User         @relation(fields: [userId], references: [id])
+  role           OrgRole      @default(MEMBER)
+
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  @@id([organizationId, userId])
+  @@map("organization_members")
+}
+
+model Project {
+  id   String @id @db.Uuid
+  name String @db.VarChar(255)
+  slug String @db.VarChar(100)
+
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  trainingRuns  TrainingRun[]
+  collaborators ProjectCollaborator[]
+  nodes         Node[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([organizationId, slug])
+  @@map("projects")
+}
+
+model ProjectCollaborator {
+  projectId      String      @map("project_id") @db.Uuid
+  project        Project     @relation(fields: [projectId], references: [id])
+  organizationId String      @map("organization_id") @db.Uuid
+  role           ProjectRole @default(OBSERVER)
+
+  invitedAt  DateTime  @default(now()) @map("invited_at")
+  acceptedAt DateTime? @map("accepted_at")
+
+  @@id([projectId, organizationId])
+  @@map("project_collaborators")
+}

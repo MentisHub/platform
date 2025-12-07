@@ -1,16 +1,16 @@
 services:
   backend:
+    container_name: backend
     build:
       context: ../
       dockerfile: apps/backend/docker/Dockerfile.dev
     volumes:
-      - ../apps/backend:/usr/src/app/apps/backend
-      - ../packages:/usr/src/app/packages
-      - /usr/src/app/node_modules
+      - ..:/usr/src/app
     ports:
       - "3000:3000"
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@supabase-db:${POSTGRES_PORT}/${POSTGRES_DB}
+      SERVICE_DATABASE_URL: postgres://service_account:${POSTGRES_PASSWORD}@supabase-db:${POSTGRES_PORT}/${POSTGRES_DB}
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       JWT_SECRET: ${JWT_SECRET}
       VAULT_ADDR: http://vault:8200
@@ -26,41 +26,20 @@ services:
         condition: service_started
 
   frontend:
+    container_name: frontend
     build:
       context: ../
       dockerfile: apps/frontend/docker/Dockerfile.dev
     volumes:
-      - ../apps/frontend:/usr/src/app/apps/frontend
-      - ../packages:/usr/src/app/packages
-      - /usr/src/app/node_modules
+      - ..:/usr/src/app
     ports:
       - "3001:3001"
     environment:
       NEXT_PUBLIC_BACKEND_URL: http://localhost:3000
-      NEXT_PUBLIC_WEBSOCKET_URL: ws://localhost:3002
       NEXT_PUBLIC_SUPABASE_URL: http://localhost:8000
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
     depends_on:
       - backend
-
-  websocket:
-    build:
-      context: ../
-      dockerfile: apps/websocket/docker/Dockerfile.dev
-    volumes:
-      - ../apps/websocket:/usr/src/app/apps/websocket
-      - ../packages:/usr/src/app/packages
-      - /usr/src/app/node_modules
-    ports:
-      - "3002:3002"
-    environment:
-      JWT_SECRET: ${JWT_SECRET}
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-    depends_on:
-      supabase-db:
-        condition: service_healthy
-      otel-collector:
-        condition: service_started
 
   # Supabase
   supabase-db:
@@ -70,7 +49,8 @@ services:
       - "${POSTGRES_PORT}:5432"
     volumes:
       - supabase_db_data:/var/lib/postgresql/data
-      - ./supabase/init-scripts/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      - ./supabase/init-scripts/roles.sql:/docker-entrypoint-initdb.d/init-scripts/98-roles.sql:Z
+      - ./supabase/init-scripts/service_account.sql:/docker-entrypoint-initdb.d/init-scripts/99-service-account.sql:Z
       - ./supabase/init-scripts/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
     environment:
       PGHOST: 0.0.0.0
@@ -249,7 +229,6 @@ services:
       PG_META_DB_USER: supabase_admin
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
 
-  # Infrastructure Services
   vault:
     image: hashicorp/vault:1.21
     container_name: vault
@@ -338,6 +317,7 @@ services:
       - tempo
 
 volumes:
+  node_modules:
   supabase_db_data:
   supabase_storage_data:
   vault_data:
