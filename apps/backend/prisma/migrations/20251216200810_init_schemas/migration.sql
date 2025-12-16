@@ -2,7 +2,7 @@
 CREATE TYPE "OrgRole" AS ENUM ('OWNER', 'ADMIN', 'MEMBER');
 
 -- CreateEnum
-CREATE TYPE "ProjectRole" AS ENUM ('ADMIN', 'COLLABORATOR', 'OBSERVER');
+CREATE TYPE "ProjectRole" AS ENUM ('ADMIN', 'COLLABORATOR', 'VIEWER');
 
 -- CreateEnum
 CREATE TYPE "TrainingStatus" AS ENUM ('PENDING', 'RUNNING', 'PAUSED', 'COMPLETED', 'CANCELLED', 'FAILED');
@@ -12,9 +12,6 @@ CREATE TYPE "NodeStatus" AS ENUM ('RUNNING', 'ONLINE', 'OFFLINE', 'INACTIVE');
 
 -- CreateEnum
 CREATE TYPE "ServerAppStatus" AS ENUM ('STARTING', 'RUNNING', 'AGGREGATING', 'COMPLETED', 'FAILED');
-
--- CreateEnum
-CREATE TYPE "ArtifactType" AS ENUM ('GLOBAL_MODEL', 'CHECKPOINT', 'LOGS', 'METRICS');
 
 -- CreateTable
 CREATE TABLE "organization_cas" (
@@ -81,7 +78,7 @@ CREATE TABLE "projects" (
 CREATE TABLE "project_collaborators" (
     "project_id" UUID NOT NULL,
     "organization_id" UUID NOT NULL,
-    "role" "ProjectRole" NOT NULL DEFAULT 'OBSERVER',
+    "role" "ProjectRole" NOT NULL DEFAULT 'VIEWER',
     "invited_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "accepted_at" TIMESTAMP(3),
 
@@ -149,7 +146,6 @@ CREATE TABLE "round_participants" (
 -- CreateTable
 CREATE TABLE "artifacts" (
     "id" UUID NOT NULL,
-    "type" "ArtifactType" NOT NULL,
     "bucket_key" TEXT NOT NULL,
     "size_bytes" BIGINT,
     "round_number" INTEGER,
@@ -221,7 +217,7 @@ CREATE INDEX "training_runs_project_id_status_idx" ON "training_runs"("project_i
 CREATE UNIQUE INDEX "rounds_run_id_number_key" ON "rounds"("run_id", "number");
 
 -- CreateIndex
-CREATE INDEX "artifacts_run_id_type_idx" ON "artifacts"("run_id", "type");
+CREATE INDEX "artifacts_run_id_idx" ON "artifacts"("run_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "server_apps_training_run_id_key" ON "server_apps"("training_run_id");

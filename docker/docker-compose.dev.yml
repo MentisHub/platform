@@ -14,7 +14,6 @@ services:
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       JWT_SECRET: ${JWT_SECRET}
       VAULT_ADDR: http://vault:8200
-      VAULT_TOKEN: root
     depends_on:
       supabase-db:
         condition: service_healthy
@@ -117,7 +116,15 @@ services:
       GOTRUE_MAILER_URLPATHS_RECOVERY: ${MAILER_URLPATHS_RECOVERY}
       GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: ${MAILER_URLPATHS_EMAIL_CHANGE}
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:9999/health",
+        ]
       timeout: 5s
       interval: 5s
       retries: 3
@@ -160,7 +167,15 @@ services:
       REGION: stub
       GLOBAL_S3_BUCKET: stub
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5000/status"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:5000/status",
+        ]
       timeout: 5s
       interval: 5s
       retries: 3
@@ -229,21 +244,29 @@ services:
       PG_META_DB_USER: supabase_admin
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
 
+  # Infrastructure
   vault:
     image: hashicorp/vault:1.21
     container_name: vault
     ports:
       - "8200:8200"
     environment:
-      VAULT_DEV_ROOT_TOKEN_ID: root
       VAULT_ADDR: http://0.0.0.0:8200
-      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
     cap_add:
       - IPC_LOCK
     volumes:
       - vault_data:/vault/file
+      - ./vault/config.hcl:/vault/config/config.hcl
+    command: server
     healthcheck:
-      test: ["CMD", "vault", "status"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8200/sys/health?standbyok=true",
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -269,10 +292,10 @@ services:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
     depends_on:
       - otel-collector
 

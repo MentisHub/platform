@@ -22,15 +22,8 @@ enum ServerAppStatus {
   FAILED
 }
 
-enum ArtifactType {
-  GLOBAL_MODEL
-  CHECKPOINT
-  LOGS
-  METRICS
-}
-
 model Node {
-  id       String     @id @db.Uuid
+  id       String     @id @default(uuid()) @db.Uuid
   name     String     @db.VarChar(255)
   pskHash  String?    @unique @map("psk_hash")
   status   NodeStatus @default(INACTIVE)
@@ -54,7 +47,7 @@ model Node {
 }
 
 model TrainingRun {
-  id     String         @id @db.Uuid
+  id     String         @id @default(uuid()) @db.Uuid
   status TrainingStatus @default(PENDING)
 
   createdAt   DateTime  @default(now()) @map("created_at")
@@ -66,15 +59,15 @@ model TrainingRun {
 
   rounds       Round[]
   participants RunParticipant[]
-  artifacts    Artifact[]
   serverApp    ServerApp?
+  artifacts    Artifact[]
 
   @@index([projectId, status])
   @@map("training_runs")
 }
 
 model Round {
-  id     String @id @db.Uuid
+  id     String @id @default(uuid()) @db.Uuid
   number Int
 
   startedAt   DateTime  @default(now()) @map("started_at")
@@ -103,7 +96,7 @@ model RunParticipant {
 
 model RoundParticipant {
   participated  Boolean @default(true)
-  failureReason String? @db.VarChar(500) @map("failure_reason")
+  failureReason String? @map("failure_reason") @db.VarChar(500)
 
   roundId String @map("round_id") @db.Uuid
   round   Round  @relation(fields: [roundId], references: [id])
@@ -115,8 +108,7 @@ model RoundParticipant {
 }
 
 model Artifact {
-  id          String       @id @db.Uuid
-  type        ArtifactType
+  id          String       @id @default(uuid()) @db.Uuid
   bucketKey   String       @map("bucket_key")
   sizeBytes   BigInt?      @map("size_bytes")
   roundNumber Int?         @map("round_number")
@@ -126,12 +118,12 @@ model Artifact {
   runId String      @map("run_id") @db.Uuid
   run   TrainingRun @relation(fields: [runId], references: [id])
 
-  @@index([runId, type])
+  @@index(runId)
   @@map("artifacts")
 }
 
 model ServerApp {
-  id     String          @id @db.Uuid
+  id     String          @id @default(uuid()) @db.Uuid
   status ServerAppStatus @default(STARTING)
 
   trainingRunId String      @unique @map("training_run_id") @db.Uuid

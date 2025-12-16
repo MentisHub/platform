@@ -27,10 +27,11 @@
     "@nestjs/common": "^11.1.9",
     "@nestjs/core": "^11.1.9",
     "@nestjs/platform-express": "^11.1.9",
+    "@platform/contracts": "workspace:*",
     "@prisma/client": "^7.1.0",
+    "node-vault": "^0.10.9",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2",
-    "@platform/contracts": "workspace:*"
+    "rxjs": "^7.8.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
@@ -76,6 +77,6 @@
     "testEnvironment": "node"
   },
   "prisma": {
-    "schema": "./prisma"
+    "schema": "./prisma/schema/schema.prisma"
   }
 }

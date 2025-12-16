@@ -7,18 +7,18 @@ enum OrgRole {
 enum ProjectRole {
   ADMIN
   COLLABORATOR
-  OBSERVER
+  VIEWER
 }
 
 model Organization {
-  id   String @id @db.Uuid
+  id   String @id @default(uuid()) @db.Uuid
   name String @db.VarChar(255)
   slug String @unique @db.VarChar(100)
 
   ownerId String @map("owner_id") @db.Uuid
   owner   User   @relation("OrganizationOwner", fields: [ownerId], references: [id])
 
-  members OrganizationMember[]
+  members  OrganizationMember[]
   projects Project[]
   nodes    Node[]
   ca       OrganizationCA?
@@ -45,7 +45,7 @@ model OrganizationMember {
 }
 
 model Project {
-  id   String @id @db.Uuid
+  id   String @id @default(uuid()) @db.Uuid
   name String @db.VarChar(255)
   slug String @db.VarChar(100)
 
@@ -68,7 +68,7 @@ model ProjectCollaborator {
   projectId      String      @map("project_id") @db.Uuid
   project        Project     @relation(fields: [projectId], references: [id])
   organizationId String      @map("organization_id") @db.Uuid
-  role           ProjectRole @default(OBSERVER)
+  role           ProjectRole @default(VIEWER)
 
   invitedAt  DateTime  @default(now()) @map("invited_at")
   acceptedAt DateTime? @map("accepted_at")

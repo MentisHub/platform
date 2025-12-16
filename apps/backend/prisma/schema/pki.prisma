@@ -1,5 +1,5 @@
 model OrganizationCA {
-  id String @id @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
 
   organizationId String       @unique @map("organization_id") @db.Uuid
   organization   Organization @relation(fields: [organizationId], references: [id])
@@ -15,10 +15,10 @@ model NodeCertificate {
   nodeId String @unique @map("node_id") @db.Uuid
   node   Node   @relation(fields: [nodeId], references: [id])
 
-  serialNumber String @unique @db.VarChar(40) @map("serial_number")
+  serialNumber String   @unique @map("serial_number") @db.VarChar(40)
   issuedAt     DateTime @default(now()) @map("issued_at")
 
-  revocationReason String? @db.VarChar(500) @map("revocation_reason")
+  revocationReason String? @map("revocation_reason") @db.VarChar(500)
 
   @@map("node_certificates")
 }
@@ -27,7 +27,7 @@ model ServerAppCertificate {
   serverAppId String    @unique @map("server_app_id") @db.Uuid
   serverApp   ServerApp @relation(fields: [serverAppId], references: [id])
 
-  serialNumber String   @unique @db.VarChar(40) @map("serial_number")
+  serialNumber String   @unique @map("serial_number") @db.VarChar(40)
   issuedAt     DateTime @default(now()) @map("issued_at")
 
   @@map("server_app_certificates")
