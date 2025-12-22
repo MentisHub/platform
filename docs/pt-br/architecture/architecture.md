@@ -12,24 +12,15 @@ flowchart LR
         CA2 --> C_OTEL
     end
 
-    subgraph Assistant
-        A_BE[Backend]
-    end
-
-    subgraph AWS
-        BEDROCK[Amazon Bedrock]
-        SAGEMAKER[AWS SageMaker]
-    end
-
     subgraph Platform
         P_BE[Backend]
         P_OTEL[OTel Collector]
+    end
 
-        subgraph Obs["Observability & Monitoring"]
-            PROM[Prometheus]
-            LOKI[Loki]
-            TEMPO[Tempo]
-        end
+    subgraph Obs["Observability & Monitoring"]
+        PROM[Prometheus]
+        LOKI[Loki]
+        TEMPO[Tempo]
     end
 
     SB[(Supabase)]
@@ -37,14 +28,9 @@ flowchart LR
     S3[(S3 Bucket)]
     SA[ServerApp]
 
-    A_BE --> AWS
-    A_BE --> SB
-    A_BE --> P_BE
-
-    SAGEMAKER --> S3
-
     P_BE --> SB
     P_BE --> VL
+    P_BE --> S3
     Clients --> P_BE
     C_OTEL -- OTLP --> P_OTEL
     SA -- OTLP --> P_OTEL
@@ -54,5 +40,5 @@ flowchart LR
     P_OTEL -- Export --> Obs
 
     SA -- Artifacts --> S3
-    SA -- Training --> Clients
+    SA <-- Training --> Clients
 ```
