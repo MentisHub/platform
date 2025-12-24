@@ -4,4 +4,4 @@ WORKDIR /usr/src/app
 
 RUN npm install -g pnpm
 
-CMD ["pnpm", "run", "dev:frontend"]
+CMD pnpm install && pnpm run dev:frontend
