@@ -145,7 +145,7 @@ async function main() {
     const otherOrgs = organizations.filter(
       (o) => o.id !== project.organizationId,
     );
-    const collaboratorCount = faker.number.int({ min: 0, max: 2 });
+    const collaboratorCount = faker.number.int({ min: 1, max: 2 });
     const selectedOrgs = faker.helpers.arrayElements(
       otherOrgs,
       collaboratorCount,
