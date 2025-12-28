@@ -21,27 +21,31 @@
     "prisma:studio": "prisma studio",
     "prisma:reset": "prisma migrate reset",
     "db:push": "prisma db push",
-    "db:seed": "prisma db seed"
+    "db:seed": "tsx prisma/seed/index.ts && tsx prisma/seed/vault.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.9",
     "@nestjs/core": "^11.1.9",
     "@nestjs/platform-express": "^11.1.9",
     "@platform/contracts": "workspace:*",
+    "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.1.0",
-    "node-vault": "^0.10.9",
+    "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^9.39.1",
+    "@faker-js/faker": "^10.1.0",
     "@nestjs/cli": "^11.0.14",
     "@nestjs/schematics": "^11.0.9",
     "@nestjs/testing": "^11.1.9",
+    "@supabase/supabase-js": "^2.89.0",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.19.1",
+    "@types/pg": "^8.16.0",
     "@types/supertest": "^6.0.3",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
@@ -56,6 +60,7 @@
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.1"
   },
@@ -75,8 +80,5 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
-  },
-  "prisma": {
-    "schema": "./prisma/schema/schema.prisma"
   }
 }

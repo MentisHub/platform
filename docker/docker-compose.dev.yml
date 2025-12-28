@@ -12,7 +12,8 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@supabase-db:${POSTGRES_PORT}/${POSTGRES_DB}
-      SERVICE_DATABASE_URL: postgres://service_account:${POSTGRES_SERVICE_PASSWORD}@supabase-db:${POSTGRES_PORT}/${POSTGRES_DB}?schema=platform
+      SERVICE_DATABASE_URL: postgres://service_account:${POSTGRES_SERVICE_PASSWORD}@supabase-db:${POSTGRES_PORT}/${POSTGRES_DB}
+      SUPABASE_URL: http://supabase-kong:8000
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       JWT_SECRET: ${JWT_SECRET}
       VAULT_ADDR: http://vault:8200

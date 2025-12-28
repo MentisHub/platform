@@ -5,6 +5,8 @@ enum TrainingStatus {
   COMPLETED
   CANCELLED
   FAILED
+
+  @@schema("platform")
 }
 
 enum NodeStatus {
@@ -12,6 +14,8 @@ enum NodeStatus {
   ONLINE
   OFFLINE
   INACTIVE
+
+  @@schema("platform")
 }
 
 enum ServerAppStatus {
@@ -20,6 +24,8 @@ enum ServerAppStatus {
   AGGREGATING
   COMPLETED
   FAILED
+
+  @@schema("platform")
 }
 
 model Node {
@@ -44,6 +50,7 @@ model Node {
 
   @@index([organizationId])
   @@map("nodes")
+  @@schema("platform")
 }
 
 model TrainingRun {
@@ -64,6 +71,7 @@ model TrainingRun {
 
   @@index([projectId, status])
   @@map("training_runs")
+  @@schema("platform")
 }
 
 model Round {
@@ -80,6 +88,7 @@ model Round {
 
   @@unique([runId, number])
   @@map("rounds")
+  @@schema("platform")
 }
 
 model RunParticipant {
@@ -92,6 +101,7 @@ model RunParticipant {
 
   @@id([runId, nodeId])
   @@map("run_participants")
+  @@schema("platform")
 }
 
 model RoundParticipant {
@@ -105,13 +115,14 @@ model RoundParticipant {
 
   @@id([roundId, nodeId])
   @@map("round_participants")
+  @@schema("platform")
 }
 
 model Artifact {
-  id          String       @id @default(uuid()) @db.Uuid
-  bucketKey   String       @map("bucket_key")
-  sizeBytes   BigInt?      @map("size_bytes")
-  roundNumber Int?         @map("round_number")
+  id          String @id @default(uuid()) @db.Uuid
+  bucketKey   String @map("bucket_key")
+  sizeBytes   BigInt @map("size_bytes")
+  roundNumber Int    @map("round_number")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -120,6 +131,7 @@ model Artifact {
 
   @@index(runId)
   @@map("artifacts")
+  @@schema("platform")
 }
 
 model ServerApp {
@@ -138,4 +150,5 @@ model ServerApp {
   completedAt DateTime? @map("completed_at")
 
   @@map("server_apps")
+  @@schema("platform")
 }

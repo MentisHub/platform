@@ -39,8 +39,11 @@ path "pki/root/sign-intermediate" {
 path "sys/mounts/pki_org_*" {
   capabilities = ["create", "read", "update", "delete"]
 }
+path "pki_org_*" {
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
 path "pki_org_*/*" {
-  capabilities = ["create", "read", "update", "delete", "list"]
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
 }
 EOF
 

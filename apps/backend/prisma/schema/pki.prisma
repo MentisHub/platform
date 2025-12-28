@@ -9,26 +9,29 @@ model OrganizationCA {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("organization_cas")
+  @@schema("platform")
 }
 
 model NodeCertificate {
   nodeId String @unique @map("node_id") @db.Uuid
   node   Node   @relation(fields: [nodeId], references: [id])
 
-  serialNumber String   @unique @map("serial_number") @db.VarChar(40)
-  issuedAt     DateTime @default(now()) @map("issued_at")
-
-  revocationReason String? @map("revocation_reason") @db.VarChar(500)
+  serialNumber String    @unique @map("serial_number") @db.VarChar(40)
+  issuedAt     DateTime  @default(now()) @map("issued_at")
+  revokedAt    DateTime? @map("revoked_at")
 
   @@map("node_certificates")
+  @@schema("platform")
 }
 
 model ServerAppCertificate {
   serverAppId String    @unique @map("server_app_id") @db.Uuid
   serverApp   ServerApp @relation(fields: [serverAppId], references: [id])
 
-  serialNumber String   @unique @map("serial_number") @db.VarChar(40)
-  issuedAt     DateTime @default(now()) @map("issued_at")
+  serialNumber String    @unique @map("serial_number") @db.VarChar(40)
+  issuedAt     DateTime  @default(now()) @map("issued_at")
+  revokedAt    DateTime? @map("revoked_at")
 
   @@map("server_app_certificates")
+  @@schema("platform")
 }

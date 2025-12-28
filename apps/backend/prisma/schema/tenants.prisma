@@ -2,12 +2,16 @@ enum OrgRole {
   OWNER
   ADMIN
   MEMBER
+
+  @@schema("platform")
 }
 
 enum ProjectRole {
   ADMIN
   COLLABORATOR
   VIEWER
+
+  @@schema("platform")
 }
 
 model Organization {
@@ -15,8 +19,8 @@ model Organization {
   name String @db.VarChar(255)
   slug String @unique @db.VarChar(100)
 
-  ownerId String @map("owner_id") @db.Uuid
-  owner   User   @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  ownerId String  @map("owner_id") @db.Uuid
+  owner   Profile @relation("OrganizationOwner", fields: [ownerId], references: [id])
 
   members  OrganizationMember[]
   projects Project[]
@@ -29,19 +33,21 @@ model Organization {
 
   @@index([ownerId])
   @@map("organizations")
+  @@schema("platform")
 }
 
 model OrganizationMember {
   organizationId String       @map("organization_id") @db.Uuid
   organization   Organization @relation(fields: [organizationId], references: [id])
-  userId         String       @map("user_id") @db.Uuid
-  user           User         @relation(fields: [userId], references: [id])
+  userId         String  @map("user_id") @db.Uuid
+  user           Profile @relation(fields: [userId], references: [id])
   role           OrgRole      @default(MEMBER)
 
   joinedAt DateTime @default(now()) @map("joined_at")
 
   @@id([organizationId, userId])
   @@map("organization_members")
+  @@schema("platform")
 }
 
 model Project {
@@ -62,6 +68,7 @@ model Project {
 
   @@unique([organizationId, slug])
   @@map("projects")
+  @@schema("platform")
 }
 
 model ProjectCollaborator {
@@ -75,4 +82,5 @@ model ProjectCollaborator {
 
   @@id([projectId, organizationId])
   @@map("project_collaborators")
+  @@schema("platform")
 }

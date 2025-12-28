@@ -1,14 +1,14 @@
-model User {
-  id    String @id @db.Uuid
-  name  String @db.VarChar(255)
-  email String @unique @db.VarChar(255)
+model Profile {
+  id    String  @id @db.Uuid
+  email String  @unique @db.VarChar(255)
+  name  String? @db.VarChar(255)
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   ownedOrganizations Organization[]       @relation("OrganizationOwner")
   memberships        OrganizationMember[]
 
-  @@map("users")
+  @@map("profiles")
+  @@schema("public")
 }
