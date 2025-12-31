@@ -22,15 +22,20 @@ export class AuthorizationService {
       },
       select: {
         role: true,
-        organization: { select: { ownerId: true } },
+        organization: {
+          select: {
+            ownerId: true,
+          },
+        },
       },
     });
 
     if (!membership) return null;
 
     return {
-      isOwner: membership?.organization.ownerId === userId,
-      role: membership?.role,
+      organizationId,
+      role: membership.role,
+      isOwner: membership.organization.ownerId === userId,
     };
   }
 
@@ -38,7 +43,7 @@ export class AuthorizationService {
     projectId: string,
     userId: string,
   ): Promise<ProjectMembership | null> {
-    const directMember = await this.prisma.projectMember.findUnique({
+    return await this.prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
           projectId,
@@ -46,39 +51,9 @@ export class AuthorizationService {
         },
       },
       select: {
+        projectId: true,
         role: true,
       },
     });
-
-    if (directMember) {
-      return {
-        role: directMember.role,
-      };
-    }
-
-    const orgMember = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      select: {
-        organization: {
-          select: {
-            members: {
-              where: { userId },
-              select: { role: true },
-              take: 1,
-            },
-          },
-        },
-      },
-    });
-
-    const membership = orgMember?.organization.members[0];
-
-    if (membership) {
-      return {
-        role: membership.role,
-      };
-    }
-
-    return null;
   }
 }
