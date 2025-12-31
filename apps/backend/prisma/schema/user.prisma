@@ -1,13 +1,15 @@
 model Profile {
-  id    String  @id @db.Uuid
-  email String  @unique @db.VarChar(255)
-  name  String? @db.VarChar(255)
+  id                   String  @id @db.Uuid
+  email                String  @unique @db.VarChar(255)
+  name                 String? @db.VarChar(255)
+  isOnboardingComplete Boolean @default(false) @map("is_onboarding_complete")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   ownedOrganizations Organization[]       @relation("OrganizationOwner")
   memberships        OrganizationMember[]
+  projectMembers     ProjectMember[]
 
   @@map("profiles")
   @@schema("public")

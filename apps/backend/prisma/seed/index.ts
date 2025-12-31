@@ -11,7 +11,6 @@ import {
   PrismaClient,
   Profile,
   Project,
-  ProjectRole,
   ServerAppStatus,
   TrainingStatus,
 } from '../generated/prisma/client.js';
@@ -165,7 +164,6 @@ async function main() {
         data: {
           projectId: pc.projectId,
           organizationId: pc.organizationId,
-          role: faker.helpers.arrayElement(Object.values(ProjectRole)),
           acceptedAt: faker.datatype.boolean() ? faker.date.recent() : null,
         },
       }),
