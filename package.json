@@ -10,7 +10,6 @@
     "build": "turbo run build",
     "build:backend": "turbo run build --filter=@platform/backend",
     "build:frontend": "turbo run build --filter=@platform/frontend",
-    "build:websocket": "turbo run build --filter=@platform/websocket",
     "start": "turbo run start",
     "start:backend": "turbo run start:prod --filter=@platform/backend",
     "start:frontend": "turbo run start --filter=@platform/frontend",

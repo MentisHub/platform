@@ -6,8 +6,8 @@ services:
       dockerfile: apps/backend/docker/Dockerfile.dev
     volumes:
       - ..:/usr/src/app
-      - /usr/src/app/node_modules
-      - /root/.local/share/pnpm/store
+      - backend-deps:/usr/src/app/node_modules
+      - pnpm-cache:/root/.local/share/pnpm/store
     ports:
       - "3000:3000"
     environment:
@@ -19,6 +19,10 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID: ${VAULT_ROLE_ID}
       VAULT_SECRET_ID: ${VAULT_SECRET_ID}
+      OTEL_EXPORTER_URL: http://otel-collector:4318
+      OTEL_SERVICE_NAME: platform
+    networks:
+      - mentishub-network
     depends_on:
       supabase-db:
         condition: service_healthy
@@ -36,13 +40,15 @@ services:
       dockerfile: apps/frontend/docker/Dockerfile.dev
     volumes:
       - ..:/usr/src/app
-      - /usr/src/app/node_modules
-      - /root/.local/share/pnpm/store
+      - frontend-deps:/usr/src/app/node_modules
+      - pnpm-cache:/root/.local/share/pnpm/store
     ports:
       - "3001:3001"
     environment:
       NEXT_PUBLIC_BACKEND_URL: http://localhost:3000
       NEXT_PUBLIC_SUPABASE_URL: http://localhost:8000
+    networks:
+      - mentishub-network
     depends_on:
       - platform-backend
 
@@ -58,6 +64,8 @@ services:
     volumes:
       - vault_data:/vault/file
       - ./vault/config.hcl:/vault/config/config.hcl
+    networks:
+      - mentishub-network
     command: server
     healthcheck:
       test:
@@ -82,6 +90,8 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID: ${VAULT_ROLE_ID}
       VAULT_SECRET_ID: ${VAULT_SECRET_ID}
+    networks:
+      - mentishub-network
     entrypoint: /bin/sh
     command: ["/init.sh"]
     depends_on:
@@ -91,3 +101,6 @@ services:
 
 volumes:
   vault_data:
+  backend-deps:
+  frontend-deps:
+  pnpm-cache:

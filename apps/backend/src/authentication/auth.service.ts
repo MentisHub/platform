@@ -1,7 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { jwtVerify } from 'jose';
-import { JWTExpired } from 'jose/errors';
+import { jwtVerify, errors } from 'jose';
 import { ErrorCode } from '@platform/contracts';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
@@ -26,7 +25,7 @@ export class AuthenticationService {
         iat: payload.iat!,
       };
     } catch (error) {
-      if (error instanceof JWTExpired)
+      if (error instanceof errors.JWTExpired)
         throw new UnauthorizedException({
           statusCode: 401,
           code: ErrorCode.TOKEN_EXPIRED,

@@ -1,3 +1,84 @@
+model Organization {
+  id                   String                @id @default(uuid()) @db.Uuid
+  name                 String                @db.VarChar(255)
+  slug                 String                @unique @db.VarChar(100)
+  ownerId              String                @map("owner_id") @db.Uuid
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  deletedAt            DateTime?             @map("deleted_at")
+  nodes                Node[]
+  ca                   OrganizationCA?
+  members              OrganizationMember[]
+  owner                Profile               @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  projectCollaborators ProjectCollaborator[]
+  projects             Project[]
+
+  @@index([ownerId])
+  @@map("organizations")
+  @@schema("platform")
+}
+
+model OrganizationMember {
+  organizationId String       @map("organization_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  role           OrgRole      @default(MEMBER)
+  joinedAt       DateTime     @default(now()) @map("joined_at")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  user           Profile      @relation(fields: [userId], references: [id])
+
+  @@id([organizationId, userId])
+  @@map("organization_members")
+  @@schema("platform")
+}
+
+model Project {
+  id             String                @id @default(uuid()) @db.Uuid
+  name           String                @db.VarChar(255)
+  slug           String                @db.VarChar(100)
+  organizationId String                @map("organization_id") @db.Uuid
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+  deletedAt      DateTime?             @map("deleted_at")
+  nodes          Node[]
+  collaborators  ProjectCollaborator[]
+  projectMembers ProjectMember[]
+  organization   Organization          @relation(fields: [organizationId], references: [id])
+  trainingRuns   TrainingRun[]
+
+  @@unique([organizationId, slug])
+  @@map("projects")
+  @@schema("platform")
+}
+
+model ProjectCollaborator {
+  projectId      String       @map("project_id") @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  invitedBy      String?      @map("invited_by") @db.Uuid
+  invitedAt      DateTime     @default(now()) @map("invited_at")
+  acceptedAt     DateTime?    @map("accepted_at")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  project        Project      @relation(fields: [projectId], references: [id])
+
+  @@id([projectId, organizationId])
+  @@map("project_collaborators")
+  @@schema("platform")
+}
+
+model ProjectMember {
+  projectId String      @map("project_id") @db.Uuid
+  userId    String      @map("user_id") @db.Uuid
+  invitedBy String?     @map("invited_by") @db.Uuid
+  invitedAt DateTime    @default(now()) @map("invited_at")
+  role      ProjectRole @default(MEMBER)
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+  @@schema("platform")
+}
+
 enum OrgRole {
   ADMIN
   MEMBER
@@ -9,96 +90,5 @@ enum ProjectRole {
   ADMIN
   MEMBER
 
-  @@schema("platform")
-}
-
-model Organization {
-  id   String @id @default(uuid()) @db.Uuid
-  name String @db.VarChar(255)
-  slug String @unique @db.VarChar(100)
-
-  ownerId String  @map("owner_id") @db.Uuid
-  owner   Profile @relation("OrganizationOwner", fields: [ownerId], references: [id])
-
-  members              OrganizationMember[]
-  projects             Project[]
-  projectCollaborators ProjectCollaborator[]
-  nodes                Node[]
-  ca                   OrganizationCA?
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  @@index([ownerId])
-  @@map("organizations")
-  @@schema("platform")
-}
-
-model OrganizationMember {
-  organizationId String       @map("organization_id") @db.Uuid
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  userId         String       @map("user_id") @db.Uuid
-  user           Profile      @relation(fields: [userId], references: [id])
-  role           OrgRole      @default(MEMBER)
-
-  joinedAt DateTime @default(now()) @map("joined_at")
-
-  @@id([organizationId, userId])
-  @@map("organization_members")
-  @@schema("platform")
-}
-
-model Project {
-  id   String @id @default(uuid()) @db.Uuid
-  name String @db.VarChar(255)
-  slug String @db.VarChar(100)
-
-  organizationId String       @map("organization_id") @db.Uuid
-  organization   Organization @relation(fields: [organizationId], references: [id])
-
-  trainingRuns  TrainingRun[]
-  collaborators ProjectCollaborator[]
-  nodes         Node[]
-
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
-  deletedAt      DateTime?       @map("deleted_at")
-  projectMembers ProjectMember[]
-
-  @@unique([organizationId, slug])
-  @@map("projects")
-  @@schema("platform")
-}
-
-model ProjectCollaborator {
-  projectId      String       @map("project_id") @db.Uuid
-  project        Project      @relation(fields: [projectId], references: [id])
-  organizationId String       @map("organization_id") @db.Uuid
-  organization   Organization @relation(fields: [organizationId], references: [id])
-
-  invitedBy  String?   @map("invited_by") @db.Uuid
-  invitedAt  DateTime  @default(now()) @map("invited_at")
-  acceptedAt DateTime? @map("accepted_at")
-
-  @@id([projectId, organizationId])
-  @@map("project_collaborators")
-  @@schema("platform")
-}
-
-model ProjectMember {
-  projectId String  @map("project_id") @db.Uuid
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  userId String  @map("user_id") @db.Uuid
-  user   Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  invitedBy String?     @map("invited_by") @db.Uuid
-  invitedAt DateTime    @default(now()) @map("invited_at")
-  role      ProjectRole @default(MEMBER)
-
-  @@id([projectId, userId])
-  @@index([userId])
-  @@map("project_members")
   @@schema("platform")
 }

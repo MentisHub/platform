@@ -13,7 +13,7 @@ import {
   Project,
   ServerAppStatus,
   TrainingStatus,
-} from '../generated/prisma/client.js';
+} from '../generated/client';
 import { deleteAuthUsers, seedAuthUsers } from './auth.js';
 
 faker.seed(12345);

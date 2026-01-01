@@ -4,4 +4,7 @@ WORKDIR /usr/src/app
 
 RUN npm install -g pnpm
 
-CMD pnpm install && pnpm run dev:backend
+CMD pnpm install && \
+    mkdir -p node_modules/.prisma && \
+    ln -sf ../../apps/backend/prisma/generated/client node_modules/.prisma/client && \
+    pnpm run dev:backend

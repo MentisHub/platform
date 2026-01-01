@@ -8,9 +8,9 @@ import {
 import { Reflector } from '@nestjs/core';
 import { ErrorCode } from '@platform/contracts';
 import { Request } from 'express';
-import { OrgRole, ProjectRole } from 'prisma/generated/prisma/enums';
 import { AuthorizationService } from './auth.service';
 import { ORG_ROLES_KEY, PROJECT_ROLES_KEY } from './decorators/roles.decorator';
+import { OrgRole, ProjectRole } from '@prisma/client';
 
 @Injectable()
 export class RolesGuard implements CanActivate {

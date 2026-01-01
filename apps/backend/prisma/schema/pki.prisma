@@ -1,36 +1,31 @@
 model OrganizationCA {
-  id String @id @default(uuid()) @db.Uuid
-
+  id             String       @id @default(uuid()) @db.Uuid
   organizationId String       @unique @map("organization_id") @db.Uuid
+  vaultMountPath String       @map("vault_mount_path")
+  createdAt      DateTime     @default(now()) @map("created_at")
   organization   Organization @relation(fields: [organizationId], references: [id])
-
-  vaultMountPath String @map("vault_mount_path")
-
-  createdAt DateTime @default(now()) @map("created_at")
 
   @@map("organization_cas")
   @@schema("platform")
 }
 
 model NodeCertificate {
-  nodeId String @unique @map("node_id") @db.Uuid
-  node   Node   @relation(fields: [nodeId], references: [id])
-
+  nodeId       String    @unique @map("node_id") @db.Uuid
   serialNumber String    @unique @map("serial_number") @db.VarChar(40)
   issuedAt     DateTime  @default(now()) @map("issued_at")
   revokedAt    DateTime? @map("revoked_at")
+  node         Node      @relation(fields: [nodeId], references: [id])
 
   @@map("node_certificates")
   @@schema("platform")
 }
 
 model ServerAppCertificate {
-  serverAppId String    @unique @map("server_app_id") @db.Uuid
-  serverApp   ServerApp @relation(fields: [serverAppId], references: [id])
-
+  serverAppId  String    @unique @map("server_app_id") @db.Uuid
   serialNumber String    @unique @map("serial_number") @db.VarChar(40)
   issuedAt     DateTime  @default(now()) @map("issued_at")
   revokedAt    DateTime? @map("revoked_at")
+  serverApp    ServerApp @relation(fields: [serverAppId], references: [id])
 
   @@map("server_app_certificates")
   @@schema("platform")

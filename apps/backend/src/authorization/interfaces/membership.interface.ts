@@ -1,4 +1,4 @@
-import { OrgRole, ProjectRole } from 'prisma/generated/prisma/enums';
+import { OrgRole, ProjectRole } from '@prisma/client';
 
 export interface OrganizationMembership {
   organizationId: string;

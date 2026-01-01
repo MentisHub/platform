@@ -1,3 +1,111 @@
+model Node {
+  id                  String             @id @default(uuid()) @db.Uuid
+  name                String             @db.VarChar(255)
+  pskHash             String?            @unique @map("psk_hash")
+  status              NodeStatus         @default(INACTIVE)
+  metadata            Json?
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  deletedAt           DateTime?          @map("deleted_at")
+  organizationId      String             @map("organization_id") @db.Uuid
+  projectId           String?            @map("project_id") @db.Uuid
+  certificate         NodeCertificate?
+  organization        Organization       @relation(fields: [organizationId], references: [id])
+  project             Project?           @relation(fields: [projectId], references: [id])
+  roundParticipations RoundParticipant[]
+  runParticipations   RunParticipant[]
+
+  @@index([organizationId])
+  @@map("nodes")
+  @@schema("platform")
+}
+
+model TrainingRun {
+  id           String           @id @default(uuid()) @db.Uuid
+  status       TrainingStatus   @default(PENDING)
+  createdAt    DateTime         @default(now()) @map("created_at")
+  startedAt    DateTime?        @map("started_at")
+  completedAt  DateTime?        @map("completed_at")
+  projectId    String           @map("project_id") @db.Uuid
+  artifacts    Artifact[]
+  rounds       Round[]
+  participants RunParticipant[]
+  serverApp    ServerApp?
+  project      Project          @relation(fields: [projectId], references: [id])
+
+  @@index([projectId, status])
+  @@map("training_runs")
+  @@schema("platform")
+}
+
+model Round {
+  id           String             @id @default(uuid()) @db.Uuid
+  number       Int
+  startedAt    DateTime           @default(now()) @map("started_at")
+  completedAt  DateTime?          @map("completed_at")
+  runId        String             @map("run_id") @db.Uuid
+  participants RoundParticipant[]
+  run          TrainingRun        @relation(fields: [runId], references: [id])
+
+  @@unique([runId, number])
+  @@map("rounds")
+  @@schema("platform")
+}
+
+model RunParticipant {
+  joinedAt DateTime    @default(now()) @map("joined_at")
+  runId    String      @map("run_id") @db.Uuid
+  nodeId   String      @map("node_id") @db.Uuid
+  node     Node        @relation(fields: [nodeId], references: [id])
+  run      TrainingRun @relation(fields: [runId], references: [id])
+
+  @@id([runId, nodeId])
+  @@map("run_participants")
+  @@schema("platform")
+}
+
+model RoundParticipant {
+  participated  Boolean @default(true)
+  failureReason String? @map("failure_reason") @db.VarChar(500)
+  roundId       String  @map("round_id") @db.Uuid
+  nodeId        String  @map("node_id") @db.Uuid
+  node          Node    @relation(fields: [nodeId], references: [id])
+  round         Round   @relation(fields: [roundId], references: [id])
+
+  @@id([roundId, nodeId])
+  @@map("round_participants")
+  @@schema("platform")
+}
+
+model Artifact {
+  id          String      @id @default(uuid()) @db.Uuid
+  bucketKey   String      @map("bucket_key")
+  sizeBytes   BigInt      @map("size_bytes")
+  roundNumber Int         @map("round_number")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  runId       String      @map("run_id") @db.Uuid
+  run         TrainingRun @relation(fields: [runId], references: [id])
+
+  @@index([runId])
+  @@map("artifacts")
+  @@schema("platform")
+}
+
+model ServerApp {
+  id            String                @id @default(uuid()) @db.Uuid
+  status        ServerAppStatus       @default(STARTING)
+  trainingRunId String                @unique @map("training_run_id") @db.Uuid
+  podName       String?               @map("pod_name")
+  nodeHost      String?               @map("node_host")
+  startedAt     DateTime              @default(now()) @map("started_at")
+  completedAt   DateTime?             @map("completed_at")
+  certificate   ServerAppCertificate?
+  trainingRun   TrainingRun           @relation(fields: [trainingRunId], references: [id])
+
+  @@map("server_apps")
+  @@schema("platform")
+}
+
 enum TrainingStatus {
   PENDING
   RUNNING
@@ -25,130 +133,5 @@ enum ServerAppStatus {
   COMPLETED
   FAILED
 
-  @@schema("platform")
-}
-
-model Node {
-  id       String     @id @default(uuid()) @db.Uuid
-  name     String     @db.VarChar(255)
-  pskHash  String?    @unique @map("psk_hash")
-  status   NodeStatus @default(INACTIVE)
-  metadata Json?
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  organizationId String       @map("organization_id") @db.Uuid
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  projectId      String?      @map("project_id") @db.Uuid
-  project        Project?     @relation(fields: [projectId], references: [id])
-
-  runParticipations   RunParticipant[]
-  roundParticipations RoundParticipant[]
-  certificate         NodeCertificate?
-
-  @@index([organizationId])
-  @@map("nodes")
-  @@schema("platform")
-}
-
-model TrainingRun {
-  id     String         @id @default(uuid()) @db.Uuid
-  status TrainingStatus @default(PENDING)
-
-  createdAt   DateTime  @default(now()) @map("created_at")
-  startedAt   DateTime? @map("started_at")
-  completedAt DateTime? @map("completed_at")
-
-  projectId String  @map("project_id") @db.Uuid
-  project   Project @relation(fields: [projectId], references: [id])
-
-  rounds       Round[]
-  participants RunParticipant[]
-  serverApp    ServerApp?
-  artifacts    Artifact[]
-
-  @@index([projectId, status])
-  @@map("training_runs")
-  @@schema("platform")
-}
-
-model Round {
-  id     String @id @default(uuid()) @db.Uuid
-  number Int
-
-  startedAt   DateTime  @default(now()) @map("started_at")
-  completedAt DateTime? @map("completed_at")
-
-  runId String      @map("run_id") @db.Uuid
-  run   TrainingRun @relation(fields: [runId], references: [id])
-
-  participants RoundParticipant[]
-
-  @@unique([runId, number])
-  @@map("rounds")
-  @@schema("platform")
-}
-
-model RunParticipant {
-  joinedAt DateTime @default(now()) @map("joined_at")
-
-  runId  String      @map("run_id") @db.Uuid
-  run    TrainingRun @relation(fields: [runId], references: [id])
-  nodeId String      @map("node_id") @db.Uuid
-  node   Node        @relation(fields: [nodeId], references: [id])
-
-  @@id([runId, nodeId])
-  @@map("run_participants")
-  @@schema("platform")
-}
-
-model RoundParticipant {
-  participated  Boolean @default(true)
-  failureReason String? @map("failure_reason") @db.VarChar(500)
-
-  roundId String @map("round_id") @db.Uuid
-  round   Round  @relation(fields: [roundId], references: [id])
-  nodeId  String @map("node_id") @db.Uuid
-  node    Node   @relation(fields: [nodeId], references: [id])
-
-  @@id([roundId, nodeId])
-  @@map("round_participants")
-  @@schema("platform")
-}
-
-model Artifact {
-  id          String @id @default(uuid()) @db.Uuid
-  bucketKey   String @map("bucket_key")
-  sizeBytes   BigInt @map("size_bytes")
-  roundNumber Int    @map("round_number")
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  runId String      @map("run_id") @db.Uuid
-  run   TrainingRun @relation(fields: [runId], references: [id])
-
-  @@index(runId)
-  @@map("artifacts")
-  @@schema("platform")
-}
-
-model ServerApp {
-  id     String          @id @default(uuid()) @db.Uuid
-  status ServerAppStatus @default(STARTING)
-
-  trainingRunId String      @unique @map("training_run_id") @db.Uuid
-  trainingRun   TrainingRun @relation(fields: [trainingRunId], references: [id])
-
-  podName  String? @map("pod_name")
-  nodeHost String? @map("node_host") // K8s node
-
-  certificate ServerAppCertificate?
-
-  startedAt   DateTime  @default(now()) @map("started_at")
-  completedAt DateTime? @map("completed_at")
-
-  @@map("server_apps")
   @@schema("platform")
 }
