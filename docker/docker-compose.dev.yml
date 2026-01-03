@@ -8,6 +8,7 @@ services:
       - ..:/usr/src/app
       - backend-deps:/usr/src/app/node_modules
       - pnpm-cache:/root/.local/share/pnpm/store
+      - vault_certs:/etc/certs:ro
     ports:
       - "3000:3000"
     environment:
@@ -19,8 +20,11 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID: ${VAULT_ROLE_ID}
       VAULT_SECRET_ID: ${VAULT_SECRET_ID}
-      OTEL_EXPORTER_URL: http://otel-collector:4318
+      OTEL_EXPORTER_URL: https://otel-collector:4318
       OTEL_SERVICE_NAME: platform
+      OTEL_CERT_PATH: /etc/certs/backend.crt
+      OTEL_KEY_PATH: /etc/certs/backend.key
+      OTEL_CA_PATH: /etc/certs/ca.crt
     networks:
       - mentishub-network
     depends_on:
@@ -63,6 +67,7 @@ services:
       - IPC_LOCK
     volumes:
       - vault_data:/vault/file
+      - vault_certs:/vault/certs
       - ./vault/config.hcl:/vault/config/config.hcl
     networks:
       - mentishub-network
@@ -85,6 +90,7 @@ services:
     container_name: vault-init
     volumes:
       - vault_data:/vault/file
+      - vault_certs:/vault/certs
       - ./vault/init.sh:/init.sh:ro
     environment:
       VAULT_ADDR: http://vault:8200
@@ -101,6 +107,7 @@ services:
 
 volumes:
   vault_data:
+  vault_certs:
   backend-deps:
   frontend-deps:
   pnpm-cache:

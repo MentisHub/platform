@@ -1,143 +1,32 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import { PrismaClient } from '../generated/client/index.js';
+import { VaultHttp } from '../../src/vault/http.js';
+import { VaultAuth } from '../../src/vault/api/auth.js';
+import { VaultPKI } from '../../src/vault/api/pki.js';
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-const VAULT_ADDR = process.env.VAULT_ADDR || 'http://localhost:8200';
-const VAULT_ROLE_ID = process.env.VAULT_ROLE_ID;
-const VAULT_SECRET_ID = process.env.VAULT_SECRET_ID;
+const VAULT_ADDR = process.env.VAULT_ADDR!;
+const VAULT_ROLE_ID = process.env.VAULT_ROLE_ID!;
+const VAULT_SECRET_ID = process.env.VAULT_SECRET_ID!;
 
 class VaultClient {
-  private token: string | null = null;
+  public readonly pki: VaultPKI;
+  private readonly auth: VaultAuth;
+  private readonly http: VaultHttp;
+
+  constructor() {
+    this.http = new VaultHttp(VAULT_ADDR);
+    this.auth = new VaultAuth(this.http);
+    this.pki = new VaultPKI(this.http);
+  }
 
   async login(): Promise<void> {
-    if (!VAULT_ROLE_ID || !VAULT_SECRET_ID) {
-      throw new Error('VAULT_ROLE_ID and VAULT_SECRET_ID are required');
-    }
-
-    const response = await fetch(`${VAULT_ADDR}/v1/auth/approle/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        role_id: VAULT_ROLE_ID,
-        secret_id: VAULT_SECRET_ID,
-      }),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Vault login failed: ${response.status} ${text}`);
-    }
-
-    const data = (await response.json()) as { auth: { client_token: string } };
-    this.token = data.auth.client_token;
+    await this.auth.approleLogin(VAULT_ROLE_ID, VAULT_SECRET_ID);
     console.log('Vault login successful');
-  }
-
-  private async request(
-    method: string,
-    path: string,
-    body?: Record<string, unknown>,
-  ): Promise<{ ok: boolean; status: number; data: unknown }> {
-    const response = await fetch(`${VAULT_ADDR}/v1/${path}`, {
-      method,
-      headers: {
-        'X-Vault-Token': this.token || '',
-        'Content-Type': 'application/json',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    const text = await response.text();
-    let data: unknown = null;
-    if (text) {
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = text;
-      }
-    }
-
-    return { ok: response.ok, status: response.status, data };
-  }
-
-  async mount(
-    mountPath: string,
-    type: string,
-    config: Record<string, unknown>,
-  ): Promise<boolean> {
-    const result = await this.request('POST', `sys/mounts/${mountPath}`, {
-      type,
-      config,
-    });
-
-    if (!result.ok && result.status === 400) {
-      return false;
-    }
-
-    if (!result.ok) {
-      throw new Error(
-        `Failed to mount ${mountPath}: ${JSON.stringify(result.data)}`,
-      );
-    }
-
-    return true;
-  }
-
-  async unmount(mountPath: string): Promise<void> {
-    await this.request('DELETE', `sys/mounts/${mountPath}`);
-  }
-
-  async write(
-    path: string,
-    data: Record<string, unknown>,
-  ): Promise<Record<string, unknown> | null> {
-    const result = await this.request('POST', path, data);
-
-    if (!result.ok) {
-      throw new Error(
-        `Failed to write to ${path}: ${JSON.stringify(result.data)}`,
-      );
-    }
-
-    return result.data as Record<string, unknown> | null;
-  }
-
-  async issueCertificate(
-    mountPath: string,
-    role: string,
-    commonName: string,
-    ttl: string = '8760h',
-  ): Promise<{
-    serialNumber: string;
-    certificate: string;
-    privateKey: string;
-  }> {
-    const result = await this.write(`${mountPath}/issue/${role}`, {
-      common_name: commonName,
-      ttl,
-    });
-
-    const data = result?.data as
-      | {
-          serial_number?: string;
-          certificate?: string;
-          private_key?: string;
-        }
-      | undefined;
-
-    if (!data?.serial_number || !data?.certificate || !data?.private_key) {
-      throw new Error(`Failed to issue certificate for ${commonName}`);
-    }
-
-    return {
-      serialNumber: data.serial_number,
-      certificate: data.certificate,
-      privateKey: data.private_key,
-    };
   }
 }
 
@@ -150,53 +39,36 @@ async function createOrganizationCA(
 
   console.log(`Creating intermediate CA for org: ${orgSlug}`);
 
-  const isNew = await vault.mount(mountPath, 'pki', {
-    max_lease_ttl: '43800h',
-  });
-
-  if (!isNew) {
+  try {
+    await vault.pki.mountPKI(mountPath, '43800h');
+  } catch {
     console.log(`   PKI engine already exists at ${mountPath}`);
     return mountPath;
   }
 
   const commonName = `${orgName} Intermediate CA`;
 
-  const csrResponse = await vault.write(
-    `${mountPath}/intermediate/generate/internal`,
-    {
-      common_name: commonName,
-      key_bits: 4096,
-      ttl: '43800h',
-    },
+  const csrData = await vault.pki.generateIntermediate(
+    orgSlug,
+    commonName,
+    '43800h',
   );
 
-  const csr = (csrResponse?.data as { csr?: string } | undefined)?.csr;
-  if (!csr) {
-    throw new Error(`Failed to generate CSR for ${orgSlug}`);
-  }
+  const signedCert = await vault.pki.signIntermediate(
+    csrData.csr,
+    commonName,
+    '43800h',
+  );
 
-  const signResponse = await vault.write('pki/root/sign-intermediate', {
-    csr,
-    common_name: commonName,
-    ttl: '43800h',
-    format: 'pem_bundle',
-  });
+  await vault.pki.setSignedIntermediate(mountPath, signedCert.certificate);
 
-  const certificate = (
-    signResponse?.data as { certificate?: string } | undefined
-  )?.certificate;
-  if (!certificate) {
-    throw new Error(`Failed to sign intermediate CA for ${orgSlug}`);
-  }
+  await vault.pki.configureUrls(
+    mountPath,
+    `${VAULT_ADDR}/v1/${mountPath}/ca`,
+    `${VAULT_ADDR}/v1/${mountPath}/crl`,
+  );
 
-  await vault.write(`${mountPath}/intermediate/set-signed`, { certificate });
-
-  await vault.write(`${mountPath}/config/urls`, {
-    issuing_certificates: `${VAULT_ADDR}/v1/${mountPath}/ca`,
-    crl_distribution_points: `${VAULT_ADDR}/v1/${mountPath}/crl`,
-  });
-
-  await vault.write(`${mountPath}/roles/node-cert`, {
+  await vault.pki.createRole(mountPath, 'node-cert', {
     allowed_domains: [`${orgSlug}.nodes.mentishub.local`],
     allow_subdomains: true,
     max_ttl: '8760h',
@@ -205,7 +77,7 @@ async function createOrganizationCA(
     require_cn: true,
   });
 
-  await vault.write(`${mountPath}/roles/server-app-cert`, {
+  await vault.pki.createRole(mountPath, 'server-app-cert', {
     allowed_domains: [`${orgSlug}.server.mentishub.local`],
     allow_subdomains: true,
     max_ttl: '720h',
@@ -227,7 +99,11 @@ async function cleanupOrganizationCAs(
   for (const slug of orgSlugs) {
     const mountPath = `pki_org_${slug}`;
     console.log(`Trying to remove ${mountPath}`);
-    await vault.unmount(mountPath);
+    try {
+      await vault.pki.unmountPKI(mountPath);
+    } catch {
+      // Ignore errors if mount doesn't exist
+    }
   }
 }
 
@@ -255,7 +131,7 @@ async function issueNodeCertificates(
     const commonName = `${node.name}.${node.organization.slug}.nodes.mentishub.local`;
 
     try {
-      const cert = await vault.issueCertificate(
+      const cert = await vault.pki.issueCertificate(
         mountPath,
         'node-cert',
         commonName,
@@ -265,7 +141,7 @@ async function issueNodeCertificates(
       await prisma.nodeCertificate.create({
         data: {
           nodeId: node.id,
-          serialNumber: cert.serialNumber.replace(/:/g, ''),
+          serialNumber: cert.serial_number.replace(/:/g, ''),
           issuedAt: new Date(),
         },
       });
@@ -310,7 +186,7 @@ async function issueServerAppCertificates(
     const commonName = `${app.podName}.${org.slug}.server.mentishub.local`;
 
     try {
-      const cert = await vault.issueCertificate(
+      const cert = await vault.pki.issueCertificate(
         mountPath,
         'server-app-cert',
         commonName,
@@ -320,7 +196,7 @@ async function issueServerAppCertificates(
       await prisma.serverAppCertificate.create({
         data: {
           serverAppId: app.id,
-          serialNumber: cert.serialNumber.replace(/:/g, ''),
+          serialNumber: cert.serial_number.replace(/:/g, ''),
           issuedAt: new Date(),
         },
       });

@@ -29,6 +29,24 @@ if [ ! -f "$PKI_FLAG" ]; then
     issuing_certificates="${VAULT_ADDR}/v1/pki/ca" \
     crl_distribution_points="${VAULT_ADDR}/v1/pki/crl"
 
+  vault write pki/roles/otel-collector-cert \
+    allowed_domains="otel-collector.mentishub.local" \
+    allow_bare_domains=true \
+    allow_subdomains=false \
+    max_ttl=8760h \
+    key_bits=2048 \
+    key_type=rsa \
+    require_cn=true
+
+  vault write pki/roles/platform-backend-cert \
+    allowed_domains="platform-backend.mentishub.local" \
+    allow_bare_domains=true \
+    allow_subdomains=false \
+    max_ttl=8760h \
+    key_bits=2048 \
+    key_type=rsa \
+    require_cn=true
+
   vault policy write pki-backend - <<EOF
 path "pki/cert/ca" {
   capabilities = ["read"]
@@ -59,6 +77,31 @@ EOF
 
   vault write auth/approle/role/platform-backend/custom-secret-id \
     secret_id="${VAULT_SECRET_ID}"
+
+  CERTS_DIR="/vault/certs"
+  mkdir -p "$CERTS_DIR"
+
+  vault write -format=json pki/issue/otel-collector-cert \
+    common_name="otel-collector.mentishub.local" \
+    ttl=8760h > /tmp/otel-cert.json
+
+  sed -n 's/.*"certificate": "\([^"]*\)".*/\1/p' /tmp/otel-cert.json | sed 's/\\n/\n/g' > "$CERTS_DIR/otel-server.crt"
+  sed -n 's/.*"private_key": "\([^"]*\)".*/\1/p' /tmp/otel-cert.json | sed 's/\\n/\n/g' > "$CERTS_DIR/otel-server.key"
+  sed -n 's/.*"issuing_ca": "\([^"]*\)".*/\1/p' /tmp/otel-cert.json | sed 's/\\n/\n/g' > "$CERTS_DIR/ca.crt"
+
+  rm /tmp/otel-cert.json
+
+  vault write -format=json pki/issue/platform-backend-cert \
+    common_name="platform-backend.mentishub.local" \
+    ttl=8760h > /tmp/backend-cert.json
+
+  sed -n 's/.*"certificate": "\([^"]*\)".*/\1/p' /tmp/backend-cert.json | sed 's/\\n/\n/g' > "$CERTS_DIR/backend.crt"
+  sed -n 's/.*"private_key": "\([^"]*\)".*/\1/p' /tmp/backend-cert.json | sed 's/\\n/\n/g' > "$CERTS_DIR/backend.key"
+
+  chmod 644 "$CERTS_DIR/otel-server.crt" "$CERTS_DIR/ca.crt" "$CERTS_DIR/backend.crt"
+  chmod 600 "$CERTS_DIR/otel-server.key" "$CERTS_DIR/backend.key"
+
+  rm /tmp/backend-cert.json
 
   touch "$PKI_FLAG"
 fi
