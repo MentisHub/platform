@@ -4,7 +4,8 @@ WORKDIR /usr/src/app
 
 RUN npm install -g pnpm
 
-CMD pnpm install && \
-    mkdir -p node_modules/.prisma && \
-    ln -sf ../../apps/backend/prisma/generated/client node_modules/.prisma/client && \
-    pnpm run dev:backend
+RUN echo '#!/bin/sh\nenv > /usr/src/app/apps/backend/.env\nexec "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+
+CMD ["sh", "-c", "pnpm install && mkdir -p node_modules/.prisma && ln -sf ../../apps/backend/prisma/generated/client node_modules/.prisma/client && pnpm run dev:backend"]

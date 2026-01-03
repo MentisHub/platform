@@ -9,7 +9,7 @@ export class AuthenticationService {
   private secret: Uint8Array;
 
   constructor(private configService: ConfigService) {
-    const jwtSecret = this.configService.get<string>('JWT_SECRET');
+    const jwtSecret = this.configService.getOrThrow<string>('JWT_SECRET');
     this.secret = new TextEncoder().encode(jwtSecret);
   }
 

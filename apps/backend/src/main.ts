@@ -3,11 +3,18 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { initTracing } from 'src/config/tracing';
 import { AppModule } from './app.module';
-
-initTracing();
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  const configService = app.get(ConfigService);
+  const otelUrl = configService.get<string>('OTEL_EXPORTER_URL');
+  const serviceName = configService.get<string>('OTEL_SERVICE_NAME');
+
+  if (otelUrl && serviceName) {
+    initTracing({ otelUrl, serviceName });
+  }
 
   const config = new DocumentBuilder()
     .setTitle('MentisHub API')
@@ -17,9 +24,7 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  cleanupOpenApiDoc(document);
-
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('api/docs', app, cleanupOpenApiDoc(document));
 
   await app.listen(3000);
 }
