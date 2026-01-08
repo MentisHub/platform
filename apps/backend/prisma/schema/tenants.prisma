@@ -1,7 +1,6 @@
 model Organization {
   id                   String                @id @default(uuid()) @db.Uuid
   name                 String                @db.VarChar(255)
-  slug                 String                @unique @db.VarChar(100)
   ownerId              String                @map("owner_id") @db.Uuid
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
@@ -9,7 +8,7 @@ model Organization {
   nodes                Node[]
   ca                   OrganizationCA?
   members              OrganizationMember[]
-  owner                Profile               @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  owner                User                  @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   projectCollaborators ProjectCollaborator[]
   projects             Project[]
 
@@ -23,8 +22,8 @@ model OrganizationMember {
   userId         String       @map("user_id") @db.Uuid
   role           OrgRole      @default(MEMBER)
   joinedAt       DateTime     @default(now()) @map("joined_at")
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  user           Profile      @relation(fields: [userId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([organizationId, userId])
   @@map("organization_members")
@@ -34,7 +33,6 @@ model OrganizationMember {
 model Project {
   id             String                @id @default(uuid()) @db.Uuid
   name           String                @db.VarChar(255)
-  slug           String                @db.VarChar(100)
   organizationId String                @map("organization_id") @db.Uuid
   createdAt      DateTime              @default(now()) @map("created_at")
   updatedAt      DateTime              @updatedAt @map("updated_at")
@@ -42,10 +40,9 @@ model Project {
   nodes          Node[]
   collaborators  ProjectCollaborator[]
   projectMembers ProjectMember[]
-  organization   Organization          @relation(fields: [organizationId], references: [id])
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   trainingRuns   TrainingRun[]
 
-  @@unique([organizationId, slug])
   @@map("projects")
   @@schema("platform")
 }
@@ -56,8 +53,8 @@ model ProjectCollaborator {
   invitedBy      String?      @map("invited_by") @db.Uuid
   invitedAt      DateTime     @default(now()) @map("invited_at")
   acceptedAt     DateTime?    @map("accepted_at")
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  project        Project      @relation(fields: [projectId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@id([projectId, organizationId])
   @@map("project_collaborators")
@@ -71,7 +68,7 @@ model ProjectMember {
   invitedAt DateTime    @default(now()) @map("invited_at")
   role      ProjectRole @default(MEMBER)
   project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([projectId, userId])
   @@index([userId])

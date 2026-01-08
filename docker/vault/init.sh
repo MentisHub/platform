@@ -30,7 +30,7 @@ if [ ! -f "$PKI_FLAG" ]; then
     crl_distribution_points="${VAULT_ADDR}/v1/pki/crl"
 
   vault write pki/roles/otel-collector-cert \
-    allowed_domains="otel-collector.mentishub.local" \
+    allowed_domains="otel-collector" \
     allow_bare_domains=true \
     allow_subdomains=false \
     max_ttl=8760h \
@@ -82,7 +82,7 @@ EOF
   mkdir -p "$CERTS_DIR"
 
   vault write -format=json pki/issue/otel-collector-cert \
-    common_name="otel-collector.mentishub.local" \
+    common_name="otel-collector" \
     ttl=8760h > /tmp/otel-cert.json
 
   sed -n 's/.*"certificate": "\([^"]*\)".*/\1/p' /tmp/otel-cert.json | sed 's/\\n/\n/g' > "$CERTS_DIR/otel-server.crt"
@@ -99,7 +99,7 @@ EOF
   sed -n 's/.*"private_key": "\([^"]*\)".*/\1/p' /tmp/backend-cert.json | sed 's/\\n/\n/g' > "$CERTS_DIR/backend.key"
 
   chmod 644 "$CERTS_DIR/otel-server.crt" "$CERTS_DIR/ca.crt" "$CERTS_DIR/backend.crt"
-  chmod 600 "$CERTS_DIR/otel-server.key" "$CERTS_DIR/backend.key"
+  chmod 644 "$CERTS_DIR/otel-server.key" "$CERTS_DIR/backend.key"
 
   rm /tmp/backend-cert.json
 

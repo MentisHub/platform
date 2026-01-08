@@ -2,11 +2,11 @@ import type { VaultHttp } from '../http';
 import type { VaultResponse } from './auth.types';
 import type {
   PKICACertificate,
-  PKISignResponse,
   PKIIntermediateGenerateResponse,
   PKIIntermediateSetSignedResponse,
   PKIIssueCertificateResponse,
   PKISignIntermediateResponse,
+  PKISignResponse,
 } from './pki.types';
 
 export class VaultPKI {
@@ -84,11 +84,27 @@ export class VaultPKI {
     return response.data;
   }
 
+  async signNodeCertificate(
+    mountPath: string,
+    csr: string,
+    commonName: string,
+    ttl: string = '8760h',
+  ): Promise<PKIIssueCertificateResponse> {
+    const response = await this.http.post<
+      VaultResponse<PKIIssueCertificateResponse>
+    >(`${mountPath}/sign/node-cert`, {
+      csr,
+      common_name: commonName,
+      ttl,
+    });
+    return response.data;
+  }
+
   async issueCertificate(
     mountPath: string,
     role: string,
     commonName: string,
-    ttl: string = '8760h',
+    ttl: string,
   ): Promise<PKIIssueCertificateResponse> {
     const response = await this.http.post<
       VaultResponse<PKIIssueCertificateResponse>

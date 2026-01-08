@@ -1,25 +1,10 @@
-import { AuthError, createClient, User } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 interface SeedUser {
   id: string;
   email: string;
   name: string;
   password: string;
-}
-
-interface CreateUserResponse {
-  data: { user: User | null };
-  error: AuthError | null;
-}
-
-interface ListUsersResponse {
-  data: { users: User[] };
-  error: AuthError | null;
-}
-
-interface DeleteUserResponse {
-  data: { user: User | null };
-  error: AuthError | null;
 }
 
 function createSupabaseAdmin() {
@@ -41,12 +26,12 @@ function createSupabaseAdmin() {
 }
 
 export async function seedAuthUsers(users: SeedUser[]): Promise<void> {
-  const supabase = createSupabaseAdmin();
+  const supabaseAdmin = createSupabaseAdmin();
 
   console.log(`Creating ${users.length} auth users...`);
 
   for (const user of users) {
-    const response: CreateUserResponse = await supabase.auth.admin.createUser({
+    const createResponse = await supabaseAdmin.auth.admin.createUser({
       id: user.id,
       email: user.email,
       password: user.password,
@@ -54,17 +39,35 @@ export async function seedAuthUsers(users: SeedUser[]): Promise<void> {
       user_metadata: { name: user.name },
     });
 
-    if (response.error) {
-      if (response.error.message.includes('already been registered')) {
+    if (createResponse.error) {
+      if (createResponse.error.message.includes('already been registered')) {
         console.log(`Auth user ${user.email} already exists, skipping...`);
+        continue;
       } else {
         console.error(
           `Failed to create auth user ${user.email}:`,
-          response.error.message,
+          createResponse.error.message,
         );
-
-        throw response.error;
+        throw createResponse.error;
       }
+    }
+
+    const loginResponse = await supabaseAdmin.auth.signInWithPassword({
+      email: user.email,
+      password: user.password,
+    });
+
+    if (loginResponse.error) {
+      console.error(
+        `Failed to login user ${user.email}:`,
+        loginResponse.error.message,
+      );
+    } else if (loginResponse.data.session) {
+      console.log(`
+        Created ${user.email} (ID: ${user.id})
+          Access token: ${loginResponse.data.session.access_token}
+          Refresh token: ${loginResponse.data.session.refresh_token}
+      `);
     }
   }
 
@@ -73,7 +76,7 @@ export async function seedAuthUsers(users: SeedUser[]): Promise<void> {
 
 export async function deleteAuthUsers(): Promise<void> {
   const supabase = createSupabaseAdmin();
-  const listResponse: ListUsersResponse = await supabase.auth.admin.listUsers();
+  const listResponse = await supabase.auth.admin.listUsers();
 
   if (listResponse.error) {
     console.error('Failed to list auth users:', listResponse.error.message);
@@ -84,8 +87,7 @@ export async function deleteAuthUsers(): Promise<void> {
 
   if (users.length > 0) {
     for (const user of users) {
-      const deleteResponse: DeleteUserResponse =
-        await supabase.auth.admin.deleteUser(user.id);
+      const deleteResponse = await supabase.auth.admin.deleteUser(user.id);
 
       if (deleteResponse.error) {
         console.error(

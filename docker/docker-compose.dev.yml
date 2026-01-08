@@ -21,7 +21,6 @@ services:
       VAULT_ROLE_ID: ${VAULT_ROLE_ID}
       VAULT_SECRET_ID: ${VAULT_SECRET_ID}
       OTEL_EXPORTER_URL: https://otel-collector:4318
-      OTEL_SERVICE_NAME: platform
       OTEL_CERT_PATH: /etc/certs/backend.crt
       OTEL_KEY_PATH: /etc/certs/backend.key
       OTEL_CA_PATH: /etc/certs/ca.crt

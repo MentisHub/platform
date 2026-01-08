@@ -1,6 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
-import { PrismaClient } from '../generated/client/index.js';
+import { PrismaClient } from '@prisma/client';
+import { uuidToBase32 } from '../../src/utils/uuid.util.js';
 import { VaultHttp } from '../../src/vault/http.js';
 import { VaultAuth } from '../../src/vault/api/auth.js';
 import { VaultPKI } from '../../src/vault/api/pki.js';
@@ -32,24 +33,36 @@ class VaultClient {
 
 async function createOrganizationCA(
   vault: VaultClient,
-  orgSlug: string,
+  orgId: string,
   orgName: string,
 ): Promise<string> {
-  const mountPath = `pki_org_${orgSlug}`;
+  const mountPath = `pki_org_${orgId}`;
 
-  console.log(`Creating intermediate CA for org: ${orgSlug}`);
+  console.log(`Creating intermediate CA for org: ${orgId}`);
 
+  let mountExists = false;
   try {
     await vault.pki.mountPKI(mountPath, '43800h');
+    console.log(`  Mounted PKI engine at ${mountPath}`);
   } catch {
-    console.log(`   PKI engine already exists at ${mountPath}`);
-    return mountPath;
+    console.log(`  PKI engine already exists at ${mountPath}`);
+    mountExists = true;
+  }
+
+  if (mountExists) {
+    try {
+      await vault.pki.getOrgCA(orgId);
+      console.log(`  CA already configured for ${mountPath}, skipping setup`);
+      return mountPath;
+    } catch {
+      console.log(`  Mount exists but CA not configured, setting up CA...`);
+    }
   }
 
   const commonName = `${orgName} Intermediate CA`;
 
   const csrData = await vault.pki.generateIntermediate(
-    orgSlug,
+    orgId,
     commonName,
     '43800h',
   );
@@ -68,8 +81,10 @@ async function createOrganizationCA(
     `${VAULT_ADDR}/v1/${mountPath}/crl`,
   );
 
+  const orgIdBase32 = uuidToBase32(orgId);
+
   await vault.pki.createRole(mountPath, 'node-cert', {
-    allowed_domains: [`${orgSlug}.nodes.mentishub.local`],
+    allowed_domains: [`${orgIdBase32}.nodes.local`],
     allow_subdomains: true,
     max_ttl: '8760h',
     key_bits: 2048,
@@ -78,7 +93,7 @@ async function createOrganizationCA(
   });
 
   await vault.pki.createRole(mountPath, 'server-app-cert', {
-    allowed_domains: [`${orgSlug}.server.mentishub.local`],
+    allowed_domains: [`${orgIdBase32}.server.local`],
     allow_subdomains: true,
     max_ttl: '720h',
     key_bits: 2048,
@@ -86,25 +101,8 @@ async function createOrganizationCA(
     require_cn: true,
   });
 
-  console.log(`   Created intermediate CA at ${mountPath}`);
+  console.log(`  Created intermediate CA at ${mountPath}`);
   return mountPath;
-}
-
-async function cleanupOrganizationCAs(
-  vault: VaultClient,
-  orgSlugs: string[],
-): Promise<void> {
-  console.log('Cleaning up existing organization CAs...');
-
-  for (const slug of orgSlugs) {
-    const mountPath = `pki_org_${slug}`;
-    console.log(`Trying to remove ${mountPath}`);
-    try {
-      await vault.pki.unmountPKI(mountPath);
-    } catch {
-      // Ignore errors if mount doesn't exist
-    }
-  }
 }
 
 async function issueNodeCertificates(
@@ -114,9 +112,8 @@ async function issueNodeCertificates(
   console.log('Issuing node certificates...');
 
   const nodes = await prisma.node.findMany({
-    where: { pskHash: { not: null } },
     include: {
-      organization: { select: { slug: true } },
+      organization: { select: { id: true } },
       certificate: true,
     },
   });
@@ -128,7 +125,9 @@ async function issueNodeCertificates(
     const mountPath = orgCAs.get(node.organizationId);
     if (!mountPath) continue;
 
-    const commonName = `${node.name}.${node.organization.slug}.nodes.mentishub.local`;
+    const nodePrefix = node.id.substring(0, 12).replace(/[_-]/g, '');
+    const orgIdBase32 = uuidToBase32(node.organization.id);
+    const commonName = `${nodePrefix}.${orgIdBase32}.nodes.local`;
 
     try {
       const cert = await vault.pki.issueCertificate(
@@ -143,6 +142,7 @@ async function issueNodeCertificates(
           nodeId: node.id,
           serialNumber: cert.serial_number.replace(/:/g, ''),
           issuedAt: new Date(),
+          expiresAt: new Date(cert.expiration * 1000),
         },
       });
 
@@ -169,7 +169,7 @@ async function issueServerAppCertificates(
         include: {
           project: {
             include: {
-              organization: { select: { id: true, slug: true } },
+              organization: { select: { id: true } },
             },
           },
         },
@@ -183,7 +183,8 @@ async function issueServerAppCertificates(
     const mountPath = orgCAs.get(org.id);
     if (!mountPath) continue;
 
-    const commonName = `${app.podName}.${org.slug}.server.mentishub.local`;
+    const orgIdBase32 = uuidToBase32(org.id);
+    const commonName = `${app.podName}.${orgIdBase32}.server.local`;
 
     try {
       const cert = await vault.pki.issueCertificate(
@@ -198,6 +199,7 @@ async function issueServerAppCertificates(
           serverAppId: app.id,
           serialNumber: cert.serial_number.replace(/:/g, ''),
           issuedAt: new Date(),
+          expiresAt: new Date(cert.expiration * 1000),
         },
       });
 
@@ -217,7 +219,7 @@ async function main(): Promise<void> {
   await vault.login();
 
   const organizations = await prisma.organization.findMany({
-    select: { id: true, name: true, slug: true },
+    select: { id: true, name: true },
   });
 
   if (organizations.length === 0) {
@@ -227,16 +229,13 @@ async function main(): Promise<void> {
 
   console.log(`Found ${organizations.length} organizations`);
 
-  const orgSlugs = organizations.map((org) => org.slug);
-  await cleanupOrganizationCAs(vault, orgSlugs);
-
   const orgCAs = new Map<string, string>();
 
   for (const org of organizations) {
     try {
       const vaultMountPath = await createOrganizationCA(
         vault,
-        org.slug,
+        org.id,
         org.name,
       );
 
@@ -248,7 +247,7 @@ async function main(): Promise<void> {
         create: { organizationId: org.id, vaultMountPath },
       });
     } catch (error) {
-      console.error(`Failed to create CA for ${org.slug}:`, error);
+      console.error(`Failed to create CA for ${org.id}:`, error);
       throw error;
     }
   }

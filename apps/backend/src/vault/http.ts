@@ -1,3 +1,11 @@
+import {
+  BadGatewayException,
+  ForbiddenException,
+  InternalServerErrorException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+
 export class VaultHttp {
   private token?: string;
   private readonly baseUrl: string;
@@ -13,21 +21,35 @@ export class VaultHttp {
   async request<T>(method: string, path: string, data?: unknown): Promise<T> {
     const url = `${this.baseUrl}/v1/${path}`;
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        ...(this.token && { 'X-Vault-Token': this.token }),
-        'Content-Type': 'application/json',
-      },
-      body: data ? JSON.stringify(data) : undefined,
-    });
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          ...(this.token && { 'X-Vault-Token': this.token }),
+          'Content-Type': 'application/json',
+        },
+        body: data ? JSON.stringify(data) : undefined,
+      });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Vault request failed: ${response.status} - ${error}`);
+      const text = await response.text();
+
+      if (!response.ok) {
+        this.handleVaultError(response.status, text, path);
+      }
+
+      if (!text) return {} as Promise<T>;
+
+      return JSON.parse(text) as Promise<T>;
+    } catch (error) {
+      if (error instanceof Error && 'statusCode' in error) {
+        throw error;
+      }
+      throw new BadGatewayException({
+        statusCode: 502,
+        message: 'Failed to communicate with Vault service',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
-
-    return response.json() as Promise<T>;
   }
 
   async get<T>(path: string): Promise<T> {
@@ -44,5 +66,42 @@ export class VaultHttp {
 
   async delete<T>(path: string): Promise<T> {
     return this.request<T>('DELETE', path);
+  }
+
+  private handleVaultError(status: number, text: string, path: string): never {
+    switch (status) {
+      case 401:
+        throw new UnauthorizedException({
+          statusCode: 401,
+          message: 'Vault authentication failed',
+          details: text,
+        });
+      case 403:
+        throw new ForbiddenException({
+          statusCode: 403,
+          message: 'Insufficient permissions for Vault operation',
+          details: text,
+        });
+      case 404:
+        throw new NotFoundException({
+          statusCode: 404,
+          message: 'Vault resource not found',
+          details: text,
+        });
+      case 500:
+      case 502:
+      case 503:
+        throw new BadGatewayException({
+          statusCode: 502,
+          message: 'Vault service error',
+          details: text,
+        });
+      default:
+        throw new InternalServerErrorException({
+          statusCode: 500,
+          message: `Vault request failed: ${path}`,
+          details: text,
+        });
+    }
   }
 }

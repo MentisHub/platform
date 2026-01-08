@@ -57,7 +57,7 @@ export interface PKIIssueCertificateResponse {
   serial_number: string;
   private_key: string;
   private_key_type: string;
-  expiration: string;
+  expiration: number;
 }
 
 /**

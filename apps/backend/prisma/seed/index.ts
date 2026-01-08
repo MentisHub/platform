@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import { faker } from '@faker-js/faker';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
@@ -9,20 +8,15 @@ import {
   Organization,
   OrgRole,
   PrismaClient,
-  Profile,
   Project,
   ServerAppStatus,
   TrainingStatus,
-} from '../generated/client';
+  User,
+} from '@prisma/client';
+import { generatePSKWithHash } from '../../src/utils/index.js';
 import { deleteAuthUsers, seedAuthUsers } from './auth.js';
 
 faker.seed(12345);
-
-function generatePskHash(): string {
-  const psk = crypto.randomBytes(32).toString('hex');
-  const hash = crypto.createHash('sha256').update(psk).digest('hex');
-  return hash;
-}
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -45,7 +39,7 @@ async function cleanUp() {
   await prisma.organizationCA.deleteMany();
   await prisma.organizationMember.deleteMany();
   await prisma.organization.deleteMany();
-  await prisma.profile.deleteMany();
+  await prisma.user.deleteMany();
 }
 
 async function main() {
@@ -61,18 +55,22 @@ async function main() {
 
   await seedAuthUsers(usersData);
 
-  const profiles: Profile[] = await Promise.all(
-    usersData.map((u) =>
-      prisma.profile.create({
-        data: {
-          id: u.id,
-          name: u.name,
-          email: u.email,
-        },
+  const profiles: User[] = await prisma.user.findMany({
+    where: {
+      id: {
+        in: usersData.map((u) => u.id),
+      },
+    },
+  });
+
+  await Promise.all(
+    profiles.slice(0, 3).map((profile) =>
+      prisma.user.update({
+        where: { id: profile.id },
+        data: { isOnboardingComplete: true },
       }),
     ),
   );
-  console.log(`Created ${profiles.length} profiles`);
 
   const organizations: Organization[] = await Promise.all(
     profiles.map((profile) => {
@@ -80,7 +78,6 @@ async function main() {
       return prisma.organization.create({
         data: {
           name: orgName,
-          slug: faker.helpers.slugify(orgName).toLowerCase().slice(0, 100),
           ownerId: profile.id,
         },
       });
@@ -126,10 +123,6 @@ async function main() {
         return prisma.project.create({
           data: {
             name: projectName,
-            slug: faker.helpers
-              .slugify(projectName)
-              .toLowerCase()
-              .slice(0, 100),
             organizationId: org.id,
           },
         });
@@ -176,11 +169,17 @@ async function main() {
       const nodeCount = faker.number.int({ min: 3, max: 5 });
       const orgProjects = projects.filter((p) => p.organizationId === org.id);
 
-      return Array.from({ length: nodeCount }).map(() =>
-        prisma.node.create({
+      return Array.from({ length: nodeCount }).map(() => {
+        const orgMemberIds = orgMembers
+          .filter((m) => m.organizationId === org.id)
+          .map((m) => m.userId);
+        const allOrgUsers = [org.ownerId, ...orgMemberIds];
+        const createdById = faker.helpers.arrayElement(allOrgUsers);
+
+        return prisma.node.create({
           data: {
             name: `node-${faker.string.alphanumeric(8)}`,
-            pskHash: faker.datatype.boolean(0.7) ? generatePskHash() : null,
+            id: generatePSKWithHash().hash,
             status: faker.helpers.arrayElement(Object.values(NodeStatus)),
             metadata: {
               cpu: faker.number.int({ min: 2, max: 32 }),
@@ -198,9 +197,10 @@ async function main() {
               orgProjects.length > 0 && faker.datatype.boolean(0.6)
                 ? faker.helpers.arrayElement(orgProjects).id
                 : null,
+            createdById,
           },
-        }),
-      );
+        });
+      });
     }),
   );
   console.log(`Created ${nodes.length} nodes`);

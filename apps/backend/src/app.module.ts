@@ -5,6 +5,7 @@ import { ZodValidationPipe, ZodSerializerInterceptor } from 'nestjs-zod';
 import { AuthenticationModule } from './authentication/auth.module';
 import { AuthorizationModule } from './authorization/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { NodesModule } from './nodes/nodes.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { VaultModule } from './vault/vault.module';
 
@@ -17,6 +18,7 @@ import { VaultModule } from './vault/vault.module';
     AuthorizationModule,
     PrismaModule,
     OrganizationsModule,
+    NodesModule,
     VaultModule,
   ],
   providers: [

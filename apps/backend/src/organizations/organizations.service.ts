@@ -1,28 +1,93 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type {
   CreateOrganizationInput,
   ListOrganizationsQuery,
   UpdateOrganizationInput,
 } from '@platform/contracts';
+import { ErrorCode } from '@platform/contracts';
 import type { Organization } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { uuidToBase32 } from '../utils';
+import { VaultService } from '../vault/vault.service';
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly vault: VaultService,
+    private readonly config: ConfigService,
+  ) {}
 
   async create(
     ownerId: string,
     input: CreateOrganizationInput,
   ): Promise<Organization> {
-    const slug = input.name.toLowerCase().replace(/\s+/g, '-');
+    return await this.prisma.$transaction(async (tx) => {
+      const organization = await tx.organization.create({
+        data: {
+          name: input.name,
+          ownerId,
+        },
+      });
 
-    return this.prisma.organization.create({
-      data: {
-        name: input.name,
-        slug,
-        ownerId,
-      },
+      const mountPath = `pki_org_${organization.id}`;
+      const vaultAddr = this.config.getOrThrow<string>('VAULT_ADDR');
+
+      await this.vault.pki.mountPKI(mountPath, '43800h');
+
+      const commonName = `${organization.name} Intermediate CA`;
+      const csrData = await this.vault.pki.generateIntermediate(
+        organization.id,
+        commonName,
+        '43800h',
+      );
+
+      const signedCert = await this.vault.pki.signIntermediate(
+        csrData.csr,
+        commonName,
+        '43800h',
+      );
+
+      await this.vault.pki.setSignedIntermediate(
+        mountPath,
+        signedCert.certificate,
+      );
+
+      await this.vault.pki.configureUrls(
+        mountPath,
+        `${vaultAddr}/v1/${mountPath}/ca`,
+        `${vaultAddr}/v1/${mountPath}/crl`,
+      );
+
+      const orgIdBase32 = uuidToBase32(organization.id);
+
+      await this.vault.pki.createRole(mountPath, 'node-cert', {
+        allowed_domains: [`${orgIdBase32}.nodes.local`],
+        allow_subdomains: true,
+        max_ttl: '8760h',
+        key_bits: 2048,
+        key_type: 'rsa',
+        require_cn: true,
+      });
+
+      await this.vault.pki.createRole(mountPath, 'server-app-cert', {
+        allowed_domains: [`${orgIdBase32}.server.local`],
+        allow_subdomains: true,
+        max_ttl: '720h',
+        key_bits: 2048,
+        key_type: 'rsa',
+        require_cn: true,
+      });
+
+      await tx.organizationCA.create({
+        data: {
+          organizationId: organization.id,
+          vaultMountPath: mountPath,
+        },
+      });
+
+      return organization;
     });
   }
 
@@ -38,12 +103,10 @@ export class OrganizationsService {
 
     const where = search
       ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' as const } },
-            { slug: { contains: search, mode: 'insensitive' as const } },
-          ],
+          name: { contains: search, mode: 'insensitive' as const },
+          deletedAt: null,
         }
-      : {};
+      : { deletedAt: null };
 
     const [data, total] = await Promise.all([
       this.prisma.organization.findMany({
@@ -67,33 +130,46 @@ export class OrganizationsService {
   }
 
   async findOne(id: string) {
-    return await this.prisma.organization.findUnique({
+    const organization = await this.prisma.organization.findFirst({
       where: {
         id,
+        deletedAt: null,
       },
     });
+
+    if (!organization) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: ErrorCode.RESOURCE_NOT_FOUND,
+        message: 'Organization not found',
+      });
+    }
+
+    return organization;
   }
 
   async update(
     id: string,
     input: UpdateOrganizationInput,
   ): Promise<Organization> {
-    const slug = input.name
-      ? input.name.toLowerCase().replace(/\s+/g, '-')
-      : undefined;
+    await this.findOne(id);
 
     return this.prisma.organization.update({
       where: { id },
       data: {
         name: input.name,
-        slug,
       },
     });
   }
 
   async remove(id: string): Promise<void> {
-    await this.prisma.organization.delete({
+    await this.findOne(id);
+
+    await this.prisma.organization.update({
       where: { id },
+      data: {
+        deletedAt: new Date(),
+      },
     });
   }
 }
