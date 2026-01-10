@@ -1,5 +1,5 @@
 import type { VaultHttp } from '../http';
-import type { VaultApproleLoginResponse } from './auth.types';
+import type { VaultApproleLoginResponse } from '../types/auth';
 
 export class VaultAuth {
   constructor(private readonly http: VaultHttp) {}

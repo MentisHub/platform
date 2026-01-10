@@ -31,14 +31,14 @@ export class OrganizationsService {
         },
       });
 
-      const mountPath = `pki_org_${organization.id}`;
+      const mountPath = `pki_org_${uuidToBase32(organization.id)}`;
       const vaultAddr = this.config.getOrThrow<string>('VAULT_ADDR');
 
       await this.vault.pki.mountPKI(mountPath, '43800h');
 
       const commonName = `${organization.name} Intermediate CA`;
       const csrData = await this.vault.pki.generateIntermediate(
-        organization.id,
+        mountPath,
         commonName,
         '43800h',
       );

@@ -55,3 +55,15 @@ export const bootstrapResponseSchema = z.object({
   serial_number: z.string().describe('Certificate serial number'),
   expiration: z.number().describe('Certificate expiration timestamp'),
 });
+
+export const renewCertificateRequestSchema = z.object({
+  csr: z.string().describe('Certificate Signing Request'),
+});
+
+export const renewCertificateResponseSchema = z.object({
+  certificate: z.string().describe('Renewed node certificate'),
+  issuing_ca: z.string().describe('Issuing Certificate Authority'),
+  ca_chain: z.array(z.string()).describe('Certificate Authority chain'),
+  serial_number: z.string().describe('Certificate serial number'),
+  expiration: z.number().describe('Certificate expiration timestamp'),
+});

@@ -1,18 +1,23 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
 import { PrismaClient } from '@prisma/client';
+import { readFileSync } from 'fs';
+import pg from 'pg';
 import { uuidToBase32 } from '../../src/utils/uuid.util.js';
-import { VaultHttp } from '../../src/vault/http.js';
 import { VaultAuth } from '../../src/vault/api/auth.js';
 import { VaultPKI } from '../../src/vault/api/pki.js';
+import { VaultHttp } from '../../src/vault/http.js';
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 const VAULT_ADDR = process.env.VAULT_ADDR!;
-const VAULT_ROLE_ID = process.env.VAULT_ROLE_ID!;
-const VAULT_SECRET_ID = process.env.VAULT_SECRET_ID!;
+const VAULT_ROLE_ID =
+  process.env.VAULT_ROLE_ID ||
+  readFileSync(process.env.VAULT_ROLE_ID_FILE!, 'utf-8').trim();
+const VAULT_SECRET_ID =
+  process.env.VAULT_SECRET_ID ||
+  readFileSync(process.env.VAULT_SECRET_ID_FILE!, 'utf-8').trim();
 
 class VaultClient {
   public readonly pki: VaultPKI;
@@ -36,7 +41,7 @@ async function createOrganizationCA(
   orgId: string,
   orgName: string,
 ): Promise<string> {
-  const mountPath = `pki_org_${orgId}`;
+  const mountPath = `pki_org_${uuidToBase32(orgId)}`;
 
   console.log(`Creating intermediate CA for org: ${orgId}`);
 
@@ -51,7 +56,7 @@ async function createOrganizationCA(
 
   if (mountExists) {
     try {
-      await vault.pki.getOrgCA(orgId);
+      await vault.pki.getCA(mountPath);
       console.log(`  CA already configured for ${mountPath}, skipping setup`);
       return mountPath;
     } catch {
@@ -62,7 +67,7 @@ async function createOrganizationCA(
   const commonName = `${orgName} Intermediate CA`;
 
   const csrData = await vault.pki.generateIntermediate(
-    orgId,
+    mountPath,
     commonName,
     '43800h',
   );

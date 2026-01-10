@@ -1,38 +1,33 @@
 import type { VaultHttp } from '../http';
-import type { VaultResponse } from './auth.types';
+import type { VaultResponse } from '../types/auth';
 import type {
   PKICACertificate,
   PKIIntermediateGenerateResponse,
   PKIIntermediateSetSignedResponse,
   PKIIssueCertificateResponse,
+  PKIRevokeResponse,
   PKISignIntermediateResponse,
   PKISignResponse,
-} from './pki.types';
+} from '../types/pki';
 
 export class VaultPKI {
   constructor(private readonly http: VaultHttp) {}
 
-  async getRootCA(): Promise<PKICACertificate> {
-    const response =
-      await this.http.get<VaultResponse<PKICACertificate>>('pki/cert/ca');
-    return response.data;
-  }
-
-  async getOrgCA(orgId: string): Promise<PKICACertificate> {
+  async getCA(path: string): Promise<PKICACertificate> {
     const response = await this.http.get<VaultResponse<PKICACertificate>>(
-      `pki_org_${orgId}/cert/ca`,
+      `${path}/cert/ca`,
     );
     return response.data;
   }
 
   async signCSR(
-    orgId: string,
+    path: string,
     csr: string,
     commonName: string,
     ttl?: string,
   ): Promise<PKISignResponse> {
     const response = await this.http.post<VaultResponse<PKISignResponse>>(
-      `pki_org_${orgId}/sign/server`,
+      `${path}/sign/server`,
       {
         csr,
         common_name: commonName,
@@ -43,13 +38,13 @@ export class VaultPKI {
   }
 
   async generateIntermediate(
-    orgId: string,
+    path: string,
     commonName: string,
     ttl: string = '43800h',
   ): Promise<PKIIntermediateGenerateResponse> {
     const response = await this.http.post<
       VaultResponse<PKIIntermediateGenerateResponse>
-    >(`pki_org_${orgId}/intermediate/generate/internal`, {
+    >(`${path}/intermediate/generate/internal`, {
       common_name: commonName,
       ttl,
     });
@@ -155,5 +150,18 @@ export class VaultPKI {
 
   async unmountPKI(mountPath: string): Promise<void> {
     await this.http.delete(`sys/mounts/${mountPath}`);
+  }
+
+  async revokeCertificate(
+    mountPath: string,
+    serialNumber: string,
+  ): Promise<PKIRevokeResponse> {
+    const response = await this.http.post<VaultResponse<PKIRevokeResponse>>(
+      `${mountPath}/revoke`,
+      {
+        serial_number: serialNumber,
+      },
+    );
+    return response.data;
   }
 }

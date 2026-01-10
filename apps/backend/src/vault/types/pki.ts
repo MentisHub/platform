@@ -71,3 +71,12 @@ export interface PKISignIntermediateResponse {
   serial_number: string;
   expiration: string;
 }
+
+/**
+ * Response from POST /pki/revoke
+ * Revokes a certificate
+ */
+export interface PKIRevokeResponse {
+  revocation_time: number;
+  revocation_time_rfc3339: string;
+}

@@ -1,4 +1,22 @@
 services:
+  vault-agent-backend:
+    image: hashicorp/vault:1.21
+    container_name: vault-agent-backend
+    user: "0:0"
+    volumes:
+      - vault_certs:/etc/backend/creds:ro
+      - backend_certs:/etc/backend/certs
+      - ./vault-agent.hcl:/vault/config/vault-agent.hcl:ro
+      - ./templates:/vault/templates:ro
+    networks:
+      - mentishub-network
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["vault agent -config=/vault/config/vault-agent.hcl"]
+    depends_on:
+      vault-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   platform-backend:
     container_name: platform-backend
     build:
@@ -8,7 +26,8 @@ services:
       - ..:/usr/src/app
       - backend-deps:/usr/src/app/node_modules
       - pnpm-cache:/root/.local/share/pnpm/store
-      - vault_certs:/etc/certs:ro
+      - backend_certs:/etc/backend/certs:ro
+      - vault_certs:/vault/creds:ro
     ports:
       - "3000:3000"
     environment:
@@ -18,12 +37,12 @@ services:
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       JWT_SECRET: ${JWT_SECRET}
       VAULT_ADDR: http://vault:8200
-      VAULT_ROLE_ID: ${VAULT_ROLE_ID}
-      VAULT_SECRET_ID: ${VAULT_SECRET_ID}
+      VAULT_ROLE_ID_FILE: /vault/creds/platform-role-id
+      VAULT_SECRET_ID_FILE: /vault/creds/platform-secret-id
       OTEL_EXPORTER_URL: https://otel-collector:4318
-      OTEL_CERT_PATH: /etc/certs/backend.crt
-      OTEL_KEY_PATH: /etc/certs/backend.key
-      OTEL_CA_PATH: /etc/certs/ca.crt
+      BACKEND_CERT_PATH: /etc/backend/certs/backend.crt
+      BACKEND_KEY_PATH: /etc/backend/certs/backend.key
+      BACKEND_CA_PATH: /etc/backend/certs/ca.crt
     networks:
       - mentishub-network
     depends_on:
@@ -31,8 +50,8 @@ services:
         condition: service_healthy
       supabase-auth:
         condition: service_healthy
-      vault-init:
-        condition: service_completed_successfully
+      vault-agent-backend:
+        condition: service_started
       otel-collector:
         condition: service_started
 
@@ -55,58 +74,8 @@ services:
     depends_on:
       - platform-backend
 
-  vault:
-    image: hashicorp/vault:1.21
-    container_name: vault
-    ports:
-      - "8200:8200"
-    environment:
-      VAULT_API_ADDR: http://0.0.0.0:8200
-    cap_add:
-      - IPC_LOCK
-    volumes:
-      - vault_data:/vault/file
-      - vault_certs:/vault/certs
-      - ./vault/config.hcl:/vault/config/config.hcl
-    networks:
-      - mentishub-network
-    command: server
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--spider",
-          "-q",
-          "http://127.0.0.1:8200/sys/health?standbyok=true",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  vault-init:
-    image: hashicorp/vault:1.21
-    container_name: vault-init
-    volumes:
-      - vault_data:/vault/file
-      - vault_certs:/vault/certs
-      - ./vault/init.sh:/init.sh:ro
-    environment:
-      VAULT_ADDR: http://vault:8200
-      VAULT_ROLE_ID: ${VAULT_ROLE_ID}
-      VAULT_SECRET_ID: ${VAULT_SECRET_ID}
-    networks:
-      - mentishub-network
-    entrypoint: /bin/sh
-    command: ["/init.sh"]
-    depends_on:
-      vault:
-        condition: service_healthy
-    restart: "no"
-
 volumes:
-  vault_data:
-  vault_certs:
   backend-deps:
   frontend-deps:
   pnpm-cache:
+  backend_certs:

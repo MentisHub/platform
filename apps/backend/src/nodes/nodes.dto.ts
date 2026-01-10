@@ -6,6 +6,8 @@ import {
   updateNodeSchema,
   bootstrapRequestSchema,
   bootstrapResponseSchema,
+  renewCertificateRequestSchema,
+  renewCertificateResponseSchema,
 } from '@platform/contracts';
 import { Node } from '@prisma/client';
 import { createZodDto } from 'nestjs-zod';
@@ -48,4 +50,12 @@ export class BootstrapRequestDto extends createZodDto(bootstrapRequestSchema) {}
 
 export class BootstrapResponseDto extends createZodDto(
   bootstrapResponseSchema,
+) {}
+
+export class RenewCertificateRequestDto extends createZodDto(
+  renewCertificateRequestSchema,
+) {}
+
+export class RenewCertificateResponseDto extends createZodDto(
+  renewCertificateResponseSchema,
 ) {}

@@ -13,6 +13,7 @@ import {
   BootstrapResponseDto,
   CreateNodeDto,
   ListNodesQueryDto,
+  RenewCertificateResponseDto,
   UpdateNodeDto,
 } from './nodes.dto';
 
@@ -259,6 +260,105 @@ export class NodesService {
       ca_chain: cert.ca_chain,
       serial_number: cert.serial_number,
       expiration: cert.expiration,
+    };
+  }
+
+  async renewCertificate(
+    certificateSerial: string,
+    csr: string,
+  ): Promise<RenewCertificateResponseDto> {
+    const certificate = await this.prisma.nodeCertificate.findFirst({
+      where: {
+        serialNumber: certificateSerial,
+        revokedAt: null,
+      },
+      include: {
+        node: {
+          include: {
+            organization: {
+              include: {
+                ca: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!certificate) {
+      throw new UnauthorizedException({
+        statusCode: 401,
+        code: ErrorCode.INVALID_NODE_CREDENTIALS,
+        message: 'Invalid or revoked certificate',
+      });
+    }
+
+    const node = certificate.node;
+
+    if (!node) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: ErrorCode.RESOURCE_NOT_FOUND,
+        message: 'Node not found',
+      });
+    }
+
+    if (!node.organization.ca) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: ErrorCode.RESOURCE_NOT_FOUND,
+        message: 'Organization CA not found',
+      });
+    }
+
+    if (certificate.expiresAt < new Date()) {
+      throw new UnauthorizedException({
+        statusCode: 401,
+        code: ErrorCode.INVALID_NODE_CREDENTIALS,
+        message: 'Certificate expired. Please bootstrap the node again.',
+      });
+    }
+
+    const mountPath = node.organization.ca.vaultMountPath;
+    const nodePrefix = node.id.substring(0, 12).replace(/[_-]/g, '');
+    const orgIdBase32 = uuidToBase32(node.organization.id);
+    const commonName = `${nodePrefix}.${orgIdBase32}.nodes.local`;
+
+    const newCert = await this.vault.pki.signNodeCertificate(
+      mountPath,
+      csr,
+      commonName,
+      '8760h',
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.nodeCertificate.update({
+        where: { nodeId: certificate.nodeId },
+        data: { revokedAt: new Date() },
+      });
+
+      await this.vault.pki.revokeCertificate(
+        mountPath,
+        certificate.serialNumber,
+      );
+
+      await tx.nodeCertificate.create({
+        data: {
+          nodeId: node.id,
+          serialNumber: newCert.serial_number.replace(/:/g, ''),
+          issuedAt: new Date(),
+          expiresAt: new Date(newCert.expiration * 1000),
+          revokedAt: null,
+        },
+      });
+    });
+
+    return {
+      certificate: newCert.certificate,
+      issuing_ca: newCert.issuing_ca,
+      ca_chain: newCert.ca_chain,
+      serial_number: newCert.serial_number,
+      expiration: newCert.expiration,
     };
   }
 }
