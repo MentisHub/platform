@@ -20,7 +20,7 @@ async function bootstrap() {
     httpsOptions.cert = fs.readFileSync(certPath);
     httpsOptions.ca = fs.readFileSync(caPath);
     httpsOptions.requestCert = true;
-    httpsOptions.rejectUnauthorized = false;
+    httpsOptions.rejectUnauthorized = false; // Allow connections without certs (for browser/API access)
   }
 
   const app = await NestFactory.create(AppModule, { httpsOptions });

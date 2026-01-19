@@ -26,7 +26,11 @@ export class NodesController {
   async bootstrap(
     @Body() bootstrapDto: BootstrapRequestDto,
   ): Promise<BootstrapResponseDto> {
-    return this.nodesService.bootstrap(bootstrapDto.psk, bootstrapDto.csr);
+    return this.nodesService.bootstrap(
+      bootstrapDto.psk,
+      bootstrapDto.csr,
+      bootstrapDto.ec_public_key,
+    );
   }
 
   @Post('renew-certificate')

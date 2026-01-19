@@ -21,7 +21,7 @@ const VAULT_SECRET_ID =
 
 class VaultClient {
   public readonly pki: VaultPKI;
-  private readonly auth: VaultAuth;
+  public readonly auth: VaultAuth;
   private readonly http: VaultHttp;
 
   constructor() {
@@ -40,7 +40,7 @@ async function createOrganizationCA(
   vault: VaultClient,
   orgId: string,
   orgName: string,
-): Promise<string> {
+): Promise<{ mountPath: string }> {
   const mountPath = `pki_org_${uuidToBase32(orgId)}`;
 
   console.log(`Creating intermediate CA for org: ${orgId}`);
@@ -57,8 +57,8 @@ async function createOrganizationCA(
   if (mountExists) {
     try {
       await vault.pki.getCA(mountPath);
-      console.log(`  CA already configured for ${mountPath}, skipping setup`);
-      return mountPath;
+      console.log(`  CA already configured for ${mountPath}`);
+      return { mountPath };
     } catch {
       console.log(`  Mount exists but CA not configured, setting up CA...`);
     }
@@ -97,17 +97,8 @@ async function createOrganizationCA(
     require_cn: true,
   });
 
-  await vault.pki.createRole(mountPath, 'server-app-cert', {
-    allowed_domains: [`${orgIdBase32}.server.local`],
-    allow_subdomains: true,
-    max_ttl: '720h',
-    key_bits: 2048,
-    key_type: 'rsa',
-    require_cn: true,
-  });
-
   console.log(`  Created intermediate CA at ${mountPath}`);
-  return mountPath;
+  return { mountPath };
 }
 
 async function issueNodeCertificates(
@@ -160,63 +151,6 @@ async function issueNodeCertificates(
   console.log(`Issued ${issued} node certificates`);
 }
 
-async function issueServerAppCertificates(
-  vault: VaultClient,
-  orgCAs: Map<string, string>,
-): Promise<void> {
-  console.log('Issuing server app certificates...');
-
-  const serverApps = await prisma.serverApp.findMany({
-    where: { certificate: null },
-    include: {
-      certificate: true,
-      trainingRun: {
-        include: {
-          project: {
-            include: {
-              organization: { select: { id: true } },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  let issued = 0;
-  for (const app of serverApps) {
-    const org = app.trainingRun.project.organization;
-    const mountPath = orgCAs.get(org.id);
-    if (!mountPath) continue;
-
-    const orgIdBase32 = uuidToBase32(org.id);
-    const commonName = `${app.podName}.${orgIdBase32}.server.local`;
-
-    try {
-      const cert = await vault.pki.issueCertificate(
-        mountPath,
-        'server-app-cert',
-        commonName,
-        '720h',
-      );
-
-      await prisma.serverAppCertificate.create({
-        data: {
-          serverAppId: app.id,
-          serialNumber: cert.serial_number.replace(/:/g, ''),
-          issuedAt: new Date(),
-          expiresAt: new Date(cert.expiration * 1000),
-        },
-      });
-
-      issued++;
-    } catch (error) {
-      console.error(`Failed to issue cert for app ${app.podName}:`, error);
-    }
-  }
-
-  console.log(`Issued ${issued} server app certificates`);
-}
-
 async function main(): Promise<void> {
   console.log('Seeding Vault PKI...');
 
@@ -238,18 +172,19 @@ async function main(): Promise<void> {
 
   for (const org of organizations) {
     try {
-      const vaultMountPath = await createOrganizationCA(
-        vault,
-        org.id,
-        org.name,
-      );
+      const { mountPath } = await createOrganizationCA(vault, org.id, org.name);
 
-      orgCAs.set(org.id, vaultMountPath);
+      orgCAs.set(org.id, mountPath);
 
       await prisma.organizationCA.upsert({
         where: { organizationId: org.id },
-        update: { vaultMountPath },
-        create: { organizationId: org.id, vaultMountPath },
+        update: {
+          vaultMountPath: mountPath,
+        },
+        create: {
+          organizationId: org.id,
+          vaultMountPath: mountPath,
+        },
       });
     } catch (error) {
       console.error(`Failed to create CA for ${org.id}:`, error);
@@ -258,7 +193,6 @@ async function main(): Promise<void> {
   }
 
   await issueNodeCertificates(vault, orgCAs);
-  await issueServerAppCertificates(vault, orgCAs);
 
   console.log('Vault PKI seeding completed successfully!');
 }

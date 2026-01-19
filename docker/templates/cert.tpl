@@ -1,3 +1,3 @@
-{{ with secret "pki_int/issue/platform-backend" "common_name=platform-backend.mentishub.local" "ttl=720h" }}
+{{ with secret "pki_int/issue/platform-backend" (printf "common_name=%s" (env "CERT_DOMAIN")) (printf "alt_names=superlink,%s" (env "CERT_DOMAIN")) "ttl=720h" }}
 {{ .Data.certificate }}
 {{ end }}

@@ -24,17 +24,6 @@ auto_auth {
 }
 
 template {
-  source = "/vault/templates/cert.tpl"
-  destination = "/etc/backend/certs/backend.crt"
-}
-
-template {
-  source = "/vault/templates/key.tpl"
-  destination = "/etc/backend/certs/backend.key"
-  perms = "0600"
-}
-
-template {
-  source = "/vault/templates/ca.tpl"
-  destination = "/etc/backend/certs/ca.crt"
+  source = "/vault/templates/backend-certs.tpl"
+  destination = "/etc/backend/certs/.rendered"
 }

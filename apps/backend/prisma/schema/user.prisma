@@ -9,6 +9,7 @@ model User {
   ownedOrganizations   Organization[]       @relation("OrganizationOwner")
   projectMembers       ProjectMember[]
   nodes                Node[]
+  uploadedFabs         Fab[]
 
   @@map("users")
   @@schema("platform")

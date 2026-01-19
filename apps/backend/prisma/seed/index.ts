@@ -9,7 +9,6 @@ import {
   OrgRole,
   PrismaClient,
   Project,
-  ServerAppStatus,
   TrainingStatus,
   User,
 } from '@prisma/client';
@@ -25,15 +24,14 @@ const prisma = new PrismaClient({ adapter });
 const DEFAULT_PASSWORD = 'password123';
 
 async function cleanUp() {
-  await prisma.serverAppCertificate.deleteMany();
   await prisma.nodeCertificate.deleteMany();
-  await prisma.serverApp.deleteMany();
   await prisma.artifact.deleteMany();
   await prisma.roundParticipant.deleteMany();
   await prisma.round.deleteMany();
   await prisma.runParticipant.deleteMany();
   await prisma.trainingRun.deleteMany();
   await prisma.node.deleteMany();
+  await prisma.fab.deleteMany();
   await prisma.projectCollaborator.deleteMany();
   await prisma.project.deleteMany();
   await prisma.organizationCA.deleteMany();
@@ -180,6 +178,7 @@ async function main() {
           data: {
             name: `node-${faker.string.alphanumeric(8)}`,
             id: generatePSKWithHash().hash,
+            type: 'SUPERNODE',
             status: faker.helpers.arrayElement(Object.values(NodeStatus)),
             metadata: {
               cpu: faker.number.int({ min: 2, max: 32 }),
@@ -329,32 +328,8 @@ async function main() {
   );
   console.log(`Created ${roundParticipants.length} round participants`);
 
-  const serverApps = await Promise.all(
-    startedRuns.map((run) => {
-      const status =
-        run.status === TrainingStatus.COMPLETED
-          ? TrainingStatus.COMPLETED
-          : run.status === TrainingStatus.FAILED
-            ? TrainingStatus.FAILED
-            : faker.helpers.arrayElement([
-                ServerAppStatus.STARTING,
-                ServerAppStatus.RUNNING,
-                ServerAppStatus.AGGREGATING,
-              ] as const);
-
-      return prisma.serverApp.create({
-        data: {
-          status,
-          trainingRunId: run.id,
-          podName: `server-app-${faker.string.alphanumeric(8)}`,
-          nodeHost: `k8s-node-${faker.number.int({ min: 1, max: 10 })}`,
-          startedAt: run.startedAt || new Date(),
-          completedAt: run.completedAt,
-        },
-      });
-    }),
-  );
-  console.log(`Created ${serverApps.length} server apps`);
+  // ServerApp nodes are no longer needed - SuperLink manages ServerApp internally
+  console.log('Skipped ServerApp nodes creation (managed by SuperLink)');
 
   const runsWithArtifacts = trainingRuns.filter(
     (r) => r.status === 'COMPLETED' || r.status === 'RUNNING',

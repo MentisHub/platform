@@ -1,41 +1,50 @@
 model Node {
   id             String     @id
   name           String     @db.VarChar(255)
+  type           NodeType
   status         NodeStatus @default(INACTIVE)
   metadata       Json?
+  ecPublicKey    String?    @map("ec_public_key") @db.Text
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
   deletedAt      DateTime?  @map("deleted_at")
   organizationId String     @map("organization_id") @db.Uuid
   projectId      String?    @map("project_id") @db.Uuid
   createdById    String     @map("created_by_id") @db.Uuid
+  trainingRunId  String?    @map("training_run_id") @db.Uuid
 
   createdBy           User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
   certificate         NodeCertificate?
   organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project             Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  trainingRun         TrainingRun?       @relation("ServerAppNode", fields: [trainingRunId], references: [id], onDelete: SetNull)
   roundParticipations RoundParticipant[]
   runParticipations   RunParticipant[]
 
   @@index([organizationId])
+  @@index([trainingRunId])
   @@map("nodes")
   @@schema("platform")
 }
 
 model TrainingRun {
-  id           String           @id @default(uuid()) @db.Uuid
-  status       TrainingStatus   @default(PENDING)
-  createdAt    DateTime         @default(now()) @map("created_at")
-  startedAt    DateTime?        @map("started_at")
-  completedAt  DateTime?        @map("completed_at")
-  projectId    String           @map("project_id") @db.Uuid
-  artifacts    Artifact[]
-  rounds       Round[]
-  participants RunParticipant[]
-  serverApp    ServerApp?
-  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id            String           @id @default(uuid()) @db.Uuid
+  status        TrainingStatus   @default(PENDING)
+  createdAt     DateTime         @default(now()) @map("created_at")
+  startedAt     DateTime?        @map("started_at")
+  completedAt   DateTime?        @map("completed_at")
+  projectId     String           @map("project_id") @db.Uuid
+  fabId         String?          @map("fab_id") @db.Uuid
+  flowerRunId   String?          @map("flower_run_id")
+  artifacts     Artifact[]
+  rounds        Round[]
+  participants  RunParticipant[]
+  serverAppNode Node[]           @relation("ServerAppNode")
+  fab           Fab?             @relation(fields: [fabId], references: [id], onDelete: SetNull)
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, status])
+  @@index([fabId])
   @@map("training_runs")
   @@schema("platform")
 }
@@ -93,18 +102,10 @@ model Artifact {
   @@schema("platform")
 }
 
-model ServerApp {
-  id            String                @id @default(uuid()) @db.Uuid
-  status        ServerAppStatus       @default(STARTING)
-  trainingRunId String                @unique @map("training_run_id") @db.Uuid
-  podName       String?               @map("pod_name")
-  nodeHost      String?               @map("node_host")
-  startedAt     DateTime              @default(now()) @map("started_at")
-  completedAt   DateTime?             @map("completed_at")
-  certificate   ServerAppCertificate?
-  trainingRun   TrainingRun           @relation(fields: [trainingRunId], references: [id], onDelete: Cascade)
+enum NodeType {
+  SUPERNODE
+  SERVERAPP
 
-  @@map("server_apps")
   @@schema("platform")
 }
 
@@ -120,20 +121,9 @@ enum TrainingStatus {
 }
 
 enum NodeStatus {
-  RUNNING
   ONLINE
   OFFLINE
   INACTIVE
-
-  @@schema("platform")
-}
-
-enum ServerAppStatus {
-  STARTING
-  RUNNING
-  AGGREGATING
-  COMPLETED
-  FAILED
 
   @@schema("platform")
 }

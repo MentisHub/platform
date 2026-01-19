@@ -7,6 +7,7 @@ model Organization {
   deletedAt            DateTime?             @map("deleted_at")
   nodes                Node[]
   ca                   OrganizationCA?
+  fabs                 Fab[]
   members              OrganizationMember[]
   owner                User                  @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   projectCollaborators ProjectCollaborator[]
@@ -39,6 +40,7 @@ model Project {
   deletedAt      DateTime?             @map("deleted_at")
   nodes          Node[]
   collaborators  ProjectCollaborator[]
+  fabs           Fab[]
   projectMembers ProjectMember[]
   organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   trainingRuns   TrainingRun[]

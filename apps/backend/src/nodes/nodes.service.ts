@@ -1,12 +1,15 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ErrorCode } from '@platform/contracts';
 import { Node, Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
+import { FlowerService } from '../flower/flower.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProjectsService } from '../projects/projects.service';
 import { generatePSKWithHash, hashPSK, uuidToBase32 } from '../utils';
 import { VaultService } from '../vault/vault.service';
 import {
@@ -23,9 +26,13 @@ type UpdateNodeInput = UpdateNodeDto;
 
 @Injectable()
 export class NodesService {
+  private readonly logger = new Logger(NodesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly vault: VaultService,
+    private readonly flowerService: FlowerService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async create(
@@ -33,33 +40,8 @@ export class NodesService {
     userId: string,
     input: CreateNodeInput,
   ): Promise<{ node: Node; psk: string }> {
-    const organization = await this.prisma.organization.findUnique({
-      where: { id: organizationId },
-    });
-
-    if (!organization) {
-      throw new NotFoundException({
-        statusCode: 404,
-        code: ErrorCode.RESOURCE_NOT_FOUND,
-        message: 'Organization not found',
-      });
-    }
-
     if (input.projectId) {
-      const project = await this.prisma.project.findFirst({
-        where: {
-          id: input.projectId,
-          organizationId,
-        },
-      });
-
-      if (!project) {
-        throw new NotFoundException({
-          statusCode: 404,
-          code: ErrorCode.RESOURCE_NOT_FOUND,
-          message: 'Project not found',
-        });
-      }
+      await this.projectsService.getProject(input.projectId, organizationId);
     }
 
     const { psk, hash } = generatePSKWithHash();
@@ -70,6 +52,7 @@ export class NodesService {
       data: {
         name,
         id: hash,
+        type: 'SUPERNODE',
         metadata: input.metadata,
         organizationId,
         projectId: input.projectId,
@@ -159,20 +142,7 @@ export class NodesService {
     const node = await this.findOne(organizationId, nodeId);
 
     if (input.projectId) {
-      const project = await this.prisma.project.findFirst({
-        where: {
-          id: input.projectId,
-          organizationId,
-        },
-      });
-
-      if (!project) {
-        throw new NotFoundException({
-          statusCode: 404,
-          code: ErrorCode.RESOURCE_NOT_FOUND,
-          message: 'Project not found',
-        });
-      }
+      await this.projectsService.getProject(input.projectId, organizationId);
     }
 
     return this.prisma.node.update({
@@ -196,10 +166,18 @@ export class NodesService {
     });
   }
 
-  async bootstrap(psk: string, csr: string): Promise<BootstrapResponseDto> {
+  async bootstrap(
+    psk: string,
+    csr: string,
+    ecPublicKey: string,
+  ): Promise<BootstrapResponseDto> {
+    this.logger.log(`Bootstrap request received for PSK: ${psk.substring(0, 20)}...`);
+    
     const pskParts = psk.split('.');
     const actualPsk = pskParts.length === 2 ? pskParts[1] : psk;
     const pskHash = hashPSK(actualPsk);
+
+    this.logger.debug(`PSK hash: ${pskHash}`);
 
     const node = await this.prisma.node.findFirst({
       where: {
@@ -217,12 +195,15 @@ export class NodesService {
     });
 
     if (!node) {
+      this.logger.error(`Node not found for PSK hash: ${pskHash}`);
       throw new UnauthorizedException({
         statusCode: 401,
         code: ErrorCode.INVALID_NODE_CREDENTIALS,
         message: 'Node not found',
       });
     }
+
+    this.logger.log(`Found node: ${node.id} (${node.name})`);
 
     if (!node.organization.ca) {
       throw new NotFoundException({
@@ -244,15 +225,43 @@ export class NodesService {
       '8760h',
     );
 
-    await this.prisma.nodeCertificate.create({
-      data: {
-        nodeId: node.id,
-        serialNumber: cert.serial_number.replace(/:/g, ''),
-        issuedAt: new Date(),
-        expiresAt: new Date(cert.expiration * 1000),
-        revokedAt: null,
-      },
+    this.logger.log(
+      `Certificate signed - Serial: ${cert.serial_number}, CN: ${commonName}`,
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      const flowerNodeId = await this.flowerService.registerNode(ecPublicKey);
+
+      this.logger.debug(`Registered in Flower with node ID: ${flowerNodeId}`);
+
+      await tx.nodeCertificate.create({
+        data: {
+          nodeId: node.id,
+          serialNumber: cert.serial_number.replace(/:/g, ''),
+          issuedAt: new Date(),
+          expiresAt: new Date(cert.expiration * 1000),
+          revokedAt: null,
+        },
+      });
+
+      this.logger.log(
+        `Created certificate record - Node: ${node.id}, Serial: ${cert.serial_number.replace(/:/g, '')}`,
+      );
+
+      await tx.node.update({
+        where: { id: node.id },
+        data: {
+          ecPublicKey,
+          metadata: {
+            ...(node.metadata as object),
+            flowerNodeId,
+          },
+        },
+      });
     });
+
+    // Get MentisHub Root CA for SuperLink connection validation
+    const rootCa = await this.vault.pki.getRootCA();
 
     return {
       certificate: cert.certificate,
@@ -260,6 +269,7 @@ export class NodesService {
       ca_chain: cert.ca_chain,
       serial_number: cert.serial_number,
       expiration: cert.expiration,
+      mentishub_root_ca: rootCa,
     };
   }
 
@@ -353,12 +363,16 @@ export class NodesService {
       });
     });
 
+    // Get MentisHub Root CA for SuperLink connection validation
+    const rootCa = await this.vault.pki.getRootCA();
+
     return {
       certificate: newCert.certificate,
       issuing_ca: newCert.issuing_ca,
       ca_chain: newCert.ca_chain,
       serial_number: newCert.serial_number,
       expiration: newCert.expiration,
+      mentishub_root_ca: rootCa,
     };
   }
 }

@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import { paginationQuerySchema, sortOrderSchema } from '../common/pagination.dto';
 
-export const nodeStatusSchema = z.enum(['RUNNING', 'ONLINE', 'OFFLINE', 'INACTIVE']);
+export const nodeStatusSchema = z.enum([
+  'ONLINE',
+  'OFFLINE',
+  'INACTIVE',
+]);
+
+
 
 export const nodeBaseSchema = z.object({
   name: z
@@ -46,6 +52,7 @@ export const listNodesQuerySchema = paginationQuerySchema.extend({
 export const bootstrapRequestSchema = z.object({
   psk: z.string().describe('Pre-shared key for node authentication'),
   csr: z.string().describe('Certificate Signing Request'),
+  ec_public_key: z.string().describe('EC public key for Flower authentication'),
 });
 
 export const bootstrapResponseSchema = z.object({
@@ -54,6 +61,7 @@ export const bootstrapResponseSchema = z.object({
   ca_chain: z.array(z.string()).describe('Certificate Authority chain'),
   serial_number: z.string().describe('Certificate serial number'),
   expiration: z.number().describe('Certificate expiration timestamp'),
+  mentishub_root_ca: z.string().describe('MentisHub Root CA for SuperLink validation'),
 });
 
 export const renewCertificateRequestSchema = z.object({
@@ -66,4 +74,5 @@ export const renewCertificateResponseSchema = z.object({
   ca_chain: z.array(z.string()).describe('Certificate Authority chain'),
   serial_number: z.string().describe('Certificate serial number'),
   expiration: z.number().describe('Certificate expiration timestamp'),
+  mentishub_root_ca: z.string().describe('MentisHub Root CA for SuperLink validation'),
 });

@@ -61,20 +61,16 @@ export class OrganizationsService {
       );
 
       const orgIdBase32 = uuidToBase32(organization.id);
+      const certDomain = this.config.get<string>('CERT_DOMAIN') || 'localhost';
 
       await this.vault.pki.createRole(mountPath, 'node-cert', {
-        allowed_domains: [`${orgIdBase32}.nodes.local`],
+        allowed_domains: [
+          `${orgIdBase32}.nodes.local`,
+          `${orgIdBase32}.nodes.${certDomain}`,
+          certDomain,
+        ],
         allow_subdomains: true,
         max_ttl: '8760h',
-        key_bits: 2048,
-        key_type: 'rsa',
-        require_cn: true,
-      });
-
-      await this.vault.pki.createRole(mountPath, 'server-app-cert', {
-        allowed_domains: [`${orgIdBase32}.server.local`],
-        allow_subdomains: true,
-        max_ttl: '720h',
         key_bits: 2048,
         key_type: 'rsa',
         require_cn: true,

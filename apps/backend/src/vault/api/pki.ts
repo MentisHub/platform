@@ -20,6 +20,14 @@ export class VaultPKI {
     return response.data;
   }
 
+  async getRootCA(): Promise<string> {
+    const response =
+      await this.http.get<VaultResponse<{ certificate: string }>>(
+        'pki/cert/ca',
+      );
+    return response.data.certificate;
+  }
+
   async signCSR(
     path: string,
     csr: string,
