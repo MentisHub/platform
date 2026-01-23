@@ -51,36 +51,28 @@ export class DockerService implements OnModuleInit {
     nodePsk: string,
     superlinkHost: string,
   ): Promise<string> {
-    const containerName = `superexec-serverapp-${trainingRunId}`;
+    const containerName = `serverapp-${trainingRunId.slice(0, 8)}`;
 
-    this.logger.log(`Starting SuperExec container: ${containerName}`);
-
-    // Check if container already exists
     try {
       const existingContainer = this.docker.getContainer(containerName);
       const info = await existingContainer.inspect();
 
       if (info.State.Running) {
-        this.logger.log(`SuperExec container ${containerName} already running`);
+        this.logger.debug(
+          `SuperExec container ${containerName} already running`,
+        );
         return containerName;
       }
 
-      // Remove stopped container
       await existingContainer.remove({ force: true });
-    } catch (error) {
+    } catch {
       // Container doesn't exist, continue
     }
 
     const container = await this.docker.createContainer({
       name: containerName,
       Image: 'mentishub/fl-serverapp:latest',
-      Env: [
-        `NODE_PSK=${nodePsk}`,
-        `BACKEND_URL=https://platform-backend:3000`,
-        `CERTS_DIR=/app/certs`,
-        `FAB_INSTALL_DIR=/app/.flwr/apps`,
-        `ENABLE_CERT_RENEWAL=true`,
-      ],
+      Env: [`NODE_PSK=${nodePsk}`, `BACKEND_URL=https://platform-backend:3000`],
       Cmd: [
         'flower-superexec',
         '--plugin-type',
@@ -105,7 +97,7 @@ export class DockerService implements OnModuleInit {
 
     await container.start();
 
-    this.logger.log(`SuperExec container ${containerName} started`);
+    this.logger.debug(`SuperExec container ${containerName} started`);
     return containerName;
   }
 

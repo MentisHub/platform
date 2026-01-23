@@ -13,29 +13,35 @@ export class AuthorizationService {
     organizationId: string,
     userId: string,
   ): Promise<OrganizationMembership | null> {
-    const membership = await this.prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId,
-          userId,
-        },
-      },
-      select: {
-        role: true,
-        organization: {
-          select: {
-            ownerId: true,
+    const [membership, organization] = await Promise.all([
+      this.prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId,
+            userId,
           },
         },
-      },
-    });
+        select: {
+          role: true,
+        },
+      }),
+      this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { ownerId: true },
+      }),
+    ]);
 
-    if (!membership) return null;
+    if (!organization) return null;
+
+    const isOwner = organization.ownerId === userId;
+
+    // If user is owner but not in members table, still grant access
+    if (!membership && !isOwner) return null;
 
     return {
       organizationId,
-      role: membership.role,
-      isOwner: membership.organization.ownerId === userId,
+      role: membership?.role,
+      isOwner,
     };
   }
 
@@ -55,5 +61,14 @@ export class AuthorizationService {
         role: true,
       },
     });
+  }
+
+  async getOrganizationIdByProject(projectId: string): Promise<string | null> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: { organizationId: true },
+    });
+
+    return project?.organizationId ?? null;
   }
 }

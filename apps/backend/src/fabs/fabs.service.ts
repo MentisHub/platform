@@ -6,10 +6,19 @@ import {
 } from '@nestjs/common';
 import { ErrorCode } from '@platform/contracts';
 import type { Fab } from '@prisma/client';
+import { NodeCertificateService } from 'src/nodes/services/node-cert.service';
+import { findActiveTrainingRun } from 'src/training/training.utils';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { UploadDefaultFabDto, UploadFabDto } from './fabs.dto';
+import { FabPackage } from './fabs.interface';
+import {
+  buildDefaultFabStoragePath,
+  buildFabAccessFilter,
+  buildFabStoragePath,
+  extractFabMetadataFromFilename,
+} from './fabs.utils';
 
 @Injectable()
 export class FabsService {
@@ -20,6 +29,7 @@ export class FabsService {
     private readonly prisma: PrismaService,
     private readonly supabase: SupabaseService,
     private readonly projectsService: ProjectsService,
+    private readonly nodesCertificateService: NodeCertificateService,
   ) {}
 
   async uploadFab(
@@ -32,25 +42,16 @@ export class FabsService {
       await this.projectsService.getProject(dto.projectId, organizationId);
     }
 
-    const existingFab = await this.prisma.fab.findFirst({
-      where: {
-        fabHash: dto.fabHash,
-        version: dto.version,
-        deletedAt: null,
-      },
-    });
+    const metadata = extractFabMetadataFromFilename(file.originalname);
 
-    if (existingFab) {
-      throw new BadRequestException({
-        statusCode: 400,
-        code: ErrorCode.INVALID_INPUT,
-        message: 'FAB with this hash and version already exists',
-      });
-    }
+    await this.validateFabNotExists(metadata.fabHash);
 
-    const storagePath = dto.projectId
-      ? `organizations/${organizationId}/projects/${dto.projectId}/${dto.fabHash}-${dto.version}.fab`
-      : `organizations/${organizationId}/${dto.fabHash}-${dto.version}.fab`;
+    const storagePath = buildFabStoragePath(
+      organizationId,
+      metadata.fabHash,
+      metadata.version,
+      dto.projectId,
+    );
 
     await this.supabase.uploadFile(
       this.storageBucket,
@@ -58,28 +59,23 @@ export class FabsService {
       file.buffer,
     );
 
-    const fab = await this.prisma.fab.create({
+    return this.prisma.fab.create({
       data: {
-        name: dto.name,
+        name: metadata.name,
+        publisherName: metadata.publisherName,
         description: dto.description,
-        fabHash: dto.fabHash,
-        version: dto.version,
+        fabHash: metadata.fabHash,
+        version: metadata.version,
         storagePath,
         storageBucket: this.storageBucket,
         sizeBytes: BigInt(file.size),
         isDefault: false,
         isPublic: dto.isPublic ?? false,
         organizationId,
-        projectId: dto.projectId,
+        projectId: dto.projectId ?? null,
         uploadedById: userId,
       },
     });
-
-    this.logger.log(
-      `FAB uploaded: ${fab.id} (${fab.fabHash}:${fab.version}) by user ${userId}`,
-    );
-
-    return fab;
   }
 
   async uploadDefaultFab(
@@ -87,23 +83,14 @@ export class FabsService {
     dto: UploadDefaultFabDto,
     file: Express.Multer.File,
   ): Promise<Fab> {
-    const existingFab = await this.prisma.fab.findFirst({
-      where: {
-        fabHash: dto.fabHash,
-        version: dto.version,
-        deletedAt: null,
-      },
-    });
+    const metadata = extractFabMetadataFromFilename(file.originalname);
 
-    if (existingFab) {
-      throw new BadRequestException({
-        statusCode: 400,
-        code: ErrorCode.INVALID_INPUT,
-        message: 'FAB with this hash and version already exists',
-      });
-    }
+    await this.validateFabNotExists(metadata.fabHash);
 
-    const storagePath = `default/${dto.fabHash}-${dto.version}.fab`;
+    const storagePath = buildDefaultFabStoragePath(
+      metadata.fabHash,
+      metadata.version,
+    );
 
     await this.supabase.uploadFile(
       this.storageBucket,
@@ -111,12 +98,13 @@ export class FabsService {
       file.buffer,
     );
 
-    const fab = await this.prisma.fab.create({
+    return this.prisma.fab.create({
       data: {
-        name: dto.name,
+        name: metadata.name,
+        publisherName: metadata.publisherName,
         description: dto.description,
-        fabHash: dto.fabHash,
-        version: dto.version,
+        fabHash: metadata.fabHash,
+        version: metadata.version,
         storagePath,
         storageBucket: this.storageBucket,
         sizeBytes: BigInt(file.size),
@@ -127,23 +115,12 @@ export class FabsService {
         uploadedById: userId,
       },
     });
-
-    this.logger.log(
-      `Default FAB uploaded: ${fab.id} (${fab.fabHash}:${fab.version})`,
-    );
-
-    return fab;
   }
 
   async listFabs(organizationId: string, projectId?: string): Promise<Fab[]> {
     return this.prisma.fab.findMany({
       where: {
-        deletedAt: null,
-        OR: [
-          { organizationId, projectId: projectId ?? null },
-          { isDefault: true },
-          { isPublic: true },
-        ],
+        OR: buildFabAccessFilter(organizationId, projectId),
       },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
     });
@@ -153,15 +130,13 @@ export class FabsService {
     const fab = await this.prisma.fab.findFirst({
       where: {
         id: fabId,
-        deletedAt: null,
-        OR: [{ organizationId }, { isDefault: true }, { isPublic: true }],
+        OR: buildFabAccessFilter(organizationId),
       },
     });
 
     if (!fab) {
       throw new NotFoundException({
-        statusCode: 404,
-        code: ErrorCode.RESOURCE_NOT_FOUND,
+        code: ErrorCode.FAB_NOT_FOUND,
         message: 'FAB not found',
       });
     }
@@ -171,13 +146,12 @@ export class FabsService {
 
   async getFabById(fabId: string): Promise<Fab> {
     const fab = await this.prisma.fab.findUnique({
-      where: { id: fabId, deletedAt: null },
+      where: { id: fabId },
     });
 
     if (!fab) {
       throw new NotFoundException({
-        statusCode: 404,
-        code: ErrorCode.RESOURCE_NOT_FOUND,
+        code: ErrorCode.FAB_NOT_FOUND,
         message: 'FAB not found',
       });
     }
@@ -185,27 +159,12 @@ export class FabsService {
     return fab;
   }
 
-  async getFabWithAccessCheck(
-    fabId: string,
-    organizationId: string,
-  ): Promise<Fab> {
-    const fab = await this.prisma.fab.findFirst({
+  async getFabByHash(fabHash: string): Promise<Fab | null> {
+    return this.prisma.fab.findFirst({
       where: {
-        id: fabId,
-        deletedAt: null,
-        OR: [{ organizationId }, { isDefault: true }, { isPublic: true }],
+        fabHash,
       },
     });
-
-    if (!fab) {
-      throw new NotFoundException({
-        statusCode: 404,
-        code: ErrorCode.RESOURCE_NOT_FOUND,
-        message: 'FAB not found or access denied',
-      });
-    }
-
-    return fab;
   }
 
   async downloadFabById(fabId: string): Promise<Buffer> {
@@ -218,109 +177,66 @@ export class FabsService {
     return this.supabase.downloadFile(this.storageBucket, fab.storagePath);
   }
 
-  async getFabPackageByNodeCertificate(certificateSerial: string): Promise<{
-    fab: Fab & { organization: { name: string } | null };
-    content: Buffer;
-  }> {
-    // Find node by certificate serial (normalize to lowercase for case-insensitive comparison)
-    const normalizedSerial = certificateSerial.toLowerCase();
+  async getFabPackageByNodeCertificate(
+    serialNumber: string,
+  ): Promise<FabPackage> {
+    const certificate =
+      await this.nodesCertificateService.findNodeCertificateFab(serialNumber);
 
-    const certificate = await this.prisma.nodeCertificate.findFirst({
-      where: {
-        serialNumber: normalizedSerial,
-        revokedAt: null,
-      },
-      include: {
-        node: {
-          include: {
-            trainingRun: {
-              include: {
-                fab: {
-                  include: {
-                    organization: {
-                      select: {
-                        name: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    const trainingRun = findActiveTrainingRun(certificate.node.trainingRuns);
 
-    if (!certificate || !certificate.node) {
-      throw new NotFoundException({
-        statusCode: 404,
-        code: ErrorCode.RESOURCE_NOT_FOUND,
-        message: 'Certificate or node not found',
+    if (!trainingRun)
+      throw new BadRequestException({
+        message: '',
       });
-    }
 
-    const node = certificate.node;
-
-    // Get associated training run and FAB
-    const trainingRun = node.trainingRun;
-
-    // TODO: Implement proper FAB association for SUPERNODE nodes
-    // For now, allow supernodes without training runs to fetch default FAB
-    if (!trainingRun?.fab) {
-      // For supernodes, try to get the latest default FAB
-      if (node.type === 'SUPERNODE') {
-        const defaultFab = await this.prisma.fab.findFirst({
-          where: { isDefault: true },
-          orderBy: { createdAt: 'desc' },
-          include: {
-            organization: {
-              select: { name: true },
-            },
-          },
-        });
-
-        if (!defaultFab) {
-          throw new NotFoundException({
-            statusCode: 404,
-            code: ErrorCode.RESOURCE_NOT_FOUND,
-            message: 'No default FAB available',
-          });
-        }
-
-        this.logger.log(
-          `Supernode ${node.id} fetching default FAB ${defaultFab.fabHash}`,
-        );
-
-        const fabContent = await this.supabase.downloadFile(
-          this.storageBucket,
-          defaultFab.storagePath,
-        );
-
-        return {
-          fab: defaultFab,
-          content: fabContent,
-        };
-      }
-
-      throw new NotFoundException({
-        statusCode: 404,
-        code: ErrorCode.RESOURCE_NOT_FOUND,
-        message: 'No FAB associated with this node',
-      });
-    }
-
-    const fab = trainingRun.fab;
-
-    this.logger.log(
-      `Node ${node.id} (cert ${certificateSerial}) fetching FAB ${fab.fabHash}`,
-    );
-
-    // Download FAB content
+    const fab = trainingRun?.fab ?? (await this.getDefaultFab());
     const content = await this.supabase.downloadFile(
       this.storageBucket,
       fab.storagePath,
     );
 
-    return { fab, content };
+    return { trainingRun, fab, content };
+  }
+
+  async getFabMetadataByNodeCertificate(serialNumber: string) {
+    const certificate =
+      await this.nodesCertificateService.findNodeCertificateFab(serialNumber);
+
+    const trainingRun = findActiveTrainingRun(certificate.node.trainingRuns);
+    return trainingRun?.fab ?? (await this.getDefaultFab());
+  }
+
+  private async validateFabNotExists(fabHash: string): Promise<void> {
+    const existingFab = await this.getFabByHash(fabHash);
+
+    if (existingFab) {
+      throw new BadRequestException({
+        code: ErrorCode.FAB_ALREADY_EXISTS,
+        message: 'FAB with this hash already exists',
+      });
+    }
+  }
+
+  private async getDefaultFab() {
+    const defaultFab = await this.prisma.fab.findFirst({
+      where: { isDefault: true },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        organization: {
+          select: { name: true },
+        },
+      },
+    });
+
+    if (!defaultFab) {
+      throw new NotFoundException({
+        code: ErrorCode.FAB_NOT_FOUND,
+        message:
+          'No FAB associated with this node and no default FAB available',
+      });
+    }
+
+    return defaultFab;
   }
 }

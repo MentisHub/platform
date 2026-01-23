@@ -3,6 +3,7 @@ import {
   createNodeSchema,
   listNodesQuerySchema,
   nodeResponseSchema,
+  paginatedNodesResponseSchema,
   updateNodeSchema,
   bootstrapRequestSchema,
   bootstrapResponseSchema,
@@ -11,6 +12,7 @@ import {
 } from '@platform/contracts';
 import { Node } from '@prisma/client';
 import { createZodDto } from 'nestjs-zod';
+import { NodeCertificateBundle } from './nodes.interface';
 
 export class CreateNodeDto extends createZodDto(createNodeSchema) {}
 export class UpdateNodeDto extends createZodDto(updateNodeSchema) {}
@@ -25,7 +27,6 @@ export class NodeResponseDto extends createZodDto(nodeResponseSchema) {
       metadata: entity.metadata,
       createdAt: entity.createdAt.toISOString(),
       updatedAt: entity.updatedAt.toISOString(),
-      deletedAt: entity.deletedAt?.toISOString() ?? null,
       organizationId: entity.organizationId,
       projectId: entity.projectId,
       createdById: entity.createdById,
@@ -44,13 +45,26 @@ export class CreateNodeResponseDto extends createZodDto(
   }
 }
 
-export type { PaginatedNodesResponse } from '@platform/contracts';
+export class PaginatedNodesResponseDto extends createZodDto(
+  paginatedNodesResponseSchema,
+) {}
 
 export class BootstrapRequestDto extends createZodDto(bootstrapRequestSchema) {}
 
 export class BootstrapResponseDto extends createZodDto(
   bootstrapResponseSchema,
-) {}
+) {
+  static fromEntity(bundle: NodeCertificateBundle): BootstrapResponseDto {
+    return bootstrapResponseSchema.parse({
+      certificate: bundle.certificate,
+      issuingCa: bundle.issuingCa,
+      caChain: bundle.caChain,
+      serialNumber: bundle.serialNumber,
+      expiration: bundle.expiration,
+      rootCa: bundle.rootCa,
+    });
+  }
+}
 
 export class RenewCertificateRequestDto extends createZodDto(
   renewCertificateRequestSchema,
@@ -58,4 +72,17 @@ export class RenewCertificateRequestDto extends createZodDto(
 
 export class RenewCertificateResponseDto extends createZodDto(
   renewCertificateResponseSchema,
-) {}
+) {
+  static fromEntity(
+    bundle: NodeCertificateBundle,
+  ): RenewCertificateResponseDto {
+    return renewCertificateResponseSchema.parse({
+      certificate: bundle.certificate,
+      issuingCa: bundle.issuingCa,
+      caChain: bundle.caChain,
+      serialNumber: bundle.serialNumber,
+      expiration: bundle.expiration,
+      rootCa: bundle.rootCa,
+    });
+  }
+}

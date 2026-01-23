@@ -87,7 +87,7 @@ export class OrganizationsService {
     });
   }
 
-  async findAll(input: ListOrganizationsQuery) {
+  async findAll(userId: string, input: ListOrganizationsQuery) {
     const {
       page = 1,
       limit = 10,
@@ -97,12 +97,12 @@ export class OrganizationsService {
     } = input;
     const skip = (page - 1) * limit;
 
-    const where = search
-      ? {
-          name: { contains: search, mode: 'insensitive' as const },
-          deletedAt: null,
-        }
-      : { deletedAt: null };
+    const where = {
+      OR: [{ ownerId: userId }, { members: { some: { userId } } }],
+      ...(search && {
+        name: { contains: search, mode: 'insensitive' as const },
+      }),
+    };
 
     const [data, total] = await Promise.all([
       this.prisma.organization.findMany({
@@ -129,7 +129,6 @@ export class OrganizationsService {
     const organization = await this.prisma.organization.findFirst({
       where: {
         id,
-        deletedAt: null,
       },
     });
 
@@ -161,11 +160,8 @@ export class OrganizationsService {
   async remove(id: string): Promise<void> {
     await this.findOne(id);
 
-    await this.prisma.organization.update({
+    await this.prisma.organization.delete({
       where: { id },
-      data: {
-        deletedAt: new Date(),
-      },
     });
   }
 }

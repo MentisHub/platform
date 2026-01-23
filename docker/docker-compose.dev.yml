@@ -82,9 +82,7 @@ services:
       - platform-backend
 
   superlink:
-    build:
-      context: ./superlink
-      dockerfile: Dockerfile
+    image: flwr/superlink:1.25.0
     container_name: superlink
     command:
       - --ssl-certfile=/certs/backend.crt

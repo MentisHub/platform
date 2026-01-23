@@ -5,6 +5,7 @@ export {
   replaceOrganizationSchema,
   organizationResponseSchema,
   listOrganizationsQuerySchema,
+  paginatedOrganizationsResponseSchema,
 } from './organization.schema';
 
 export type {
@@ -13,5 +14,4 @@ export type {
   ReplaceOrganizationInput,
   OrganizationResponse,
   ListOrganizationsQuery,
-  PaginatedOrganizationsResponse,
 } from './organization.dto';

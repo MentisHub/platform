@@ -1,19 +1,20 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ErrorCode } from '@platform/contracts';
-import type { TrainingRun } from '@prisma/client';
+import type { Prisma, TrainingRun } from '@prisma/client';
+import { NodesService } from 'src/nodes/services/nodes.service';
 import { DockerService } from '../docker/docker.service';
 import { FabsService } from '../fabs/fabs.service';
 import { FlowerService } from '../flower/flower.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
-import { generatePSKWithHash, uuidToBase32 } from '../utils';
-import type { StartTrainingDto } from './training.dto';
 
 @Injectable()
 export class TrainingService {
@@ -22,6 +23,8 @@ export class TrainingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly flowerService: FlowerService,
+    @Inject(forwardRef(() => NodesService))
+    private readonly nodesService: NodesService,
     private readonly fabsService: FabsService,
     private readonly projectsService: ProjectsService,
     private readonly dockerService: DockerService,
@@ -30,20 +33,19 @@ export class TrainingService {
 
   async createTrainingRun(
     organizationId: string,
-    input: StartTrainingDto,
+    projectId: string,
+    userId: string,
+    fabId: string,
   ): Promise<TrainingRun> {
-    await this.projectsService.getProjectWithCA(
-      input.projectId,
-      organizationId,
-    );
-
-    await this.fabsService.getFabWithAccessCheck(input.fabId, organizationId);
+    await this.projectsService.getProjectWithCA(projectId, organizationId);
+    await this.fabsService.getFab(fabId, organizationId);
 
     const trainingRun = await this.prisma.trainingRun.create({
       data: {
-        projectId: input.projectId,
+        projectId,
         status: 'PENDING',
-        fabId: input.fabId,
+        fabId,
+        createdById: userId,
       },
     });
 
@@ -52,82 +54,55 @@ export class TrainingService {
 
   async deployServerApp(
     organizationId: string,
+    projectId: string,
     trainingRunId: string,
     userId: string,
   ): Promise<TrainingRun> {
-    const trainingRun = await this.getTrainingRun(
-      organizationId,
-      trainingRunId,
-    );
+    const trainingRun = await this.getTrainingRun(projectId, trainingRunId);
 
     if (trainingRun.status !== 'PENDING') {
       throw new BadRequestException({
-        statusCode: 400,
-        code: ErrorCode.INVALID_INPUT,
+        code: ErrorCode.INVALID_TRAINING_STATUS,
         message: 'Training run must be in PENDING status to deploy ServerApp',
       });
     }
 
-    // Get project to access organization
-    const project = await this.prisma.project.findUnique({
-      where: { id: trainingRun.projectId },
-      include: { organization: true },
+    const { node, psk } = await this.nodesService.create(
+      organizationId,
+      userId,
+      {
+        name: `serverapp-${trainingRunId.slice(0, 8)}`,
+        projectId,
+      },
+    );
+
+    await this.update(projectId, trainingRunId, {
+      serverAppNode: { connect: { id: node.id } },
     });
 
-    if (!project) {
-      throw new NotFoundException({
-        statusCode: 404,
-        code: ErrorCode.RESOURCE_NOT_FOUND,
-        message: 'Project not found',
-      });
-    }
-
-    // Generate PSK for ServerApp node
-    const { psk, hash } = generatePSKWithHash();
-    const orgIdBase32 = uuidToBase32(project.organizationId);
-    const fullPsk = `${orgIdBase32}.${psk}`;
-
-    // Create ServerApp node
-    const node = await this.prisma.node.create({
+    await this.prisma.runParticipant.create({
       data: {
-        id: hash,
-        name: `serverapp-${trainingRunId}`,
-        type: 'SERVERAPP',
-        status: 'INACTIVE',
-        organizationId: project.organizationId,
-        projectId: project.id,
-        createdById: userId,
-        trainingRunId: trainingRun.id,
-        metadata: {
-          trainingRunId: trainingRun.id,
-          fabId: trainingRun.fabId,
-        },
+        nodeId: node.id,
+        runId: trainingRunId,
       },
     });
 
-    this.logger.log(
-      `Created ServerApp node ${node.id} for training run ${trainingRunId}`,
-    );
-
-    // Start SuperExec container
     const superlinkHost =
       this.configService.getOrThrow<string>('SUPERLINK_HOST');
 
     const containerName = await this.dockerService.startSuperExecContainer(
       trainingRunId,
-      fullPsk,
+      psk,
       superlinkHost,
     );
 
-    this.logger.log(
-      `Started SuperExec container ${containerName} for training run ${trainingRunId}`,
-    );
+    const updatedTrainingRun = await this.update(projectId, trainingRunId, {
+      status: 'PENDING', // Still pending until training actually starts
+    });
 
-    // Update training run status
-    const updatedTrainingRun = await this.prisma.trainingRun.update({
-      where: { id: trainingRunId },
-      data: {
-        status: 'PENDING', // Still pending until training actually starts
+    await this.nodesService.update(organizationId, node.id, {
+      metadata: {
+        containerName,
       },
     });
 
@@ -135,49 +110,41 @@ export class TrainingService {
   }
 
   async runTraining(
-    organizationId: string,
+    projectId: string,
     trainingRunId: string,
   ): Promise<TrainingRun> {
-    const trainingRun = await this.getTrainingRun(
-      organizationId,
-      trainingRunId,
-    );
+    const trainingRun = await this.getTrainingRun(projectId, trainingRunId);
 
     if (trainingRun.status !== 'PENDING') {
       throw new BadRequestException({
-        statusCode: 400,
-        code: ErrorCode.INVALID_INPUT,
-        message: 'Training run is not in PENDING status',
+        code: ErrorCode.INVALID_TRAINING_STATUS,
+        message: 'Training must be in PENDING status to run',
       });
     }
 
     if (!trainingRun.fabId) {
       throw new BadRequestException({
-        statusCode: 400,
-        code: ErrorCode.INVALID_INPUT,
-        message: 'FAB ID is required',
+        code: ErrorCode.FAB_NOT_FOUND,
+        message: 'Training run must have a FAB assigned',
       });
     }
 
-    const fab = await this.fabsService.getFabById(trainingRun.fabId);
-
-    this.logger.log(
-      `Starting training run ${trainingRunId} via Flower Control API with FAB hash ${fab.fabHash}`,
+    const fab = await this.fabsService.getFab(
+      trainingRun.fabId,
+      trainingRun.project.organizationId,
     );
 
-    // Download FAB content from storage
+    const config = (trainingRun.configuration ??
+      (await this.projectsService.getProjectById(projectId)).trainingConfig ??
+      {}) as Prisma.JsonObject;
     const fabContent = await this.fabsService.downloadFabById(fab.id);
 
     const flowerRunId = await this.flowerService.startRun({
       fabHash: fab.fabHash,
       fabContent,
-      overrideConfig: {},
-      federation: 'default',
+      overrideConfig: (config as Record<string, unknown>) ?? {},
+      federation: (config.federation as string | undefined) ?? 'default',
     });
-
-    this.logger.log(
-      `Training run ${trainingRunId} started with Flower run ID: ${flowerRunId}`,
-    );
 
     const updatedTrainingRun = await this.prisma.trainingRun.update({
       where: { id: trainingRunId },
@@ -191,44 +158,93 @@ export class TrainingService {
     return updatedTrainingRun;
   }
 
-  async startTraining(
-    organizationId: string,
-    input: StartTrainingDto,
-    userId: string,
-  ): Promise<TrainingRun> {
-    const trainingRun = await this.createTrainingRun(organizationId, input);
-    await this.deployServerApp(organizationId, trainingRun.id, userId);
-    await this.runTraining(organizationId, trainingRun.id);
-
-    const updatedTrainingRun = await this.prisma.trainingRun.findUnique({
-      where: { id: trainingRun.id },
-    });
-
-    return updatedTrainingRun!;
-  }
-
-  async getTrainingRun(
-    organizationId: string,
-    trainingRunId: string,
-  ): Promise<TrainingRun> {
+  async getTrainingRun(projectId: string, trainingRunId: string) {
     const trainingRun = await this.prisma.trainingRun.findFirst({
       where: {
         id: trainingRunId,
         project: {
-          organizationId,
-          deletedAt: null,
+          id: projectId,
+        },
+      },
+      include: {
+        fab: true,
+        project: {
+          select: {
+            organizationId: true,
+          },
         },
       },
     });
 
     if (!trainingRun) {
       throw new NotFoundException({
-        statusCode: 404,
-        code: ErrorCode.RESOURCE_NOT_FOUND,
+        code: ErrorCode.TRAINING_NOT_FOUND,
         message: 'Training run not found',
       });
     }
 
     return trainingRun;
+  }
+
+  async linkNodeToTraining(
+    projectId: string,
+    trainingId: string,
+    nodesId: string[],
+  ) {
+    const training = await this.getTrainingRun(projectId, trainingId);
+
+    if (training.status !== 'PENDING')
+      throw new BadRequestException({
+        code: ErrorCode.INVALID_TRAINING_STATUS,
+        message: '',
+      });
+
+    return await this.prisma.runParticipant.createMany({
+      data: nodesId.map((id) => ({
+        nodeId: id,
+        runId: trainingId,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  async update(
+    projectId: string,
+    trainingRunId: string,
+    input: Prisma.TrainingRunUpdateInput,
+  ) {
+    const updateInput: Prisma.TrainingRunUpdateInput = {};
+
+    if (input.status !== undefined) {
+      updateInput.status = input.status;
+
+      if (input.status === 'RUNNING') updateInput.startedAt = new Date();
+    }
+
+    if (input.flowerRunId !== undefined)
+      updateInput.flowerRunId = input.flowerRunId;
+
+    return await this.prisma.trainingRun.update({
+      where: { id: trainingRunId, projectId },
+      data: updateInput,
+    });
+  }
+
+  async getActiveTrainingRunForNode(nodeId: string): Promise<string | null> {
+    const runParticipant = await this.prisma.runParticipant.findFirst({
+      where: {
+        nodeId,
+        run: {
+          status: {
+            in: ['PENDING', 'RUNNING'],
+          },
+        },
+      },
+      select: {
+        runId: true,
+      },
+    });
+
+    return runParticipant?.runId ?? null;
   }
 }

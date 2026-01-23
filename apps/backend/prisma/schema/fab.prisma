@@ -1,6 +1,7 @@
 model Fab {
   id             String       @id @default(uuid()) @db.Uuid
   name           String       @db.VarChar(255)
+  publisherName  String       @map("publisher_name") @db.VarChar(255)
   description    String?      @db.Text
   fabHash        String       @unique @map("fab_hash") @db.VarChar(64)
   version        String       @db.VarChar(50)
@@ -14,7 +15,6 @@ model Fab {
   uploadedById   String       @map("uploaded_by_id") @db.Uuid
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
-  deletedAt      DateTime?    @map("deleted_at")
   trainingRuns   TrainingRun[]
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project        Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)

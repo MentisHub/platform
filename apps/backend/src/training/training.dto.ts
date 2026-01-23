@@ -1,12 +1,17 @@
 import {
+  createTrainingSchema,
+  linkNodeToTrainingResponse,
+  linkNodeToTrainingSchema,
+  runTrainingSchema,
   startTrainingResponseSchema,
-  startTrainingSchema,
   trainingRunResponseSchema,
 } from '@platform/contracts';
-import type { Node, TrainingRun } from '@prisma/client';
+import type { TrainingRun } from '@prisma/client';
 import { createZodDto } from 'nestjs-zod';
 
-export class StartTrainingDto extends createZodDto(startTrainingSchema) {}
+export class CreateTrainingDto extends createZodDto(createTrainingSchema) {}
+
+export class RunTrainingDto extends createZodDto(runTrainingSchema) {}
 
 export class StartTrainingResponseDto extends createZodDto(
   startTrainingResponseSchema,
@@ -33,3 +38,11 @@ export class TrainingRunResponseDto extends createZodDto(
     });
   }
 }
+
+export class LinkNodeToTrainingDto extends createZodDto(
+  linkNodeToTrainingSchema,
+) {}
+
+export class LinkNodeToTrainingResponse extends createZodDto(
+  linkNodeToTrainingResponse,
+) {}

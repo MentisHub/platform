@@ -43,7 +43,16 @@ export class RolesGuard implements CanActivate {
     }
 
     const userId = request.jwtPayload.sub;
-    const organizationId = request.params.organizationId;
+    let organizationId = request.params.organizationId;
+
+    // If organizationId is not in params, try to get it from projectId
+    if (!organizationId && request.params.projectId) {
+      const orgId = await this.authService.getOrganizationIdByProject(
+        request.params.projectId,
+      );
+      if (!orgId) return false;
+      organizationId = orgId;
+    }
 
     if (!organizationId) return false;
 
@@ -53,7 +62,8 @@ export class RolesGuard implements CanActivate {
     );
     request.orgMembership = membership ?? undefined;
 
-    if (membership?.role === OrgRole.ADMIN || membership?.isOwner) return true;
+    // Owner and ADMIN have full access to organization
+    if (membership?.isOwner || membership?.role === OrgRole.ADMIN) return true;
 
     if (requiredOrgRoles) {
       if (!membership) {

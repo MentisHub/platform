@@ -1,28 +1,23 @@
 model Node {
   id             String     @id
   name           String     @db.VarChar(255)
-  type           NodeType
   status         NodeStatus @default(INACTIVE)
   metadata       Json?
-  ecPublicKey    String?    @map("ec_public_key") @db.Text
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
-  deletedAt      DateTime?  @map("deleted_at")
   organizationId String     @map("organization_id") @db.Uuid
   projectId      String?    @map("project_id") @db.Uuid
   createdById    String     @map("created_by_id") @db.Uuid
-  trainingRunId  String?    @map("training_run_id") @db.Uuid
 
   createdBy           User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
   certificate         NodeCertificate?
   organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project             Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  trainingRun         TrainingRun?       @relation("ServerAppNode", fields: [trainingRunId], references: [id], onDelete: SetNull)
   roundParticipations RoundParticipant[]
   runParticipations   RunParticipant[]
+  trainingRuns        TrainingRun[]
 
   @@index([organizationId])
-  @@index([trainingRunId])
   @@map("nodes")
   @@schema("platform")
 }
@@ -36,12 +31,16 @@ model TrainingRun {
   projectId     String           @map("project_id") @db.Uuid
   fabId         String?          @map("fab_id") @db.Uuid
   flowerRunId   String?          @map("flower_run_id")
+  configuration Json?
+  createdById   String           @map("created_by_id") @db.Uuid
   artifacts     Artifact[]
   rounds        Round[]
   participants  RunParticipant[]
-  serverAppNode Node[]           @relation("ServerAppNode")
+  serverAppId   String?          @map("serverapp_id")
+  serverAppNode Node?            @relation(fields: [serverAppId], references: [id], onDelete: SetNull)
   fab           Fab?             @relation(fields: [fabId], references: [id], onDelete: SetNull)
   project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy     User             @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([projectId, status])
   @@index([fabId])
@@ -65,6 +64,7 @@ model Round {
 
 model RunParticipant {
   joinedAt DateTime    @default(now()) @map("joined_at")
+  endedAt  DateTime?
   runId    String      @map("run_id") @db.Uuid
   nodeId   String      @map("node_id")
   node     Node        @relation(fields: [nodeId], references: [id], onDelete: Restrict)
@@ -102,15 +102,9 @@ model Artifact {
   @@schema("platform")
 }
 
-enum NodeType {
-  SUPERNODE
-  SERVERAPP
-
-  @@schema("platform")
-}
-
 enum TrainingStatus {
   PENDING
+  DEPLOYING
   RUNNING
   PAUSED
   COMPLETED

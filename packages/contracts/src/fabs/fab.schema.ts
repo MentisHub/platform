@@ -4,48 +4,64 @@ import { paginationQuerySchema, sortOrderSchema } from '../common/pagination.dto
 export const fabBaseSchema = z.object({
   name: z
     .string()
-    .min(1, 'Name is required')
-    .max(255, 'Name must be at most 255 characters')
-    .describe('FAB name'),
-  description: z.string().optional().describe('FAB description'),
+    .min(1)
+    .max(255)
+    .describe('Human-readable name of the FAB'),
+  publisherName: z
+    .string()
+    .min(1)
+    .max(255)
+    .describe('Publisher name or organization identifier'),
+  description: z.string().optional().describe('Optional description of the FAB functionality'),
   fabHash: z
     .string()
-    .min(1, 'FAB hash is required')
-    .max(64, 'FAB hash must be at most 64 characters')
-    .describe('FAB hash (identifier)'),
+    .min(1)
+    .max(64)
+    .describe('SHA-256 hash of the FAB file content'),
   version: z
     .string()
-    .min(1, 'Version is required')
-    .max(50, 'Version must be at most 50 characters')
-    .describe('FAB version'),
+    .min(1)
+    .max(25)
+    .describe('Semantic version of the FAB'),
 });
 
-export const uploadFabSchema = fabBaseSchema.extend({
-  projectId: z.uuid().optional().describe('Project ID (if project-specific)'),
-  isPublic: z.boolean().optional().default(false).describe('Whether FAB is public'),
+export const uploadFabSchema = z.object({
+  description: z.string().optional().describe('Optional description of the FAB functionality'),
+  projectId: z.uuid().optional().describe('Project UUID to associate this FAB with'),
+  isPublic: z.boolean().optional().default(false).describe('Whether this FAB is publicly accessible to all organizations'),
 });
 
-export const uploadDefaultFabSchema = fabBaseSchema.extend({
-  isPublic: z.boolean().optional().default(true).describe('Whether FAB is public'),
+export const uploadDefaultFabSchema = z.object({
+  description: z.string().optional().describe('Optional description of the FAB functionality'),
+  isPublic: z.boolean().optional().default(true).describe('Whether this default FAB is publicly accessible (defaults to true)'),
 });
 
 export const fabResponseSchema = fabBaseSchema.extend({
-  id: z.uuid().describe('Unique FAB ID'),
-  storagePath: z.string().describe('Storage path in Supabase'),
-  storageBucket: z.string().describe('Storage bucket name'),
+  id: z.uuid().describe('Unique identifier of the FAB'),
+  storagePath: z.string().describe('Object storage path where the FAB file is stored'),
+  storageBucket: z.string().describe('Object storage bucket name'),
   sizeBytes: z.string().describe('File size in bytes'),
-  isDefault: z.boolean().describe('Whether this is a platform default FAB'),
-  isPublic: z.boolean().describe('Whether this FAB is publicly accessible'),
-  organizationId: z.uuid().nullable().describe('Organization ID (null for default FABs)'),
-  projectId: z.uuid().nullable().describe('Project ID (null if org-level or default)'),
-  createdAt: z.iso.datetime().describe('Creation date'),
+  isDefault: z.boolean().describe('Whether this is a default FAB provided by the platform'),
+  isPublic: z.boolean().describe('Whether this FAB is publicly accessible to all organizations'),
+  organizationId: z.uuid().nullable().describe('Organization UUID this FAB belongs to (null for default FABs)'),
+  projectId: z.uuid().nullable().describe('Project UUID this FAB is associated with'),
+  createdAt: z.iso.datetime().describe('Timestamp when the FAB was uploaded'),
 });
 
 export const listFabsQuerySchema = paginationQuerySchema.extend({
-  projectId: z.uuid().optional().describe('Filter by project ID'),
-  search: z.string().optional().describe('Search by name'),
-  includeDefault: z.boolean().optional().default(true).describe('Include default FABs'),
-  includePublic: z.boolean().optional().default(true).describe('Include public FABs'),
-  sortBy: z.enum(['name', 'createdAt', 'version']).default('createdAt').describe('Sort field'),
+  projectId: z.uuid().optional().describe('Filter FABs by project UUID'),
+  search: z.string().optional().describe('Filter FABs by name (partial match)'),
+  includeDefault: z.boolean().optional().default(true).describe('Include default platform FABs in results'),
+  includePublic: z.boolean().optional().default(true).describe('Include public FABs from other organizations'),
+  sortBy: z.enum(['name', 'createdAt', 'version']).default('createdAt').describe('Field to sort results by'),
   order: sortOrderSchema,
+});
+
+export const fabPackageResponseSchema = z.object({
+  fabHash: z.string().describe('SHA-256 hash of the FAB file content'),
+  version: z.string().describe('Semantic version of the FAB'),
+  name: z.string().describe('Human-readable name of the FAB'),
+  publisherName: z.string().describe('Publisher name or organization identifier'),
+  content: z.string().describe('Base64-encoded FAB file content'),
+  federationName: z.string().describe('Name of the federation this FAB belongs to'),
 });

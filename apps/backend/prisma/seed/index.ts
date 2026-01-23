@@ -178,7 +178,6 @@ async function main() {
           data: {
             name: `node-${faker.string.alphanumeric(8)}`,
             id: generatePSKWithHash().hash,
-            type: 'SUPERNODE',
             status: faker.helpers.arrayElement(Object.values(NodeStatus)),
             metadata: {
               cpu: faker.number.int({ min: 2, max: 32 }),
@@ -207,6 +206,12 @@ async function main() {
   const trainingRuns = await Promise.all(
     projects.flatMap((project) => {
       const runCount = faker.number.int({ min: 1, max: 3 });
+      const org = organizations.find((o) => o.id === project.organizationId)!;
+      const orgMemberIds = orgMembers
+        .filter((m) => m.organizationId === org.id)
+        .map((m) => m.userId);
+      const allOrgUsers = [org.ownerId, ...orgMemberIds];
+
       return Array.from({ length: runCount }).map(() => {
         const status = faker.helpers.arrayElement(
           Object.values(TrainingStatus),
@@ -225,12 +230,15 @@ async function main() {
               })
             : null;
 
+        const createdById = faker.helpers.arrayElement(allOrgUsers);
+
         return prisma.trainingRun.create({
           data: {
             status,
             projectId: project.id,
             startedAt,
             completedAt,
+            createdById,
           },
         });
       });

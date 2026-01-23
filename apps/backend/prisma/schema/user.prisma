@@ -10,6 +10,7 @@ model User {
   projectMembers       ProjectMember[]
   nodes                Node[]
   uploadedFabs         Fab[]
+  createdTrainingRuns  TrainingRun[]
 
   @@map("users")
   @@schema("platform")

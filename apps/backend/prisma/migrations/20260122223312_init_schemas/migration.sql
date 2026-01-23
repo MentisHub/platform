@@ -8,9 +8,6 @@ CREATE TYPE "platform"."OrgRole" AS ENUM ('ADMIN', 'MEMBER');
 CREATE TYPE "platform"."ProjectRole" AS ENUM ('ADMIN', 'MEMBER');
 
 -- CreateEnum
-CREATE TYPE "platform"."NodeType" AS ENUM ('SUPERNODE', 'SERVERAPP');
-
--- CreateEnum
 CREATE TYPE "platform"."TrainingStatus" AS ENUM ('PENDING', 'RUNNING', 'PAUSED', 'COMPLETED', 'CANCELLED', 'FAILED');
 
 -- CreateEnum
@@ -20,6 +17,7 @@ CREATE TYPE "platform"."NodeStatus" AS ENUM ('ONLINE', 'OFFLINE', 'INACTIVE');
 CREATE TABLE "platform"."fabs" (
     "id" UUID NOT NULL,
     "name" VARCHAR(255) NOT NULL,
+    "publisher_name" VARCHAR(255) NOT NULL,
     "description" TEXT,
     "fab_hash" VARCHAR(64) NOT NULL,
     "version" VARCHAR(50) NOT NULL,
@@ -33,7 +31,6 @@ CREATE TABLE "platform"."fabs" (
     "uploaded_by_id" UUID NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "fabs_pkey" PRIMARY KEY ("id")
 );
@@ -64,7 +61,6 @@ CREATE TABLE "platform"."organizations" (
     "owner_id" UUID NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "organizations_pkey" PRIMARY KEY ("id")
 );
@@ -84,9 +80,9 @@ CREATE TABLE "platform"."projects" (
     "id" UUID NOT NULL,
     "name" VARCHAR(255) NOT NULL,
     "organization_id" UUID NOT NULL,
+    "training_config" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "projects_pkey" PRIMARY KEY ("id")
 );
@@ -117,17 +113,13 @@ CREATE TABLE "platform"."project_members" (
 CREATE TABLE "platform"."nodes" (
     "id" TEXT NOT NULL,
     "name" VARCHAR(255) NOT NULL,
-    "type" "platform"."NodeType" NOT NULL,
     "status" "platform"."NodeStatus" NOT NULL DEFAULT 'INACTIVE',
     "metadata" JSONB,
-    "ec_public_key" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "deleted_at" TIMESTAMP(3),
     "organization_id" UUID NOT NULL,
     "project_id" UUID,
     "created_by_id" UUID NOT NULL,
-    "training_run_id" UUID,
 
     CONSTRAINT "nodes_pkey" PRIMARY KEY ("id")
 );
@@ -142,6 +134,9 @@ CREATE TABLE "platform"."training_runs" (
     "project_id" UUID NOT NULL,
     "fab_id" UUID,
     "flower_run_id" TEXT,
+    "configuration" JSONB,
+    "created_by_id" UUID NOT NULL,
+    "serverapp_id" TEXT,
 
     CONSTRAINT "training_runs_pkey" PRIMARY KEY ("id")
 );
@@ -160,6 +155,7 @@ CREATE TABLE "platform"."rounds" (
 -- CreateTable
 CREATE TABLE "platform"."run_participants" (
     "joined_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "endedAt" TIMESTAMP(3),
     "run_id" UUID NOT NULL,
     "node_id" TEXT NOT NULL,
 
@@ -234,9 +230,6 @@ CREATE INDEX "project_members_user_id_idx" ON "platform"."project_members"("user
 CREATE INDEX "nodes_organization_id_idx" ON "platform"."nodes"("organization_id");
 
 -- CreateIndex
-CREATE INDEX "nodes_training_run_id_idx" ON "platform"."nodes"("training_run_id");
-
--- CreateIndex
 CREATE INDEX "training_runs_project_id_status_idx" ON "platform"."training_runs"("project_id", "status");
 
 -- CreateIndex
@@ -300,13 +293,16 @@ ALTER TABLE "platform"."nodes" ADD CONSTRAINT "nodes_organization_id_fkey" FOREI
 ALTER TABLE "platform"."nodes" ADD CONSTRAINT "nodes_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "platform"."projects"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "platform"."nodes" ADD CONSTRAINT "nodes_training_run_id_fkey" FOREIGN KEY ("training_run_id") REFERENCES "platform"."training_runs"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "platform"."training_runs" ADD CONSTRAINT "training_runs_serverapp_id_fkey" FOREIGN KEY ("serverapp_id") REFERENCES "platform"."nodes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "platform"."training_runs" ADD CONSTRAINT "training_runs_fab_id_fkey" FOREIGN KEY ("fab_id") REFERENCES "platform"."fabs"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "platform"."training_runs" ADD CONSTRAINT "training_runs_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "platform"."projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "platform"."training_runs" ADD CONSTRAINT "training_runs_created_by_id_fkey" FOREIGN KEY ("created_by_id") REFERENCES "platform"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "platform"."rounds" ADD CONSTRAINT "rounds_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "platform"."training_runs"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -2,6 +2,7 @@ import {
   createOrganizationSchema,
   listOrganizationsQuerySchema,
   organizationResponseSchema,
+  paginatedOrganizationsResponseSchema,
   replaceOrganizationSchema,
   updateOrganizationSchema,
 } from '@platform/contracts';
@@ -28,9 +29,10 @@ export class OrganizationResponseDto extends createZodDto(
       ...entity,
       createdAt: entity.createdAt.toISOString(),
       updatedAt: entity.updatedAt.toISOString(),
-      deletedAt: entity.deletedAt?.toISOString() ?? null,
     });
   }
 }
 
-export type { PaginatedOrganizationsResponse } from '@platform/contracts';
+export class PaginatedOrganizationsResponseDto extends createZodDto(
+  paginatedOrganizationsResponseSchema,
+) {}
