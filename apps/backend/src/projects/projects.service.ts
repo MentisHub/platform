@@ -1,0 +1,104 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { ErrorCode } from '@platform/contracts';
+import type { OrganizationCA, Project } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateProjectDto, UpdateProjectDto } from './projects.dto';
+
+@Injectable()
+export class ProjectsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(
+    organizationId: string,
+    userId: string,
+    createProjectDto: CreateProjectDto,
+  ): Promise<Project> {
+    return this.prisma.project.create({
+      data: {
+        name: createProjectDto.name,
+        organizationId,
+        trainingConfig: createProjectDto.trainingConfig ?? undefined,
+      },
+    });
+  }
+
+  async findAll(organizationId: string): Promise<Project[]> {
+    return this.prisma.project.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async update(
+    projectId: string,
+    updateProjectDto: UpdateProjectDto,
+  ): Promise<Project> {
+    const project = await this.getProjectById(projectId);
+
+    return this.prisma.project.update({
+      where: { id: project.id },
+      data: {
+        ...(updateProjectDto.name !== undefined && {
+          name: updateProjectDto.name,
+        }),
+        ...(updateProjectDto.trainingConfig !== undefined && {
+          trainingConfig: updateProjectDto.trainingConfig ?? undefined,
+        }),
+      },
+    });
+  }
+
+  async remove(projectId: string): Promise<void> {
+    const project = await this.getProjectById(projectId);
+
+    await this.prisma.project.delete({
+      where: { id: project.id },
+    });
+  }
+
+  async getProjectById(projectId: string): Promise<Project> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException({
+        code: ErrorCode.PROJECT_NOT_FOUND,
+        message: 'Project not found',
+      });
+    }
+
+    return project;
+  }
+
+  async getProjectWithCA(
+    projectId: string,
+  ): Promise<Project & { organization: { ca: OrganizationCA | null } }> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        organization: {
+          include: {
+            ca: true,
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException({
+        code: ErrorCode.PROJECT_NOT_FOUND,
+        message: 'Project not found',
+      });
+    }
+
+    if (!project.organization.ca) {
+      throw new NotFoundException({
+        code: ErrorCode.ORG_CA_NOT_FOUND,
+        message: 'Organization CA not found',
+      });
+    }
+
+    return project;
+  }
+}

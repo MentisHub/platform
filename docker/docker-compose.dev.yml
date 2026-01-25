@@ -8,6 +8,8 @@ services:
       - backend_certs:/etc/backend/certs
       - ./vault-agent.hcl:/vault/config/vault-agent.hcl:ro
       - ./templates:/vault/templates:ro
+    environment:
+      CERT_DOMAIN: ${CERT_DOMAIN:-localhost}
     networks:
       - mentishub-network
     entrypoint: ["/bin/sh", "-c"]
@@ -28,6 +30,8 @@ services:
       - pnpm-cache:/root/.local/share/pnpm/store
       - backend_certs:/etc/backend/certs:ro
       - vault_certs:/vault/creds:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../../docker:/app/platform/docker:ro
     ports:
       - "3000:3000"
     environment:
@@ -42,7 +46,10 @@ services:
       OTEL_EXPORTER_URL: https://otel-collector:4318
       BACKEND_CERT_PATH: /etc/backend/certs/backend.crt
       BACKEND_KEY_PATH: /etc/backend/certs/backend.key
-      BACKEND_CA_PATH: /etc/backend/certs/ca.crt
+      BACKEND_CA_PATH: /vault/creds/root-ca.crt
+      DOCKER_SOCKET: /var/run/docker.sock
+      SUPERLINK_HOST: superlink
+      CERT_DOMAIN: ${CERT_DOMAIN:-localhost}
     networks:
       - mentishub-network
     depends_on:
@@ -73,6 +80,31 @@ services:
       - mentishub-network
     depends_on:
       - platform-backend
+
+  superlink:
+    image: flwr/superlink:1.25.0
+    container_name: superlink
+    command:
+      - --ssl-certfile=/certs/backend.crt
+      - --ssl-keyfile=/certs/backend.key
+      - --ssl-ca-certfile=/vault/creds/root-ca.crt
+      - --enable-supernode-auth
+      - --isolation
+      - process
+    working_dir: /app
+    volumes:
+      - backend_certs:/certs:ro
+      - vault_certs:/vault/creds:ro
+    ports:
+      - "9091:9091"
+      - "9092:9092"
+      - "9093:9093"
+    networks:
+      - mentishub-network
+    depends_on:
+      - vault-agent-backend
+      - vault-init
+    restart: unless-stopped
 
 volumes:
   backend-deps:

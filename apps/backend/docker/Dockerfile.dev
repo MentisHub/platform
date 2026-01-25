@@ -2,10 +2,16 @@ FROM node:25
 
 WORKDIR /usr/src/app
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm \
+  && apt-get update \
+  && apt-get install -y git protobuf-compiler \
+  && rm -rf /var/lib/apt/lists/*
 
-RUN echo '#!/bin/sh\nenv > /usr/src/app/apps/backend/.env\nexec "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh
+RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/adap/flower.git /tmp/flower \
+  && cd /tmp/flower \
+  && git sparse-checkout set framework/proto/flwr/proto \
+  && mkdir -p /opt/flower-proto \
+  && cp -r framework/proto/flwr /opt/flower-proto/ \
+  && rm -rf /tmp/flower
 
-ENTRYPOINT ["/entrypoint.sh"]
-
-CMD ["sh", "-c", "pnpm install && mkdir -p node_modules/.prisma && ln -sf ../../apps/backend/prisma/generated/client node_modules/.prisma/client && pnpm run dev:backend"]
+CMD ["sh", "-c", "pnpm install && mkdir -p node_modules/.prisma && ln -sf ../../apps/backend/prisma/generated/client node_modules/.prisma/client && mkdir -p /usr/src/app/packages/proto/gen/ts && pnpm run --filter @platform/proto flower:proto && pnpm run dev:backend"]

@@ -1,0 +1,32 @@
+{
+  "name": "@platform/proto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./flwr/*": {
+      "types": "./dist/flwr/*.d.ts",
+      "default": "./dist/flwr/*.js"
+    }
+  },
+  "scripts": {
+    "clean": "rm -rf gen dist",
+    "build": "tsc --project tsconfig.json",
+    "flower:proto": "protoc --proto_path=/opt/flower-proto --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./gen/ts --ts_proto_opt=outputServices=grpc-js,esModuleInterop=true,importSuffix=.js,forceLong=string /opt/flower-proto/flwr/proto/*.proto"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.10.2",
+    "@grpc/grpc-js": "^1.14.3"
+  },
+  "devDependencies": {
+    "grpc-tools": "^1.13.1",
+    "ts-proto": "^2.10.1",
+    "typescript": "^5.9.3"
+  }
+}

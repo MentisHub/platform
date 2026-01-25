@@ -1,5 +1,5 @@
 import { Body, Controller, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from 'src/authentication/decorators/public.decorator';
 import { PeerCertificate } from 'tls';
 import { ClientCertificate } from '../decorators/node-from-cert.decorator';
@@ -9,9 +9,9 @@ import {
   RenewCertificateRequestDto,
   RenewCertificateResponseDto,
 } from '../nodes.dto';
-import { NodesService } from '../nodes.service';
+import { NodesService } from '../services/nodes.service';
 
-@ApiTags('Nodes')
+@ApiTags('nodes')
 @Controller('nodes')
 export class NodesController {
   constructor(private readonly nodesService: NodesService) {}
@@ -19,14 +19,36 @@ export class NodesController {
   @Post('bootstrap')
   @Public()
   @ApiOperation({
-    summary: 'Bootstrap a node with PSK and CSR',
+    summary: 'Bootstrap node',
     description:
-      'Nodes use this endpoint to exchange their PSK and CSR for mTLS certificates',
+      'Enrolls a new node using a pre-shared key (PSK) and issues its first certificate',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Node bootstrapped successfully, certificate bundle issued',
+    type: BootstrapResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request data or CSR format',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid or expired PSK',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Certificate issuance failed',
   })
   async bootstrap(
     @Body() bootstrapDto: BootstrapRequestDto,
   ): Promise<BootstrapResponseDto> {
-    return this.nodesService.bootstrap(bootstrapDto.psk, bootstrapDto.csr);
+    const certBundle = await this.nodesService.bootstrap(
+      bootstrapDto.psk,
+      bootstrapDto.csr,
+      bootstrapDto.ecPublicKey,
+    );
+    return BootstrapResponseDto.fromEntity(certBundle);
   }
 
   @Post('renew-certificate')
@@ -34,15 +56,37 @@ export class NodesController {
   @ApiOperation({
     summary: 'Renew node certificate',
     description:
-      'Nodes use this endpoint to renew their mTLS certificate before expiration. Requires valid mTLS authentication.',
+      'Renews the TLS certificate for an authenticated node using its current certificate',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Certificate renewed successfully',
+    type: RenewCertificateResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid CSR format',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid client certificate or missing serial number',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Node not found',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Certificate renewal failed',
   })
   async renewCertificate(
     @ClientCertificate() certificate: PeerCertificate,
     @Body() renewDto: RenewCertificateRequestDto,
   ): Promise<RenewCertificateResponseDto> {
-    return this.nodesService.renewCertificate(
+    const certBundle = await this.nodesService.renewCertificate(
       certificate.serialNumber,
       renewDto.csr,
     );
+    return RenewCertificateResponseDto.fromEntity(certBundle);
   }
 }

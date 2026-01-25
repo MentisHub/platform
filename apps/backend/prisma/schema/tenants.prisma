@@ -4,9 +4,9 @@ model Organization {
   ownerId              String                @map("owner_id") @db.Uuid
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
-  deletedAt            DateTime?             @map("deleted_at")
   nodes                Node[]
   ca                   OrganizationCA?
+  fabs                 Fab[]
   members              OrganizationMember[]
   owner                User                  @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   projectCollaborators ProjectCollaborator[]
@@ -34,11 +34,12 @@ model Project {
   id             String                @id @default(uuid()) @db.Uuid
   name           String                @db.VarChar(255)
   organizationId String                @map("organization_id") @db.Uuid
+  trainingConfig Json?                 @map("training_config")
   createdAt      DateTime              @default(now()) @map("created_at")
   updatedAt      DateTime              @updatedAt @map("updated_at")
-  deletedAt      DateTime?             @map("deleted_at")
   nodes          Node[]
   collaborators  ProjectCollaborator[]
+  fabs           Fab[]
   projectMembers ProjectMember[]
   organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   trainingRuns   TrainingRun[]

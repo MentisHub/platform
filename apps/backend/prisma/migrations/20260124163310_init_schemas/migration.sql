@@ -8,13 +8,32 @@ CREATE TYPE "platform"."OrgRole" AS ENUM ('ADMIN', 'MEMBER');
 CREATE TYPE "platform"."ProjectRole" AS ENUM ('ADMIN', 'MEMBER');
 
 -- CreateEnum
-CREATE TYPE "platform"."TrainingStatus" AS ENUM ('PENDING', 'RUNNING', 'PAUSED', 'COMPLETED', 'CANCELLED', 'FAILED');
+CREATE TYPE "platform"."TrainingStatus" AS ENUM ('PENDING', 'DEPLOYING', 'READY', 'RUNNING', 'PAUSED', 'FAILED', 'CANCELLED');
 
 -- CreateEnum
-CREATE TYPE "platform"."NodeStatus" AS ENUM ('RUNNING', 'ONLINE', 'OFFLINE', 'INACTIVE');
+CREATE TYPE "platform"."NodeStatus" AS ENUM ('CREATED', 'READY', 'ACTIVE', 'ERROR', 'OFFLINE');
 
--- CreateEnum
-CREATE TYPE "platform"."ServerAppStatus" AS ENUM ('STARTING', 'RUNNING', 'AGGREGATING', 'COMPLETED', 'FAILED');
+-- CreateTable
+CREATE TABLE "platform"."fabs" (
+    "id" UUID NOT NULL,
+    "name" VARCHAR(255) NOT NULL,
+    "publisher_name" VARCHAR(255) NOT NULL,
+    "description" TEXT,
+    "fab_hash" VARCHAR(64) NOT NULL,
+    "version" VARCHAR(50) NOT NULL,
+    "storage_path" TEXT NOT NULL,
+    "storage_bucket" TEXT NOT NULL DEFAULT 'fab',
+    "size_bytes" BIGINT NOT NULL,
+    "is_default" BOOLEAN NOT NULL DEFAULT false,
+    "is_public" BOOLEAN NOT NULL DEFAULT false,
+    "organization_id" UUID,
+    "project_id" UUID,
+    "uploaded_by_id" UUID NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "fabs_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "platform"."organization_cas" (
@@ -36,22 +55,12 @@ CREATE TABLE "platform"."node_certificates" (
 );
 
 -- CreateTable
-CREATE TABLE "platform"."server_app_certificates" (
-    "server_app_id" UUID NOT NULL,
-    "serial_number" VARCHAR(40) NOT NULL,
-    "issued_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "expires_at" TIMESTAMP(3) NOT NULL,
-    "revoked_at" TIMESTAMP(3)
-);
-
--- CreateTable
 CREATE TABLE "platform"."organizations" (
     "id" UUID NOT NULL,
     "name" VARCHAR(255) NOT NULL,
     "owner_id" UUID NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "organizations_pkey" PRIMARY KEY ("id")
 );
@@ -71,9 +80,9 @@ CREATE TABLE "platform"."projects" (
     "id" UUID NOT NULL,
     "name" VARCHAR(255) NOT NULL,
     "organization_id" UUID NOT NULL,
+    "training_config" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "projects_pkey" PRIMARY KEY ("id")
 );
@@ -104,11 +113,10 @@ CREATE TABLE "platform"."project_members" (
 CREATE TABLE "platform"."nodes" (
     "id" TEXT NOT NULL,
     "name" VARCHAR(255) NOT NULL,
-    "status" "platform"."NodeStatus" NOT NULL DEFAULT 'INACTIVE',
+    "status" "platform"."NodeStatus" NOT NULL DEFAULT 'CREATED',
     "metadata" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "deleted_at" TIMESTAMP(3),
     "organization_id" UUID NOT NULL,
     "project_id" UUID,
     "created_by_id" UUID NOT NULL,
@@ -124,6 +132,11 @@ CREATE TABLE "platform"."training_runs" (
     "started_at" TIMESTAMP(3),
     "completed_at" TIMESTAMP(3),
     "project_id" UUID NOT NULL,
+    "fab_id" UUID,
+    "flower_run_id" TEXT,
+    "configuration" JSONB,
+    "created_by_id" UUID NOT NULL,
+    "serverapp_id" TEXT,
 
     CONSTRAINT "training_runs_pkey" PRIMARY KEY ("id")
 );
@@ -142,6 +155,7 @@ CREATE TABLE "platform"."rounds" (
 -- CreateTable
 CREATE TABLE "platform"."run_participants" (
     "joined_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "endedAt" TIMESTAMP(3),
     "run_id" UUID NOT NULL,
     "node_id" TEXT NOT NULL,
 
@@ -171,19 +185,6 @@ CREATE TABLE "platform"."artifacts" (
 );
 
 -- CreateTable
-CREATE TABLE "platform"."server_apps" (
-    "id" UUID NOT NULL,
-    "status" "platform"."ServerAppStatus" NOT NULL DEFAULT 'STARTING',
-    "training_run_id" UUID NOT NULL,
-    "pod_name" TEXT,
-    "node_host" TEXT,
-    "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "completed_at" TIMESTAMP(3),
-
-    CONSTRAINT "server_apps_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "platform"."users" (
     "id" UUID NOT NULL,
     "email" VARCHAR(255) NOT NULL,
@@ -196,6 +197,21 @@ CREATE TABLE "platform"."users" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "fabs_fab_hash_key" ON "platform"."fabs"("fab_hash");
+
+-- CreateIndex
+CREATE INDEX "fabs_organization_id_is_default_idx" ON "platform"."fabs"("organization_id", "is_default");
+
+-- CreateIndex
+CREATE INDEX "fabs_project_id_idx" ON "platform"."fabs"("project_id");
+
+-- CreateIndex
+CREATE INDEX "fabs_is_default_is_public_idx" ON "platform"."fabs"("is_default", "is_public");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "fabs_fab_hash_version_key" ON "platform"."fabs"("fab_hash", "version");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "organization_cas_organization_id_key" ON "platform"."organization_cas"("organization_id");
 
 -- CreateIndex
@@ -203,12 +219,6 @@ CREATE UNIQUE INDEX "node_certificates_node_id_key" ON "platform"."node_certific
 
 -- CreateIndex
 CREATE UNIQUE INDEX "node_certificates_serial_number_key" ON "platform"."node_certificates"("serial_number");
-
--- CreateIndex
-CREATE UNIQUE INDEX "server_app_certificates_server_app_id_key" ON "platform"."server_app_certificates"("server_app_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "server_app_certificates_serial_number_key" ON "platform"."server_app_certificates"("serial_number");
 
 -- CreateIndex
 CREATE INDEX "organizations_owner_id_idx" ON "platform"."organizations"("owner_id");
@@ -223,25 +233,31 @@ CREATE INDEX "nodes_organization_id_idx" ON "platform"."nodes"("organization_id"
 CREATE INDEX "training_runs_project_id_status_idx" ON "platform"."training_runs"("project_id", "status");
 
 -- CreateIndex
+CREATE INDEX "training_runs_fab_id_idx" ON "platform"."training_runs"("fab_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "rounds_run_id_number_key" ON "platform"."rounds"("run_id", "number");
 
 -- CreateIndex
 CREATE INDEX "artifacts_run_id_idx" ON "platform"."artifacts"("run_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "server_apps_training_run_id_key" ON "platform"."server_apps"("training_run_id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "platform"."users"("email");
+
+-- AddForeignKey
+ALTER TABLE "platform"."fabs" ADD CONSTRAINT "fabs_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "platform"."fabs" ADD CONSTRAINT "fabs_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "platform"."projects"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "platform"."fabs" ADD CONSTRAINT "fabs_uploaded_by_id_fkey" FOREIGN KEY ("uploaded_by_id") REFERENCES "platform"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "platform"."organization_cas" ADD CONSTRAINT "organization_cas_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "platform"."node_certificates" ADD CONSTRAINT "node_certificates_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "platform"."nodes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "platform"."server_app_certificates" ADD CONSTRAINT "server_app_certificates_server_app_id_fkey" FOREIGN KEY ("server_app_id") REFERENCES "platform"."server_apps"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "platform"."organizations" ADD CONSTRAINT "organizations_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "platform"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -277,7 +293,16 @@ ALTER TABLE "platform"."nodes" ADD CONSTRAINT "nodes_organization_id_fkey" FOREI
 ALTER TABLE "platform"."nodes" ADD CONSTRAINT "nodes_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "platform"."projects"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "platform"."training_runs" ADD CONSTRAINT "training_runs_serverapp_id_fkey" FOREIGN KEY ("serverapp_id") REFERENCES "platform"."nodes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "platform"."training_runs" ADD CONSTRAINT "training_runs_fab_id_fkey" FOREIGN KEY ("fab_id") REFERENCES "platform"."fabs"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "platform"."training_runs" ADD CONSTRAINT "training_runs_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "platform"."projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "platform"."training_runs" ADD CONSTRAINT "training_runs_created_by_id_fkey" FOREIGN KEY ("created_by_id") REFERENCES "platform"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "platform"."rounds" ADD CONSTRAINT "rounds_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "platform"."training_runs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -296,12 +321,6 @@ ALTER TABLE "platform"."round_participants" ADD CONSTRAINT "round_participants_r
 
 -- AddForeignKey
 ALTER TABLE "platform"."artifacts" ADD CONSTRAINT "artifacts_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "platform"."training_runs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "platform"."server_apps" ADD CONSTRAINT "server_apps_training_run_id_fkey" FOREIGN KEY ("training_run_id") REFERENCES "platform"."training_runs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- Add foreign key from platform.users to auth.users with CASCADE delete
-ALTER TABLE "platform"."users" ADD CONSTRAINT "users_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Function to handle user creation - sync auth.users to platform.users
 CREATE OR REPLACE FUNCTION public.handle_new_user()

@@ -1,11 +1,10 @@
 model Node {
   id             String     @id
   name           String     @db.VarChar(255)
-  status         NodeStatus @default(INACTIVE)
+  status         NodeStatus @default(CREATED)
   metadata       Json?
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
-  deletedAt      DateTime?  @map("deleted_at")
   organizationId String     @map("organization_id") @db.Uuid
   projectId      String?    @map("project_id") @db.Uuid
   createdById    String     @map("created_by_id") @db.Uuid
@@ -16,6 +15,7 @@ model Node {
   project             Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
   roundParticipations RoundParticipant[]
   runParticipations   RunParticipant[]
+  trainingRuns        TrainingRun[]
 
   @@index([organizationId])
   @@map("nodes")
@@ -23,19 +23,27 @@ model Node {
 }
 
 model TrainingRun {
-  id           String           @id @default(uuid()) @db.Uuid
-  status       TrainingStatus   @default(PENDING)
-  createdAt    DateTime         @default(now()) @map("created_at")
-  startedAt    DateTime?        @map("started_at")
-  completedAt  DateTime?        @map("completed_at")
-  projectId    String           @map("project_id") @db.Uuid
-  artifacts    Artifact[]
-  rounds       Round[]
-  participants RunParticipant[]
-  serverApp    ServerApp?
-  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id            String           @id @default(uuid()) @db.Uuid
+  status        TrainingStatus   @default(PENDING)
+  createdAt     DateTime         @default(now()) @map("created_at")
+  startedAt     DateTime?        @map("started_at")
+  completedAt   DateTime?        @map("completed_at")
+  projectId     String           @map("project_id") @db.Uuid
+  fabId         String?          @map("fab_id") @db.Uuid
+  flowerRunId   String?          @map("flower_run_id")
+  configuration Json?
+  createdById   String           @map("created_by_id") @db.Uuid
+  artifacts     Artifact[]
+  rounds        Round[]
+  participants  RunParticipant[]
+  serverAppId   String?          @map("serverapp_id")
+  serverAppNode Node?            @relation(fields: [serverAppId], references: [id], onDelete: SetNull)
+  fab           Fab?             @relation(fields: [fabId], references: [id], onDelete: SetNull)
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy     User             @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([projectId, status])
+  @@index([fabId])
   @@map("training_runs")
   @@schema("platform")
 }
@@ -56,6 +64,7 @@ model Round {
 
 model RunParticipant {
   joinedAt DateTime    @default(now()) @map("joined_at")
+  endedAt  DateTime?
   runId    String      @map("run_id") @db.Uuid
   nodeId   String      @map("node_id")
   node     Node        @relation(fields: [nodeId], references: [id], onDelete: Restrict)
@@ -93,47 +102,24 @@ model Artifact {
   @@schema("platform")
 }
 
-model ServerApp {
-  id            String                @id @default(uuid()) @db.Uuid
-  status        ServerAppStatus       @default(STARTING)
-  trainingRunId String                @unique @map("training_run_id") @db.Uuid
-  podName       String?               @map("pod_name")
-  nodeHost      String?               @map("node_host")
-  startedAt     DateTime              @default(now()) @map("started_at")
-  completedAt   DateTime?             @map("completed_at")
-  certificate   ServerAppCertificate?
-  trainingRun   TrainingRun           @relation(fields: [trainingRunId], references: [id], onDelete: Cascade)
-
-  @@map("server_apps")
-  @@schema("platform")
-}
-
 enum TrainingStatus {
-  PENDING
-  RUNNING
-  PAUSED
-  COMPLETED
-  CANCELLED
-  FAILED
+  PENDING   // Training created, waiting for ServerApp deployment
+  DEPLOYING // ServerApp container is being deployed
+  READY     // ServerApp deployed successfully, waiting to start execution
+  RUNNING   // Training is actively running
+  PAUSED    // Training execution paused (reserved for future use)
+  FAILED    // Training failed during execution
+  CANCELLED // Training was manually cancelled
 
   @@schema("platform")
 }
 
 enum NodeStatus {
-  RUNNING
-  ONLINE
-  OFFLINE
-  INACTIVE
-
-  @@schema("platform")
-}
-
-enum ServerAppStatus {
-  STARTING
-  RUNNING
-  AGGREGATING
-  COMPLETED
-  FAILED
+  CREATED  // Node just created, waiting for bootstrap (certificate issuance)
+  READY    // Node has valid certificate and is ready to participate in training
+  ACTIVE   // Node is currently participating in an active training run
+  ERROR    // Node encountered an error (e.g., certificate issues, connection problems)
+  OFFLINE  // Node is disconnected or unreachable
 
   @@schema("platform")
 }

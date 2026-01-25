@@ -1,16 +1,16 @@
 import { z } from 'zod';
+import { paginatedResponseSchema } from '../common/pagination.dto';
 import {
-  createNodeSchema,
-  updateNodeSchema,
-  nodeResponseSchema,
-  createNodeResponseSchema,
-  listNodesQuerySchema,
   bootstrapRequestSchema,
   bootstrapResponseSchema,
+  createNodeResponseSchema,
+  createNodeSchema,
+  listNodesQuerySchema,
+  nodeResponseSchema,
   renewCertificateRequestSchema,
   renewCertificateResponseSchema,
+  updateNodeSchema,
 } from './node.schema';
-import { PaginatedResponse } from '../common/pagination.dto';
 
 export type CreateNodeInput = z.infer<typeof createNodeSchema>;
 export type UpdateNodeInput = z.infer<typeof updateNodeSchema>;
@@ -22,4 +22,7 @@ export type BootstrapResponse = z.infer<typeof bootstrapResponseSchema>;
 export type RenewCertificateRequest = z.infer<typeof renewCertificateRequestSchema>;
 export type RenewCertificateResponse = z.infer<typeof renewCertificateResponseSchema>;
 
-export type PaginatedNodesResponse = PaginatedResponse<NodeResponse>;
+export const paginatedNodesResponseSchema =
+  paginatedResponseSchema(nodeResponseSchema);
+
+export type PaginatedNodesResponse = z.infer<typeof paginatedNodesResponseSchema>;

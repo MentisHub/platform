@@ -34,6 +34,12 @@ export class VaultHttp {
       const text = await response.text();
 
       if (!response.ok) {
+        console.error('[VaultHttp] Vault returned error:', {
+          path,
+          status: response.status,
+          statusText: response.statusText,
+          response: text,
+        });
         this.handleVaultError(response.status, text, path);
       }
 
@@ -44,10 +50,15 @@ export class VaultHttp {
       if (error instanceof Error && 'statusCode' in error) {
         throw error;
       }
+      console.error('[VaultHttp] Request failed:', {
+        path,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       throw new BadGatewayException({
         statusCode: 502,
         message: 'Failed to communicate with Vault service',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: `${path} - ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
   }
@@ -70,6 +81,12 @@ export class VaultHttp {
 
   private handleVaultError(status: number, text: string, path: string): never {
     switch (status) {
+      case 400:
+        throw new BadGatewayException({
+          statusCode: 400,
+          message: 'Invalid request to Vault',
+          details: text,
+        });
       case 401:
         throw new UnauthorizedException({
           statusCode: 401,

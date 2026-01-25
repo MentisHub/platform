@@ -16,7 +16,6 @@ export const ClientCertificate = createParamDecorator(
 
     if (!cert) {
       throw new UnauthorizedException({
-        statusCode: 401,
         code: ErrorCode.INVALID_NODE_CREDENTIALS,
         message: 'Valid mTLS certificate required',
       });

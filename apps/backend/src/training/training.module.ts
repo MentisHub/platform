@@ -1,0 +1,27 @@
+import { Module, forwardRef } from '@nestjs/common';
+import { DockerModule } from '../docker/docker.module';
+import { FabsModule } from '../fabs/fabs.module';
+import { FlowerModule } from '../flower/flower.module';
+import { NodesModule } from '../nodes/nodes.module';
+import { PrismaModule } from '../prisma/prisma.module';
+import { ProjectsModule } from '../projects/projects.module';
+import { VaultModule } from '../vault/vault.module';
+import { ProjTrainingController } from './training.controller';
+import { RunParticipantService } from './services/run-participant.service';
+import { TrainingService } from './services/training.service';
+
+@Module({
+  imports: [
+    PrismaModule,
+    VaultModule,
+    DockerModule,
+    FlowerModule,
+    FabsModule,
+    ProjectsModule,
+    forwardRef(() => NodesModule),
+  ],
+  controllers: [ProjTrainingController],
+  providers: [TrainingService, RunParticipantService],
+  exports: [TrainingService, RunParticipantService],
+})
+export class TrainingModule {}

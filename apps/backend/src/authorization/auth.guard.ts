@@ -43,7 +43,15 @@ export class RolesGuard implements CanActivate {
     }
 
     const userId = request.jwtPayload.sub;
-    const organizationId = request.params.organizationId;
+    let organizationId = request.params.organizationId;
+
+    if (!organizationId && request.params.projectId) {
+      const orgId = await this.authService.getOrganizationIdByProject(
+        request.params.projectId,
+      );
+      if (!orgId) return false;
+      organizationId = orgId;
+    }
 
     if (!organizationId) return false;
 
@@ -53,12 +61,12 @@ export class RolesGuard implements CanActivate {
     );
     request.orgMembership = membership ?? undefined;
 
-    if (membership?.role === OrgRole.ADMIN || membership?.isOwner) return true;
+    // Owner and ADMIN have full access to organization
+    if (membership?.isOwner || membership?.role === OrgRole.ADMIN) return true;
 
     if (requiredOrgRoles) {
       if (!membership) {
         throw new ForbiddenException({
-          statusCode: 403,
           code: ErrorCode.NOT_ORGANIZATION_MEMBER,
           message: 'Not a member of this organization',
         });
@@ -66,7 +74,6 @@ export class RolesGuard implements CanActivate {
 
       if (!membership.role || !requiredOrgRoles.includes(membership.role)) {
         throw new ForbiddenException({
-          statusCode: 403,
           code: ErrorCode.INSUFFICIENT_PERMISSIONS,
           message: `Requires one of: ${requiredOrgRoles.join(', ')}`,
         });
@@ -85,7 +92,6 @@ export class RolesGuard implements CanActivate {
 
       if (!projectMembership) {
         throw new ForbiddenException({
-          statusCode: 403,
           code: ErrorCode.NOT_PROJECT_MEMBER,
           message: 'No access to this project',
         });
@@ -96,7 +102,6 @@ export class RolesGuard implements CanActivate {
         !requiredProjectRoles.includes(projectMembership.role)
       ) {
         throw new ForbiddenException({
-          statusCode: 403,
           code: ErrorCode.INSUFFICIENT_PERMISSIONS,
           message: `Requires one of: ${requiredProjectRoles.join(', ')}`,
         });

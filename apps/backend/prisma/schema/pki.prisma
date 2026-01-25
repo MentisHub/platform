@@ -20,15 +20,3 @@ model NodeCertificate {
   @@map("node_certificates")
   @@schema("platform")
 }
-
-model ServerAppCertificate {
-  serverAppId  String    @unique @map("server_app_id") @db.Uuid
-  serialNumber String    @unique @map("serial_number") @db.VarChar(40)
-  issuedAt     DateTime  @default(now()) @map("issued_at")
-  expiresAt    DateTime  @map("expires_at")
-  revokedAt    DateTime? @map("revoked_at")
-  serverApp    ServerApp @relation(fields: [serverAppId], references: [id], onDelete: Cascade)
-
-  @@map("server_app_certificates")
-  @@schema("platform")
-}
