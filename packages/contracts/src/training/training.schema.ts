@@ -1,12 +1,13 @@
 import { z } from 'zod';
 
 export const trainingStatusSchema = z.enum([
-  'PENDING',
-  'RUNNING',
-  'PAUSED',
-  'COMPLETED',
-  'CANCELLED',
-  'FAILED',
+  'PENDING',   // Training created, waiting for ServerApp deployment
+  'DEPLOYING', // ServerApp container is being deployed
+  'READY',     // ServerApp deployed successfully, waiting to start execution
+  'RUNNING',   // Training is actively running
+  'PAUSED',    // Training execution paused (reserved for future use)
+  'FAILED',    // Training failed during execution
+  'CANCELLED', // Training was manually cancelled
 ]).describe('Current execution status of the training run');
 
 export const createTrainingSchema = z.object({

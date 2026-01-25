@@ -1,4 +1,12 @@
-import { Body, Controller, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -19,7 +27,7 @@ import {
   StartTrainingResponseDto,
   TrainingRunResponseDto,
 } from '../training.dto';
-import { TrainingService } from '../training.service';
+import { TrainingService } from '../services/training.service';
 
 @ApiTags('training')
 @ApiBearerAuth()
@@ -184,7 +192,7 @@ export class ProjTrainingController {
     return TrainingRunResponseDto.fromEntity(trainingRun);
   }
 
-  @Post(':trainingId/link-nodes')
+  @Post(':trainingId/nodes')
   @RequireProjectRole(ProjectRole.ADMIN)
   @ApiOperation({
     summary: 'Link nodes to training',
@@ -236,5 +244,61 @@ export class ProjTrainingController {
     return {
       count: batch.count,
     };
+  }
+
+  @Delete(':trainingId/nodes/:nodeId')
+  @RequireProjectRole(ProjectRole.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Unlink node from training',
+    description:
+      'Removes a node from a training run. Only allowed when training is PENDING or READY (before execution starts). Cannot remove ServerApp node or nodes that have already participated in rounds.',
+  })
+  @ApiParam({
+    name: 'projectId',
+    description: 'Project UUID',
+    type: String,
+  })
+  @ApiParam({
+    name: 'trainingId',
+    description: 'Training run UUID',
+    type: String,
+  })
+  @ApiParam({
+    name: 'nodeId',
+    description: 'Node ID to unlink',
+    type: String,
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Node unlinked successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Invalid operation (training already running, node is ServerApp, or node participated in rounds)',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Insufficient permissions (requires PROJECT ADMIN role)',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project, training run, or node not found',
+  })
+  async unlinkNodeFromTraining(
+    @Param('projectId') projectId: string,
+    @Param('trainingId') trainingId: string,
+    @Param('nodeId') nodeId: string,
+  ): Promise<void> {
+    await this.trainingService.unlinkNodeFromTraining(
+      projectId,
+      trainingId,
+      nodeId,
+    );
   }
 }

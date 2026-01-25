@@ -34,8 +34,6 @@ export class AuthorizationService {
     if (!organization) return null;
 
     const isOwner = organization.ownerId === userId;
-
-    // If user is owner but not in members table, still grant access
     if (!membership && !isOwner) return null;
 
     return {
@@ -49,7 +47,7 @@ export class AuthorizationService {
     projectId: string,
     userId: string,
   ): Promise<ProjectMembership | null> {
-    return await this.prisma.projectMember.findUnique({
+    return this.prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
           projectId,

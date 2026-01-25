@@ -44,10 +44,6 @@ export class FabPackageResponseDto extends createZodDto(
   static fromEntity(fabPackage: FabPackage): FabPackageResponseDto {
     const { fab, trainingRun, content } = fabPackage;
 
-    if (!trainingRun?.id) {
-      throw new Error('Training run ID is required to generate federation name');
-    }
-
     return fabPackageResponseSchema.parse({
       fabHash: fab.fabHash,
       version: fab.version,

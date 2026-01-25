@@ -137,7 +137,7 @@ export class FabsService {
     if (!fab) {
       throw new NotFoundException({
         code: ErrorCode.FAB_NOT_FOUND,
-        message: 'FAB not found',
+        message: 'FAB not found or access denied',
       });
     }
 
@@ -185,12 +185,14 @@ export class FabsService {
 
     const trainingRun = findActiveTrainingRun(certificate.node.trainingRuns);
 
-    if (!trainingRun)
+    if (!trainingRun) {
       throw new BadRequestException({
-        message: '',
+        code: ErrorCode.TRAINING_NOT_FOUND,
+        message: 'No active training run found for this node',
       });
+    }
 
-    const fab = trainingRun?.fab ?? (await this.getDefaultFab());
+    const fab = trainingRun.fab ?? (await this.getDefaultFab());
     const content = await this.supabase.downloadFile(
       this.storageBucket,
       fab.storagePath,

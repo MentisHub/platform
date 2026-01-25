@@ -8,10 +8,10 @@ CREATE TYPE "platform"."OrgRole" AS ENUM ('ADMIN', 'MEMBER');
 CREATE TYPE "platform"."ProjectRole" AS ENUM ('ADMIN', 'MEMBER');
 
 -- CreateEnum
-CREATE TYPE "platform"."TrainingStatus" AS ENUM ('PENDING', 'RUNNING', 'PAUSED', 'COMPLETED', 'CANCELLED', 'FAILED');
+CREATE TYPE "platform"."TrainingStatus" AS ENUM ('PENDING', 'DEPLOYING', 'READY', 'RUNNING', 'PAUSED', 'FAILED', 'CANCELLED');
 
 -- CreateEnum
-CREATE TYPE "platform"."NodeStatus" AS ENUM ('ONLINE', 'OFFLINE', 'INACTIVE');
+CREATE TYPE "platform"."NodeStatus" AS ENUM ('CREATED', 'READY', 'ACTIVE', 'ERROR', 'OFFLINE');
 
 -- CreateTable
 CREATE TABLE "platform"."fabs" (
@@ -113,7 +113,7 @@ CREATE TABLE "platform"."project_members" (
 CREATE TABLE "platform"."nodes" (
     "id" TEXT NOT NULL,
     "name" VARCHAR(255) NOT NULL,
-    "status" "platform"."NodeStatus" NOT NULL DEFAULT 'INACTIVE',
+    "status" "platform"."NodeStatus" NOT NULL DEFAULT 'CREATED',
     "metadata" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,

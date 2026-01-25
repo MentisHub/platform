@@ -42,7 +42,7 @@ export class NodeCertificateService {
   async findOne(serialNumber: string) {
     const cert = await this.prisma.nodeCertificate.findFirst({
       where: {
-        serialNumber,
+        serialNumber: normalizeSerialNumber(serialNumber),
         revokedAt: null,
       },
       include: {
@@ -118,7 +118,6 @@ export class NodeCertificateService {
       });
     }
 
-    // Transform runParticipations to trainingRuns for compatibility
     const trainingRuns = certificate.node.runParticipations.map((rp) => rp.run);
     return {
       ...certificate,

@@ -2,9 +2,11 @@ import { z } from 'zod';
 import { paginationQuerySchema, sortOrderSchema } from '../common/pagination.dto';
 
 export const nodeStatusSchema = z.enum([
-  'ONLINE',
-  'OFFLINE',
-  'INACTIVE',
+  'CREATED',  // Node just created, waiting for bootstrap (certificate issuance)
+  'READY',    // Node has valid certificate and is ready to participate in training
+  'ACTIVE',   // Node is currently participating in an active training run
+  'ERROR',    // Node encountered an error (e.g., certificate issues, connection problems)
+  'OFFLINE',  // Node is disconnected or unreachable
 ]).describe('Current operational status of the node');
 
 export const nodeBaseSchema = z.object({

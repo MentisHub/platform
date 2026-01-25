@@ -1,7 +1,7 @@
 model Node {
   id             String     @id
   name           String     @db.VarChar(255)
-  status         NodeStatus @default(INACTIVE)
+  status         NodeStatus @default(CREATED)
   metadata       Json?
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
@@ -103,21 +103,23 @@ model Artifact {
 }
 
 enum TrainingStatus {
-  PENDING
-  DEPLOYING
-  RUNNING
-  PAUSED
-  COMPLETED
-  CANCELLED
-  FAILED
+  PENDING   // Training created, waiting for ServerApp deployment
+  DEPLOYING // ServerApp container is being deployed
+  READY     // ServerApp deployed successfully, waiting to start execution
+  RUNNING   // Training is actively running
+  PAUSED    // Training execution paused (reserved for future use)
+  FAILED    // Training failed during execution
+  CANCELLED // Training was manually cancelled
 
   @@schema("platform")
 }
 
 enum NodeStatus {
-  ONLINE
-  OFFLINE
-  INACTIVE
+  CREATED  // Node just created, waiting for bootstrap (certificate issuance)
+  READY    // Node has valid certificate and is ready to participate in training
+  ACTIVE   // Node is currently participating in an active training run
+  ERROR    // Node encountered an error (e.g., certificate issues, connection problems)
+  OFFLINE  // Node is disconnected or unreachable
 
   @@schema("platform")
 }

@@ -39,9 +39,11 @@ export class ProjectsService {
     return this.prisma.project.update({
       where: { id: project.id },
       data: {
-        ...(updateProjectDto.name !== undefined && { name: updateProjectDto.name }),
-        ...(updateProjectDto.trainingConfig !== undefined && { 
-          trainingConfig: updateProjectDto.trainingConfig ?? undefined 
+        ...(updateProjectDto.name !== undefined && {
+          name: updateProjectDto.name,
+        }),
+        ...(updateProjectDto.trainingConfig !== undefined && {
+          trainingConfig: updateProjectDto.trainingConfig ?? undefined,
         }),
       },
     });
@@ -77,10 +79,8 @@ export class ProjectsService {
   }
 
   async getProjectById(projectId: string): Promise<Project> {
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: projectId,
-      },
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
     });
 
     if (!project) {

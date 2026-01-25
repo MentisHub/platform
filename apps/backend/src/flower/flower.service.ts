@@ -11,7 +11,7 @@ export interface StartRunOptions {
   fabHash: string;
   fabContent: Buffer;
   overrideConfig?: Record<string, any>;
-  federation?: string;
+  federation: string;
 }
 
 @Injectable()
@@ -23,7 +23,7 @@ export class FlowerService implements OnModuleInit {
   constructor(
     private readonly configService: ConfigService,
     private readonly dockerService: DockerService,
-  ) { }
+  ) {}
 
   onModuleInit() {
     const grpcHost = this.configService.getOrThrow<string>('SUPERLINK_HOST');
@@ -129,10 +129,10 @@ export class FlowerService implements OnModuleInit {
         content: new Uint8Array(options.fabContent),
         verifications: {},
       },
-      overrideConfig: options.overrideConfig || {},
-      federation: options.federation || 'default',
+      overrideConfig: {},
+      federation: 'default', //options.federation,
       appSpec: '',
-      federationOptions: { items: [] },
+      federationOptions: undefined,
     };
 
     return new Promise((resolve, reject) => {

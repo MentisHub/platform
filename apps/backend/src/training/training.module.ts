@@ -8,7 +8,8 @@ import { ProjectsModule } from '../projects/projects.module';
 import { VaultModule } from '../vault/vault.module';
 import { ProjTrainingController } from './controllers/proj-training.controller';
 import { TrainingController } from './controllers/training.controller';
-import { TrainingService } from './training.service';
+import { RunParticipantService } from './services/run-participant.service';
+import { TrainingService } from './services/training.service';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { TrainingService } from './training.service';
     forwardRef(() => NodesModule),
   ],
   controllers: [TrainingController, ProjTrainingController],
-  providers: [TrainingService],
-  exports: [TrainingService],
+  providers: [TrainingService, RunParticipantService],
+  exports: [TrainingService, RunParticipantService],
 })
 export class TrainingModule {}

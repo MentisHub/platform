@@ -1,6 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { TrainingService } from '../training.service';
+import { TrainingService } from '../services/training.service';
 
 @ApiTags('training')
 @ApiBearerAuth()
