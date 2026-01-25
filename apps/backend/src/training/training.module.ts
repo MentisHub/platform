@@ -6,8 +6,7 @@ import { NodesModule } from '../nodes/nodes.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { VaultModule } from '../vault/vault.module';
-import { ProjTrainingController } from './controllers/proj-training.controller';
-import { TrainingController } from './controllers/training.controller';
+import { ProjTrainingController } from './training.controller';
 import { RunParticipantService } from './services/run-participant.service';
 import { TrainingService } from './services/training.service';
 
@@ -21,7 +20,7 @@ import { TrainingService } from './services/training.service';
     ProjectsModule,
     forwardRef(() => NodesModule),
   ],
-  controllers: [TrainingController, ProjTrainingController],
+  controllers: [ProjTrainingController],
   providers: [TrainingService, RunParticipantService],
   exports: [TrainingService, RunParticipantService],
 })

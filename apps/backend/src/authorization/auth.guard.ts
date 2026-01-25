@@ -45,7 +45,6 @@ export class RolesGuard implements CanActivate {
     const userId = request.jwtPayload.sub;
     let organizationId = request.params.organizationId;
 
-    // If organizationId is not in params, try to get it from projectId
     if (!organizationId && request.params.projectId) {
       const orgId = await this.authService.getOrganizationIdByProject(
         request.params.projectId,
@@ -68,7 +67,6 @@ export class RolesGuard implements CanActivate {
     if (requiredOrgRoles) {
       if (!membership) {
         throw new ForbiddenException({
-          statusCode: 403,
           code: ErrorCode.NOT_ORGANIZATION_MEMBER,
           message: 'Not a member of this organization',
         });
@@ -76,7 +74,6 @@ export class RolesGuard implements CanActivate {
 
       if (!membership.role || !requiredOrgRoles.includes(membership.role)) {
         throw new ForbiddenException({
-          statusCode: 403,
           code: ErrorCode.INSUFFICIENT_PERMISSIONS,
           message: `Requires one of: ${requiredOrgRoles.join(', ')}`,
         });
@@ -95,7 +92,6 @@ export class RolesGuard implements CanActivate {
 
       if (!projectMembership) {
         throw new ForbiddenException({
-          statusCode: 403,
           code: ErrorCode.NOT_PROJECT_MEMBER,
           message: 'No access to this project',
         });
@@ -106,7 +102,6 @@ export class RolesGuard implements CanActivate {
         !requiredProjectRoles.includes(projectMembership.role)
       ) {
         throw new ForbiddenException({
-          statusCode: 403,
           code: ErrorCode.INSUFFICIENT_PERMISSIONS,
           message: `Requires one of: ${requiredProjectRoles.join(', ')}`,
         });

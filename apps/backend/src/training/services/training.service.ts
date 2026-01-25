@@ -40,7 +40,7 @@ export class TrainingService {
     userId: string,
     fabId: string,
   ): Promise<TrainingRun> {
-    await this.projectsService.getProjectWithCA(projectId, organizationId);
+    await this.projectsService.getProjectWithCA(projectId);
     await this.fabsService.getFab(fabId, organizationId);
 
     return this.prisma.trainingRun.create({
@@ -55,11 +55,10 @@ export class TrainingService {
 
   async deployServerApp(
     organizationId: string,
-    projectId: string,
     trainingRunId: string,
     userId: string,
   ): Promise<TrainingRun> {
-    const trainingRun = await this.getTrainingRun(projectId, trainingRunId);
+    const trainingRun = await this.getTrainingRun(trainingRunId);
 
     if (trainingRun.status !== 'PENDING') {
       throw new BadRequestException({
@@ -71,11 +70,10 @@ export class TrainingService {
     this.logger.log({
       message: 'Starting ServerApp deployment',
       trainingRunId,
-      projectId,
+      projectId: trainingRun.projectId,
     });
 
-    // Set status to DEPLOYING while infrastructure is being provisioned
-    await this.update(projectId, trainingRunId, {
+    await this.update(trainingRunId, {
       status: 'DEPLOYING',
     });
 
@@ -88,12 +86,12 @@ export class TrainingService {
         userId,
         {
           name: `serverapp-${trainingRunId.slice(0, 8)}`,
-          projectId,
+          projectId: trainingRun.projectId,
         },
       );
       nodeId = node.id;
 
-      await this.update(projectId, trainingRunId, {
+      await this.update(trainingRunId, {
         serverAppNode: { connect: { id: node.id } },
       });
 
@@ -111,14 +109,13 @@ export class TrainingService {
         superlinkHost,
       );
 
-      await this.nodesService.update(organizationId, node.id, {
+      await this.nodesService.update(node.id, {
         metadata: {
           containerName,
         },
       });
 
-      // Set status to READY - ServerApp deployed successfully, ready to start execution
-      const updatedTrainingRun = await this.update(projectId, trainingRunId, {
+      const updatedTrainingRun = await this.update(trainingRunId, {
         status: 'READY',
       });
 
@@ -184,7 +181,7 @@ export class TrainingService {
 
         // Delete the node
         try {
-          await this.nodesService.remove(organizationId, nodeId);
+          await this.nodesService.remove(nodeId);
           this.logger.log({
             message: 'Node deleted during rollback',
             trainingRunId,
@@ -202,9 +199,8 @@ export class TrainingService {
         }
       }
 
-      // Reset training run status to PENDING
       try {
-        await this.update(projectId, trainingRunId, {
+        await this.update(trainingRunId, {
           status: 'PENDING',
           serverAppNode: { disconnect: true },
         });
@@ -225,11 +221,8 @@ export class TrainingService {
     }
   }
 
-  async runTraining(
-    projectId: string,
-    trainingRunId: string,
-  ): Promise<TrainingRun> {
-    const trainingRun = await this.getTrainingRun(projectId, trainingRunId);
+  async runTraining(trainingRunId: string): Promise<TrainingRun> {
+    const trainingRun = await this.getTrainingRun(trainingRunId);
 
     if (trainingRun.status !== 'READY') {
       throw new BadRequestException({
@@ -256,13 +249,11 @@ export class TrainingService {
       throw new BadRequestException('No ready nodes available for training');
     }
 
-    const fab = await this.fabsService.getFab(
-      trainingRun.fabId,
-      trainingRun.project.organizationId,
-    );
+    const fab = await this.fabsService.getFabById(trainingRun.fabId);
 
     const config = (trainingRun.configuration ??
-      (await this.projectsService.getProjectById(projectId)).trainingConfig ??
+      (await this.projectsService.getProjectById(trainingRun.projectId))
+        .trainingConfig ??
       {}) as Prisma.JsonObject;
     const fabContent = await this.fabsService.downloadFabById(fab.id);
 
@@ -273,7 +264,7 @@ export class TrainingService {
       federation: uuidToBase32(trainingRunId),
     });
 
-    const updatedTrainingRun = await this.update(projectId, trainingRunId, {
+    const updatedTrainingRun = await this.update(trainingRunId, {
       status: 'RUNNING',
       startedAt: new Date(),
       flowerRunId,
@@ -282,14 +273,9 @@ export class TrainingService {
     return updatedTrainingRun;
   }
 
-  async getTrainingRun(projectId: string, trainingRunId: string) {
-    const trainingRun = await this.prisma.trainingRun.findFirst({
-      where: {
-        id: trainingRunId,
-        project: {
-          id: projectId,
-        },
-      },
+  async getTrainingRun(trainingRunId: string) {
+    const trainingRun = await this.prisma.trainingRun.findUnique({
+      where: { id: trainingRunId },
       include: {
         fab: true,
         project: {
@@ -310,12 +296,8 @@ export class TrainingService {
     return trainingRun;
   }
 
-  async linkNodeToTraining(
-    projectId: string,
-    trainingId: string,
-    nodesId: string[],
-  ) {
-    const training = await this.getTrainingRun(projectId, trainingId);
+  async linkNodeToTraining(trainingId: string, nodesId: string[]) {
+    const training = await this.getTrainingRun(trainingId);
 
     return await this.runParticipantService.linkNodesToRun(
       trainingId,
@@ -325,11 +307,10 @@ export class TrainingService {
   }
 
   async unlinkNodeFromTraining(
-    projectId: string,
     trainingId: string,
     nodeId: string,
   ): Promise<void> {
-    const training = await this.getTrainingRun(projectId, trainingId);
+    const training = await this.getTrainingRun(trainingId);
 
     await this.runParticipantService.unlinkNodeFromRun(
       nodeId,
@@ -338,10 +319,7 @@ export class TrainingService {
       training.serverAppId,
     );
 
-    const node = await this.nodesService.findById(
-      training.project.organizationId,
-      nodeId,
-    );
+    const node = await this.nodesService.findById(nodeId);
 
     if (node.status === 'ACTIVE') {
       await this.nodesService.updateNodeStatus(nodeId, 'READY');
@@ -349,7 +327,6 @@ export class TrainingService {
   }
 
   async update(
-    projectId: string,
     trainingRunId: string,
     input: Prisma.TrainingRunUpdateInput,
   ): Promise<TrainingRun> {
@@ -372,7 +349,7 @@ export class TrainingService {
     }
 
     return this.prisma.trainingRun.update({
-      where: { id: trainingRunId, projectId },
+      where: { id: trainingRunId },
       data: updateData,
     });
   }

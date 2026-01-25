@@ -39,7 +39,13 @@ export class FabsService {
     file: Express.Multer.File,
   ): Promise<Fab> {
     if (dto.projectId) {
-      await this.projectsService.getProject(dto.projectId, organizationId);
+      const project = await this.projectsService.getProjectById(dto.projectId);
+      if (project.organizationId !== organizationId) {
+        throw new NotFoundException({
+          code: ErrorCode.PROJECT_NOT_FOUND,
+          message: 'Project not found',
+        });
+      }
     }
 
     const metadata = extractFabMetadataFromFilename(file.originalname);

@@ -1,29 +1,16 @@
 import { credentials } from '@grpc/grpc-js';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ControlClient, FleetClient } from '@platform/proto';
+import { ControlClient } from '@platform/proto';
 import * as fs from 'fs';
-import { uuidToBase32 } from 'src/utils';
-import { DockerService } from '../docker/docker.service';
-import { buildPyProject } from './utils';
-
-export interface StartRunOptions {
-  fabHash: string;
-  fabContent: Buffer;
-  overrideConfig?: Record<string, any>;
-  federation: string;
-}
+import { StartRunOptions } from './flower.interface';
 
 @Injectable()
 export class FlowerService implements OnModuleInit {
   private readonly logger = new Logger(FlowerService.name);
-  private fleetClient!: FleetClient;
   private controlClient!: ControlClient;
 
-  constructor(
-    private readonly configService: ConfigService,
-    private readonly dockerService: DockerService,
-  ) {}
+  constructor(private readonly configService: ConfigService) {}
 
   onModuleInit() {
     const grpcHost = this.configService.getOrThrow<string>('SUPERLINK_HOST');
@@ -41,81 +28,42 @@ export class FlowerService implements OnModuleInit {
       clientCert,
     );
 
-    this.fleetClient = new FleetClient(`${grpcHost}:9092`, sslCredentials);
     this.controlClient = new ControlClient(`${grpcHost}:9093`, sslCredentials);
 
     this.logger.log(`Flower gRPC clients initialized for ${grpcHost}`);
   }
 
-  async registerNode(
-    sshPublicKey: string,
-    trainingId: string,
-  ): Promise<string> {
-    this.logger.debug('Registering SuperNode with SSH public key via CLI');
+  async registerNode(publicKeyBytes: Buffer): Promise<string> {
+    return new Promise((resolve, reject) => {
+      this.controlClient.registerNode(
+        { publicKey: new Uint8Array(publicKeyBytes) },
+        (error, response) => {
+          if (error) {
+            this.logger.error('Failed to register SuperNode', error);
+            reject(error);
+            return;
+          }
 
-    const tmpKeyPath = `/tmp/node-${Date.now()}.pub`;
-    const fedName = uuidToBase32(trainingId);
-    const pyProjectCmd = buildPyProject(fedName, 'localhost:9093');
+          if (!response || response.nodeId === undefined) {
+            reject(new Error('No nodeId returned from registerNode'));
+            return;
+          }
 
-    try {
-      await this.dockerService.execInContainer('superlink', [
-        'sh',
-        '-c',
-        `printf '%s\n' "${sshPublicKey}" > ${tmpKeyPath} && ${pyProjectCmd}`,
-      ]);
-
-      const cmd = `cd /app && flwr supernode register --format json ${tmpKeyPath} /tmp/flwr_${fedName} ${fedName}`;
-      const { stdout, stderr } = await this.dockerService.execInContainer(
-        'superlink',
-        ['sh', '-c', cmd],
+          this.logger.log(`SuperNode registered with ID ${response.nodeId}`);
+          resolve(response.nodeId);
+        },
       );
-
-      this.logger.debug(`CLI stdout: ${stdout}`);
-      if (stderr) {
-        this.logger.debug(`CLI stderr: ${stderr}`);
-      }
-
-      await this.dockerService.execInContainer('superlink', [
-        'sh',
-        '-c',
-        `rm -f ${tmpKeyPath} && rm -rf /tmp/flwr_${fedName}`,
-      ]);
-
-      try {
-        const parsed = JSON.parse(stdout) as {
-          nodeId?: string;
-          'node-id'?: string | number;
-        };
-        const nodeId = parsed.nodeId || String(parsed['node-id']);
-
-        if (!nodeId) {
-          throw new Error(`No node ID found in response: ${stdout}`);
-        }
-
-        this.logger.log(`SuperNode registered with ID ${nodeId}`);
-        return nodeId;
-      } catch {
-        const match = stdout.match(/ID:\s*(\d+)/m);
-        if (!match) {
-          throw new Error(`Unable to parse node ID from output: ${stdout}`);
-        }
-
-        const nodeId = match[1];
-        this.logger.log(`SuperNode registered with ID ${nodeId}`);
-        return nodeId;
-      }
-    } catch (error) {
-      this.logger.error('Failed to register SuperNode', error);
-      throw error;
-    }
+    });
   }
 
-  async deactivateNode(nodeId: number): Promise<void> {
+  async unregisterNode(nodeId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.fleetClient.deactivateNode({ nodeId: String(nodeId) }, (error) => {
+      this.controlClient.unregisterNode({ nodeId }, (error) => {
         if (error) {
+          this.logger.error('Failed to unregister node', error);
           reject(error);
         } else {
+          this.logger.log(`SuperNode ${nodeId} unregistered successfully`);
           resolve();
         }
       });
@@ -129,8 +77,8 @@ export class FlowerService implements OnModuleInit {
         content: new Uint8Array(options.fabContent),
         verifications: {},
       },
-      overrideConfig: {},
-      federation: 'default', //options.federation,
+      overrideConfig: {}, // options.overrideConfig,
+      federation: 'default', // options.federation,
       appSpec: '',
       federationOptions: undefined,
     };

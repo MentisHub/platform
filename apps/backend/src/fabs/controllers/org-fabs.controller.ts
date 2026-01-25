@@ -171,13 +171,10 @@ export class FabsController {
   })
   @ApiResponse({
     status: 404,
-    description: 'FAB or organization not found',
+    description: 'FAB not found',
   })
-  async findOne(
-    @Param('organizationId') organizationId: string,
-    @Param('fabId') fabId: string,
-  ): Promise<FabResponseDto> {
-    const fab = await this.fabsService.getFab(fabId, organizationId);
+  async findOne(@Param('fabId') fabId: string): Promise<FabResponseDto> {
+    const fab = await this.fabsService.getFabById(fabId);
     return FabResponseDto.fromEntity(fab);
   }
 
@@ -216,19 +213,18 @@ export class FabsController {
   })
   @ApiResponse({
     status: 404,
-    description: 'FAB or organization not found',
+    description: 'FAB not found',
   })
   @ApiResponse({
     status: 500,
     description: 'File download failed',
   })
   async download(
-    @Param('organizationId') organizationId: string,
     @Param('fabId') fabId: string,
     @Res() res: Response,
   ): Promise<void> {
-    const buffer = await this.fabsService.downloadFab(fabId, organizationId);
-    const fab = await this.fabsService.getFab(fabId, organizationId);
+    const fab = await this.fabsService.getFabById(fabId);
+    const buffer = await this.fabsService.downloadFabById(fabId);
 
     const filename = `${fab.publisherName}.${fab.name}.${fab.version}.${fab.fabHash}.fab`;
 

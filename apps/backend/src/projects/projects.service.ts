@@ -31,10 +31,9 @@ export class ProjectsService {
 
   async update(
     projectId: string,
-    organizationId: string,
     updateProjectDto: UpdateProjectDto,
   ): Promise<Project> {
-    const project = await this.getProject(projectId, organizationId);
+    const project = await this.getProjectById(projectId);
 
     return this.prisma.project.update({
       where: { id: project.id },
@@ -49,33 +48,12 @@ export class ProjectsService {
     });
   }
 
-  async remove(projectId: string, organizationId: string): Promise<void> {
-    const project = await this.getProject(projectId, organizationId);
+  async remove(projectId: string): Promise<void> {
+    const project = await this.getProjectById(projectId);
 
     await this.prisma.project.delete({
       where: { id: project.id },
     });
-  }
-
-  async getProject(
-    projectId: string,
-    organizationId: string,
-  ): Promise<Project> {
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: projectId,
-        organizationId,
-      },
-    });
-
-    if (!project) {
-      throw new NotFoundException({
-        code: ErrorCode.PROJECT_NOT_FOUND,
-        message: 'Project not found',
-      });
-    }
-
-    return project;
   }
 
   async getProjectById(projectId: string): Promise<Project> {
@@ -95,13 +73,9 @@ export class ProjectsService {
 
   async getProjectWithCA(
     projectId: string,
-    organizationId: string,
   ): Promise<Project & { organization: { ca: OrganizationCA | null } }> {
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: projectId,
-        organizationId,
-      },
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
       include: {
         organization: {
           include: {

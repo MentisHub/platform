@@ -168,18 +168,13 @@ export class OrgNodesController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Node or organization not found',
+    description: 'Node not found',
   })
   async update(
-    @Param('organizationId') organizationId: string,
     @Param('nodeId') nodeId: string,
     @Body() updateNodeDto: UpdateNodeDto,
   ): Promise<NodeResponseDto> {
-    const node = await this.nodesService.update(
-      organizationId,
-      nodeId,
-      updateNodeDto,
-    );
+    const node = await this.nodesService.update(nodeId, updateNodeDto);
     return NodeResponseDto.fromEntity(node);
   }
 
@@ -214,13 +209,10 @@ export class OrgNodesController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Node or organization not found',
+    description: 'Node not found',
   })
-  async findOne(
-    @Param('organizationId') organizationId: string,
-    @Param('nodeId') nodeId: string,
-  ): Promise<NodeResponseDto> {
-    const node = await this.nodesService.findById(organizationId, nodeId);
+  async findOne(@Param('nodeId') nodeId: string): Promise<NodeResponseDto> {
+    const node = await this.nodesService.findById(nodeId);
     return NodeResponseDto.fromEntity(node);
   }
 
@@ -255,12 +247,9 @@ export class OrgNodesController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Node or organization not found',
+    description: 'Node not found',
   })
-  async remove(
-    @Param('organizationId') organizationId: string,
-    @Param('nodeId') nodeId: string,
-  ): Promise<void> {
-    await this.nodesService.remove(organizationId, nodeId);
+  async remove(@Param('nodeId') nodeId: string): Promise<void> {
+    await this.nodesService.remove(nodeId);
   }
 }

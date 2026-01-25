@@ -28,8 +28,8 @@ import {
   PaginatedProjectsResponseDto,
   ProjectResponseDto,
   UpdateProjectDto,
-} from '../projects.dto';
-import { ProjectsService } from '../projects.service';
+} from './projects.dto';
+import { ProjectsService } from './projects.service';
 
 @ApiTags('projects')
 @ApiBearerAuth()
@@ -160,16 +160,12 @@ export class OrgProjectsController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Project or organization not found',
+    description: 'Project not found',
   })
   async findOne(
-    @Param('organizationId') organizationId: string,
     @Param('projectId') projectId: string,
   ): Promise<ProjectResponseDto> {
-    const project = await this.projectsService.getProject(
-      projectId,
-      organizationId,
-    );
+    const project = await this.projectsService.getProjectById(projectId);
     return ProjectResponseDto.fromEntity(project);
   }
 
@@ -208,16 +204,14 @@ export class OrgProjectsController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Project or organization not found',
+    description: 'Project not found',
   })
   async update(
-    @Param('organizationId') organizationId: string,
     @Param('projectId') projectId: string,
     @Body() updateProjectDto: UpdateProjectDto,
   ): Promise<ProjectResponseDto> {
     const project = await this.projectsService.update(
       projectId,
-      organizationId,
       updateProjectDto,
     );
     return ProjectResponseDto.fromEntity(project);
@@ -255,12 +249,9 @@ export class OrgProjectsController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Project or organization not found',
+    description: 'Project not found',
   })
-  async remove(
-    @Param('organizationId') organizationId: string,
-    @Param('projectId') projectId: string,
-  ): Promise<void> {
-    await this.projectsService.remove(projectId, organizationId);
+  async remove(@Param('projectId') projectId: string): Promise<void> {
+    await this.projectsService.remove(projectId);
   }
 }

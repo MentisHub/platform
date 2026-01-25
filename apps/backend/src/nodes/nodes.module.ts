@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { AuthorizationModule } from '../authorization/auth.module';
+import { DockerModule } from '../docker/docker.module';
 import { FlowerModule } from '../flower/flower.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ProjectsModule } from '../projects/projects.module';
@@ -17,6 +18,7 @@ import { NodesService } from './services/nodes.service';
     AuthorizationModule,
     FlowerModule,
     ProjectsModule,
+    DockerModule,
     forwardRef(() => TrainingModule),
   ],
   controllers: [OrgNodesController, NodesController],

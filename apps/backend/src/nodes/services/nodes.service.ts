@@ -40,7 +40,15 @@ export class NodesService {
     input: CreateNodeDto,
   ): Promise<{ node: Node; psk: string }> {
     if (input.projectId) {
-      await this.projectsService.getProject(input.projectId, organizationId);
+      const project = await this.projectsService.getProjectById(
+        input.projectId,
+      );
+      if (project.organizationId !== organizationId) {
+        throw new NotFoundException({
+          code: ErrorCode.PROJECT_NOT_FOUND,
+          message: 'Project not found',
+        });
+      }
     }
 
     const { psk, hash } = generatePSKWithHash();
@@ -106,12 +114,9 @@ export class NodesService {
     return { nodes, total };
   }
 
-  async findById(organizationId: string, nodeId: string): Promise<Node> {
-    const node = await this.prisma.node.findFirst({
-      where: {
-        id: nodeId,
-        organizationId,
-      },
+  async findById(nodeId: string): Promise<Node> {
+    const node = await this.prisma.node.findUnique({
+      where: { id: nodeId },
     });
 
     if (!node) {
@@ -124,15 +129,19 @@ export class NodesService {
     return node;
   }
 
-  async update(
-    organizationId: string,
-    nodeId: string,
-    input: UpdateNodeDto,
-  ): Promise<Node> {
-    const node = await this.findById(organizationId, nodeId);
+  async update(nodeId: string, input: UpdateNodeDto): Promise<Node> {
+    const node = await this.findById(nodeId);
 
     if (input.projectId) {
-      await this.projectsService.getProject(input.projectId, organizationId);
+      const project = await this.projectsService.getProjectById(
+        input.projectId,
+      );
+      if (project.organizationId !== node.organizationId) {
+        throw new NotFoundException({
+          code: ErrorCode.PROJECT_NOT_FOUND,
+          message: 'Project not found',
+        });
+      }
     }
 
     return this.prisma.node.update({
@@ -145,12 +154,9 @@ export class NodesService {
     });
   }
 
-  async remove(organizationId: string, nodeId: string): Promise<void> {
-    const node = await this.prisma.node.findFirst({
-      where: {
-        id: nodeId,
-        organizationId,
-      },
+  async remove(nodeId: string): Promise<void> {
+    const node = await this.prisma.node.findUnique({
+      where: { id: nodeId },
       include: {
         certificate: true,
         organization: {
@@ -193,10 +199,10 @@ export class NodesService {
 
     if (flowerNodeId) {
       try {
-        await this.flowerService.deactivateNode(Number(flowerNodeId));
+        await this.flowerService.unregisterNode(flowerNodeId);
       } catch (error) {
         this.logger.warn({
-          message: 'Failed to deactivate node from Flower',
+          message: 'Failed to unregister node from Flower',
           nodeId: node.id,
           flowerNodeId,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -298,7 +304,8 @@ export class NodesService {
     const trainingRunData =
       await this.runParticipantService.getActiveTrainingRunForNode(node.id);
 
-    const serialNumber = cert.serial_number.replace(/:/g, '').toLowerCase();
+    const originalSerial = cert.serial_number;
+    const serialNumber = originalSerial.replace(/:/g, '').toLowerCase();
     let flowerNodeId: string | undefined;
 
     try {
@@ -307,10 +314,9 @@ export class NodesService {
 
         if (trainingRunData && !trainingRunData.isServerApp) {
           try {
-            flowerNodeId = await this.flowerService.registerNode(
-              ecPublicKey,
-              trainingRunData.runId,
-            );
+            const publicKeyBuffer = Buffer.from(ecPublicKey, 'base64');
+            flowerNodeId =
+              await this.flowerService.registerNode(publicKeyBuffer);
             newStatus = 'ACTIVE';
           } catch (error) {
             this.logger.error({
@@ -363,7 +369,10 @@ export class NodesService {
 
       try {
         if (mountPath) {
-          await this.nodeCertService.revokeCertificate(mountPath, serialNumber);
+          await this.nodeCertService.revokeCertificate(
+            mountPath,
+            originalSerial,
+          );
         }
       } catch (revokeError) {
         this.logger.error({
@@ -378,14 +387,14 @@ export class NodesService {
 
       if (flowerNodeId) {
         try {
-          await this.flowerService.deactivateNode(Number(flowerNodeId));
-        } catch (deactivateError) {
+          await this.flowerService.unregisterNode(flowerNodeId);
+        } catch (unregisterError) {
           this.logger.error({
-            message: 'Failed to deactivate Flower node during rollback',
+            message: 'Failed to unregister Flower node during rollback',
             nodeId: node.id,
             error:
-              deactivateError instanceof Error
-                ? deactivateError.message
+              unregisterError instanceof Error
+                ? unregisterError.message
                 : 'Unknown error',
           });
         }

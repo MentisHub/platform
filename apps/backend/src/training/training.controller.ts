@@ -26,8 +26,8 @@ import {
   LinkNodeToTrainingResponse,
   StartTrainingResponseDto,
   TrainingRunResponseDto,
-} from '../training.dto';
-import { TrainingService } from '../services/training.service';
+} from './training.dto';
+import { TrainingService } from './services/training.service';
 
 @ApiTags('training')
 @ApiBearerAuth()
@@ -127,14 +127,12 @@ export class ProjTrainingController {
     description: 'Server deployment failed',
   })
   async deploy(
-    @Param('projectId') projectId: string,
     @Param('trainingId') trainingId: string,
     @CurrentUser() user: JwtPayload,
     @OrgMembership() orgMembership: OrganizationMembership,
   ): Promise<StartTrainingResponseDto> {
     const trainingRunUpdated = await this.trainingService.deployServerApp(
       orgMembership.organizationId,
-      projectId,
       trainingId,
       user.sub,
     );
@@ -181,13 +179,9 @@ export class ProjTrainingController {
     description: 'Project or training run not found',
   })
   async runTraining(
-    @Param('projectId') projectId: string,
     @Param('trainingId') trainingId: string,
   ): Promise<TrainingRunResponseDto> {
-    const trainingRun = await this.trainingService.runTraining(
-      projectId,
-      trainingId,
-    );
+    const trainingRun = await this.trainingService.runTraining(trainingId);
 
     return TrainingRunResponseDto.fromEntity(trainingRun);
   }
@@ -231,12 +225,10 @@ export class ProjTrainingController {
     description: 'Project, training run, or nodes not found',
   })
   async linkNodeToTraining(
-    @Param('projectId') projectId: string,
     @Param('trainingId') trainingId: string,
     @Body() input: LinkNodeToTrainingDto,
   ): Promise<LinkNodeToTrainingResponse> {
     const batch = await this.trainingService.linkNodeToTraining(
-      projectId,
       trainingId,
       input.nodesId,
     );
@@ -291,14 +283,9 @@ export class ProjTrainingController {
     description: 'Project, training run, or node not found',
   })
   async unlinkNodeFromTraining(
-    @Param('projectId') projectId: string,
     @Param('trainingId') trainingId: string,
     @Param('nodeId') nodeId: string,
   ): Promise<void> {
-    await this.trainingService.unlinkNodeFromTraining(
-      projectId,
-      trainingId,
-      nodeId,
-    );
+    await this.trainingService.unlinkNodeFromTraining(trainingId, nodeId);
   }
 }
