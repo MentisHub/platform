@@ -79,53 +79,6 @@ export const ClientAppIoService = {
     responseSerialize: (value: GetRunResponse): Buffer => Buffer.from(GetRunResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetRunResponse => GetRunResponse.decode(value),
   },
-  /** Pull client app inputs */
-  pullClientAppInputs: {
-    path: "/flwr.proto.ClientAppIo/PullClientAppInputs",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: PullAppInputsRequest): Buffer => Buffer.from(PullAppInputsRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): PullAppInputsRequest => PullAppInputsRequest.decode(value),
-    responseSerialize: (value: PullAppInputsResponse): Buffer =>
-      Buffer.from(PullAppInputsResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): PullAppInputsResponse => PullAppInputsResponse.decode(value),
-  },
-  /** Push client app outputs */
-  pushClientAppOutputs: {
-    path: "/flwr.proto.ClientAppIo/PushClientAppOutputs",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: PushAppOutputsRequest): Buffer =>
-      Buffer.from(PushAppOutputsRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): PushAppOutputsRequest => PushAppOutputsRequest.decode(value),
-    responseSerialize: (value: PushAppOutputsResponse): Buffer =>
-      Buffer.from(PushAppOutputsResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): PushAppOutputsResponse => PushAppOutputsResponse.decode(value),
-  },
-  /** Push Message */
-  pushMessage: {
-    path: "/flwr.proto.ClientAppIo/PushMessage",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: PushAppMessagesRequest): Buffer =>
-      Buffer.from(PushAppMessagesRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): PushAppMessagesRequest => PushAppMessagesRequest.decode(value),
-    responseSerialize: (value: PushAppMessagesResponse): Buffer =>
-      Buffer.from(PushAppMessagesResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): PushAppMessagesResponse => PushAppMessagesResponse.decode(value),
-  },
-  /** Pull Message */
-  pullMessage: {
-    path: "/flwr.proto.ClientAppIo/PullMessage",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: PullAppMessagesRequest): Buffer =>
-      Buffer.from(PullAppMessagesRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): PullAppMessagesRequest => PullAppMessagesRequest.decode(value),
-    responseSerialize: (value: PullAppMessagesResponse): Buffer =>
-      Buffer.from(PullAppMessagesResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): PullAppMessagesResponse => PullAppMessagesResponse.decode(value),
-  },
   /** App heartbeat */
   sendAppHeartbeat: {
     path: "/flwr.proto.ClientAppIo/SendAppHeartbeat",
@@ -137,6 +90,29 @@ export const ClientAppIoService = {
     responseSerialize: (value: SendAppHeartbeatResponse): Buffer =>
       Buffer.from(SendAppHeartbeatResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): SendAppHeartbeatResponse => SendAppHeartbeatResponse.decode(value),
+  },
+  /** Pull app inputs */
+  pullAppInputs: {
+    path: "/flwr.proto.ClientAppIo/PullAppInputs",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: PullAppInputsRequest): Buffer => Buffer.from(PullAppInputsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PullAppInputsRequest => PullAppInputsRequest.decode(value),
+    responseSerialize: (value: PullAppInputsResponse): Buffer =>
+      Buffer.from(PullAppInputsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PullAppInputsResponse => PullAppInputsResponse.decode(value),
+  },
+  /** Push app outputs */
+  pushAppOutputs: {
+    path: "/flwr.proto.ClientAppIo/PushAppOutputs",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: PushAppOutputsRequest): Buffer =>
+      Buffer.from(PushAppOutputsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PushAppOutputsRequest => PushAppOutputsRequest.decode(value),
+    responseSerialize: (value: PushAppOutputsResponse): Buffer =>
+      Buffer.from(PushAppOutputsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PushAppOutputsResponse => PushAppOutputsResponse.decode(value),
   },
   /** Push Object */
   pushObject: {
@@ -171,6 +147,30 @@ export const ClientAppIoService = {
     responseDeserialize: (value: Buffer): ConfirmMessageReceivedResponse =>
       ConfirmMessageReceivedResponse.decode(value),
   },
+  /** Push Message */
+  pushMessage: {
+    path: "/flwr.proto.ClientAppIo/PushMessage",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: PushAppMessagesRequest): Buffer =>
+      Buffer.from(PushAppMessagesRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PushAppMessagesRequest => PushAppMessagesRequest.decode(value),
+    responseSerialize: (value: PushAppMessagesResponse): Buffer =>
+      Buffer.from(PushAppMessagesResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PushAppMessagesResponse => PushAppMessagesResponse.decode(value),
+  },
+  /** Pull Message */
+  pullMessage: {
+    path: "/flwr.proto.ClientAppIo/PullMessage",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: PullAppMessagesRequest): Buffer =>
+      Buffer.from(PullAppMessagesRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PullAppMessagesRequest => PullAppMessagesRequest.decode(value),
+    responseSerialize: (value: PullAppMessagesResponse): Buffer =>
+      Buffer.from(PullAppMessagesResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PullAppMessagesResponse => PullAppMessagesResponse.decode(value),
+  },
 } as const;
 
 export interface ClientAppIoServer extends UntypedServiceImplementation {
@@ -180,22 +180,22 @@ export interface ClientAppIoServer extends UntypedServiceImplementation {
   requestToken: handleUnaryCall<RequestTokenRequest, RequestTokenResponse>;
   /** Get run details */
   getRun: handleUnaryCall<GetRunRequest, GetRunResponse>;
-  /** Pull client app inputs */
-  pullClientAppInputs: handleUnaryCall<PullAppInputsRequest, PullAppInputsResponse>;
-  /** Push client app outputs */
-  pushClientAppOutputs: handleUnaryCall<PushAppOutputsRequest, PushAppOutputsResponse>;
-  /** Push Message */
-  pushMessage: handleUnaryCall<PushAppMessagesRequest, PushAppMessagesResponse>;
-  /** Pull Message */
-  pullMessage: handleUnaryCall<PullAppMessagesRequest, PullAppMessagesResponse>;
   /** App heartbeat */
   sendAppHeartbeat: handleUnaryCall<SendAppHeartbeatRequest, SendAppHeartbeatResponse>;
+  /** Pull app inputs */
+  pullAppInputs: handleUnaryCall<PullAppInputsRequest, PullAppInputsResponse>;
+  /** Push app outputs */
+  pushAppOutputs: handleUnaryCall<PushAppOutputsRequest, PushAppOutputsResponse>;
   /** Push Object */
   pushObject: handleUnaryCall<PushObjectRequest, PushObjectResponse>;
   /** Pull Object */
   pullObject: handleUnaryCall<PullObjectRequest, PullObjectResponse>;
   /** Confirm Message Received */
   confirmMessageReceived: handleUnaryCall<ConfirmMessageReceivedRequest, ConfirmMessageReceivedResponse>;
+  /** Push Message */
+  pushMessage: handleUnaryCall<PushAppMessagesRequest, PushAppMessagesResponse>;
+  /** Pull Message */
+  pullMessage: handleUnaryCall<PullAppMessagesRequest, PullAppMessagesResponse>;
 }
 
 export interface ClientAppIoClient extends Client {
@@ -247,70 +247,6 @@ export interface ClientAppIoClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetRunResponse) => void,
   ): ClientUnaryCall;
-  /** Pull client app inputs */
-  pullClientAppInputs(
-    request: PullAppInputsRequest,
-    callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
-  ): ClientUnaryCall;
-  pullClientAppInputs(
-    request: PullAppInputsRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
-  ): ClientUnaryCall;
-  pullClientAppInputs(
-    request: PullAppInputsRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
-  ): ClientUnaryCall;
-  /** Push client app outputs */
-  pushClientAppOutputs(
-    request: PushAppOutputsRequest,
-    callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
-  ): ClientUnaryCall;
-  pushClientAppOutputs(
-    request: PushAppOutputsRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
-  ): ClientUnaryCall;
-  pushClientAppOutputs(
-    request: PushAppOutputsRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
-  ): ClientUnaryCall;
-  /** Push Message */
-  pushMessage(
-    request: PushAppMessagesRequest,
-    callback: (error: ServiceError | null, response: PushAppMessagesResponse) => void,
-  ): ClientUnaryCall;
-  pushMessage(
-    request: PushAppMessagesRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: PushAppMessagesResponse) => void,
-  ): ClientUnaryCall;
-  pushMessage(
-    request: PushAppMessagesRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: PushAppMessagesResponse) => void,
-  ): ClientUnaryCall;
-  /** Pull Message */
-  pullMessage(
-    request: PullAppMessagesRequest,
-    callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
-  ): ClientUnaryCall;
-  pullMessage(
-    request: PullAppMessagesRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
-  ): ClientUnaryCall;
-  pullMessage(
-    request: PullAppMessagesRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
-  ): ClientUnaryCall;
   /** App heartbeat */
   sendAppHeartbeat(
     request: SendAppHeartbeatRequest,
@@ -326,6 +262,38 @@ export interface ClientAppIoClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: SendAppHeartbeatResponse) => void,
+  ): ClientUnaryCall;
+  /** Pull app inputs */
+  pullAppInputs(
+    request: PullAppInputsRequest,
+    callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
+  ): ClientUnaryCall;
+  pullAppInputs(
+    request: PullAppInputsRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
+  ): ClientUnaryCall;
+  pullAppInputs(
+    request: PullAppInputsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
+  ): ClientUnaryCall;
+  /** Push app outputs */
+  pushAppOutputs(
+    request: PushAppOutputsRequest,
+    callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
+  ): ClientUnaryCall;
+  pushAppOutputs(
+    request: PushAppOutputsRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
+  ): ClientUnaryCall;
+  pushAppOutputs(
+    request: PushAppOutputsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
   ): ClientUnaryCall;
   /** Push Object */
   pushObject(
@@ -374,6 +342,38 @@ export interface ClientAppIoClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: ConfirmMessageReceivedResponse) => void,
+  ): ClientUnaryCall;
+  /** Push Message */
+  pushMessage(
+    request: PushAppMessagesRequest,
+    callback: (error: ServiceError | null, response: PushAppMessagesResponse) => void,
+  ): ClientUnaryCall;
+  pushMessage(
+    request: PushAppMessagesRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: PushAppMessagesResponse) => void,
+  ): ClientUnaryCall;
+  pushMessage(
+    request: PushAppMessagesRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: PushAppMessagesResponse) => void,
+  ): ClientUnaryCall;
+  /** Pull Message */
+  pullMessage(
+    request: PullAppMessagesRequest,
+    callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
+  ): ClientUnaryCall;
+  pullMessage(
+    request: PullAppMessagesRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
+  ): ClientUnaryCall;
+  pullMessage(
+    request: PullAppMessagesRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
   ): ClientUnaryCall;
 }
 

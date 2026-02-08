@@ -1,24 +1,46 @@
 model Node {
-  id             String     @id
+  id             String     @id @default(uuid()) @db.Uuid
   name           String     @db.VarChar(255)
   status         NodeStatus @default(CREATED)
+  flowerNodeId   String?    @unique @map("flower_node_id")
   metadata       Json?
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
+  ecPublicKey    String?    @map("ec_public_key")
   organizationId String     @map("organization_id") @db.Uuid
   projectId      String?    @map("project_id") @db.Uuid
   createdById    String     @map("created_by_id") @db.Uuid
 
+  pskHash      String?   @map("token_hash")
+  activatedAt  DateTime? @map("activated_at")
+  lastActiveAt DateTime? @map("last_seen_at")
+
   createdBy           User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  certificate         NodeCertificate?
   organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project             Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
   roundParticipations RoundParticipant[]
   runParticipations   RunParticipant[]
   trainingRuns        TrainingRun[]
+  refreshTokens       NodeRefreshToken[]
 
   @@index([organizationId])
   @@map("nodes")
+  @@schema("platform")
+}
+
+model NodeRefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  token     String    @unique
+  nodeId    String    @map("node_id") @db.Uuid
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId])
+  @@index([token])
+  @@map("node_refresh_tokens")
   @@schema("platform")
 }
 
@@ -33,10 +55,11 @@ model TrainingRun {
   flowerRunId   String?          @map("flower_run_id")
   configuration Json?
   createdById   String           @map("created_by_id") @db.Uuid
+  metrics       Json?            // Stores final metrics like loss, accuracy, etc.
   artifacts     Artifact[]
   rounds        Round[]
   participants  RunParticipant[]
-  serverAppId   String?          @map("serverapp_id")
+  serverAppId   String?          @map("serverapp_id") @db.Uuid
   serverAppNode Node?            @relation(fields: [serverAppId], references: [id], onDelete: SetNull)
   fab           Fab?             @relation(fields: [fabId], references: [id], onDelete: SetNull)
   project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -49,13 +72,16 @@ model TrainingRun {
 }
 
 model Round {
-  id           String             @id @default(uuid()) @db.Uuid
-  number       Int
-  startedAt    DateTime           @default(now()) @map("started_at")
-  completedAt  DateTime?          @map("completed_at")
-  runId        String             @map("run_id") @db.Uuid
-  participants RoundParticipant[]
-  run          TrainingRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  id                     String             @id @default(uuid()) @db.Uuid
+  number                 Int
+  startedAt              DateTime           @default(now()) @map("started_at")
+  completedAt            DateTime?          @map("completed_at")
+  totalParticipants      Int?               @map("total_participants")
+  successfulParticipants Int?               @map("successful_participants")
+  metrics                Json?              // Stores aggregated metrics like loss, accuracy, etc.
+  runId                  String             @map("run_id") @db.Uuid
+  participants           RoundParticipant[]
+  run                    TrainingRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@unique([runId, number])
   @@map("rounds")
@@ -64,9 +90,9 @@ model Round {
 
 model RunParticipant {
   joinedAt DateTime    @default(now()) @map("joined_at")
-  endedAt  DateTime?
+  endedAt  DateTime?   @map("ended_at")
   runId    String      @map("run_id") @db.Uuid
-  nodeId   String      @map("node_id")
+  nodeId   String      @map("node_id") @db.Uuid
   node     Node        @relation(fields: [nodeId], references: [id], onDelete: Restrict)
   run      TrainingRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
@@ -76,12 +102,14 @@ model RunParticipant {
 }
 
 model RoundParticipant {
-  participated  Boolean @default(true)
-  failureReason String? @map("failure_reason") @db.VarChar(500)
-  roundId       String  @map("round_id") @db.Uuid
-  nodeId        String  @map("node_id")
-  node          Node    @relation(fields: [nodeId], references: [id], onDelete: Restrict)
-  round         Round   @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  failureReason String?   @map("failure_reason") @db.VarChar(500)
+  startedAt     DateTime? @default(now()) @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  metrics       Json?     // Stores per-node metrics (fit: train_loss, train_accuracy; evaluate: loss, accuracy, num_examples, etc.)
+  roundId       String    @map("round_id") @db.Uuid
+  nodeId        String    @map("node_id") @db.Uuid
+  node          Node      @relation(fields: [nodeId], references: [id], onDelete: Restrict)
+  round         Round     @relation(fields: [roundId], references: [id], onDelete: Cascade)
 
   @@id([roundId, nodeId])
   @@map("round_participants")
@@ -103,23 +131,25 @@ model Artifact {
 }
 
 enum TrainingStatus {
-  PENDING   // Training created, waiting for ServerApp deployment
+  PENDING // Training created, waiting for ServerApp deployment
   DEPLOYING // ServerApp container is being deployed
-  READY     // ServerApp deployed successfully, waiting to start execution
-  RUNNING   // Training is actively running
-  PAUSED    // Training execution paused (reserved for future use)
-  FAILED    // Training failed during execution
+  READY // ServerApp deployed successfully, waiting to start execution
+  RUNNING // Training is actively running
+  PAUSED // Training execution paused (reserved for future use)
+  COMPLETED // Training finished successfully
+  FAILED // Training failed during execution
   CANCELLED // Training was manually cancelled
 
   @@schema("platform")
 }
 
 enum NodeStatus {
-  CREATED  // Node just created, waiting for bootstrap (certificate issuance)
-  READY    // Node has valid certificate and is ready to participate in training
-  ACTIVE   // Node is currently participating in an active training run
-  ERROR    // Node encountered an error (e.g., certificate issues, connection problems)
-  OFFLINE  // Node is disconnected or unreachable
+  CREATED // Node just created, waiting for bootstrap (certificate issuance)
+  INITIALIZING // Node activated, downloading FAB and installing dependencies
+  READY // Node has valid certificate and is ready to participate in training
+  ACTIVE // Node is currently participating in an active training run
+  ERROR // Node encountered an error (e.g., certificate issues, connection problems)
+  OFFLINE // Node is disconnected or unreachable
 
   @@schema("platform")
 }

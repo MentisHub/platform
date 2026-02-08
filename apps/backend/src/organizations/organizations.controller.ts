@@ -18,8 +18,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ListOrganizationsQuery } from '@platform/contracts';
-import { CurrentUser } from 'src/authentication/decorators/current-user.decorator';
-import { JwtPayload } from 'src/authentication/interfaces/jwt-payload.interface';
+import { UserPayload } from 'src/authentication/decorators/user.decorator';
+import { UserPayloadData } from 'src/authentication/interfaces/payload.interface';
 import {
   CreateOrganizationDto,
   OrganizationResponseDto,
@@ -55,10 +55,10 @@ export class OrganizationsController {
   })
   async create(
     @Body() createOrganizationDto: CreateOrganizationDto,
-    @CurrentUser() jwtPayload: JwtPayload,
+    @UserPayload() userPayload: UserPayloadData,
   ): Promise<OrganizationResponseDto> {
     const organization = await this.organizationsService.create(
-      jwtPayload.sub,
+      userPayload.sub,
       createOrganizationDto,
     );
 
@@ -82,7 +82,7 @@ export class OrganizationsController {
   })
   async findAll(
     @Query() query: ListOrganizationsQuery,
-    @CurrentUser() user: JwtPayload,
+    @UserPayload() user: UserPayloadData,
   ): Promise<PaginatedOrganizationsResponseDto> {
     const organizations = await this.organizationsService.findAll(
       user.sub,

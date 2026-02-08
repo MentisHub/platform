@@ -33,11 +33,12 @@ export async function seedNodes(
         ];
 
         const status = faker.helpers.arrayElement(statusDistribution);
+        const { hash } = generatePSKWithHash();
 
         return prisma.node.create({
           data: {
             name: `node-${faker.string.alphanumeric(8)}`,
-            id: generatePSKWithHash().hash,
+            pskHash: hash,
             status,
             metadata: {
               cpu: faker.number.int({ min: 2, max: 32 }),

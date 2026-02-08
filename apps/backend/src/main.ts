@@ -1,29 +1,12 @@
-import { HttpsOptions } from '@nestjs/common/interfaces/external/https-options.interface';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import * as fs from 'fs';
 import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { initTracing } from 'src/config/tracing';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const configService = new ConfigService();
-
-  const httpsOptions: HttpsOptions = {};
-  const certPath = configService.get<string>('BACKEND_CERT_PATH');
-  const keyPath = configService.get<string>('BACKEND_KEY_PATH');
-  const caPath = configService.get<string>('BACKEND_CA_PATH');
-
-  if (certPath && keyPath && caPath) {
-    httpsOptions.key = fs.readFileSync(keyPath);
-    httpsOptions.cert = fs.readFileSync(certPath);
-    httpsOptions.ca = fs.readFileSync(caPath);
-    httpsOptions.requestCert = true;
-    httpsOptions.rejectUnauthorized = false; // Allow connections without certs (for browser/API access)
-  }
-
-  const app = await NestFactory.create(AppModule, { httpsOptions });
+  const app = await NestFactory.create(AppModule);
 
   const appConfigService = app.get(ConfigService);
 
@@ -31,13 +14,7 @@ async function bootstrap() {
   const serviceName = appConfigService.get<string>('OTEL_SERVICE_NAME');
 
   if (otelUrl && serviceName) {
-    initTracing({
-      otelUrl,
-      serviceName,
-      certPath: appConfigService.get<string>('BACKEND_CERT_PATH'),
-      keyPath: appConfigService.get<string>('BACKEND_KEY_PATH'),
-      caPath: appConfigService.get<string>('BACKEND_CA_PATH'),
-    });
+    initTracing({ otelUrl, serviceName });
   }
 
   const config = new DocumentBuilder()

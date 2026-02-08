@@ -38,9 +38,7 @@ export class RunParticipantService {
     });
   }
 
-  async getActiveTrainingRunForNode(
-    nodeId: string,
-  ): Promise<{ runId: string; isServerApp: boolean } | null> {
+  async getActiveTrainingRunForNode(nodeId: string) {
     const runParticipant = await this.prisma.runParticipant.findFirst({
       where: {
         nodeId,
@@ -55,6 +53,14 @@ export class RunParticipantService {
         run: {
           select: {
             serverAppId: true,
+            fab: {
+              select: {
+                publisherName: true,
+                name: true,
+                version: true,
+                fabHash: true,
+              },
+            },
           },
         },
       },
@@ -67,6 +73,7 @@ export class RunParticipantService {
     return {
       runId: runParticipant.runId,
       isServerApp: runParticipant.run.serverAppId === nodeId,
+      fab: runParticipant.run.fab || undefined,
     };
   }
 

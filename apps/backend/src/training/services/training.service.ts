@@ -13,7 +13,7 @@ import { NodesService } from 'src/nodes/services/nodes.service';
 import { uuidToBase32 } from 'src/utils';
 import { DockerService } from '../../docker/docker.service';
 import { FabsService } from '../../fabs/fabs.service';
-import { FlowerService } from '../../flower/flower.service';
+import { FlowerService } from '../../flower/services/flower.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProjectsService } from '../../projects/projects.service';
 import { RunParticipantService } from './run-participant.service';
@@ -40,7 +40,7 @@ export class TrainingService {
     userId: string,
     fabId: string,
   ): Promise<TrainingRun> {
-    await this.projectsService.getProjectWithCA(projectId);
+    await this.projectsService.getProjectById(projectId);
     await this.fabsService.getFab(fabId, organizationId);
 
     return this.prisma.trainingRun.create({
@@ -66,12 +66,6 @@ export class TrainingService {
         message: 'Training run must be in PENDING status to deploy ServerApp',
       });
     }
-
-    this.logger.log({
-      message: 'Starting ServerApp deployment',
-      trainingRunId,
-      projectId: trainingRun.projectId,
-    });
 
     await this.update(trainingRunId, {
       status: 'DEPLOYING',
@@ -128,7 +122,6 @@ export class TrainingService {
 
       return updatedTrainingRun;
     } catch (error) {
-      // Rollback: Clean up all created resources
       this.logger.error({
         message: 'ServerApp deployment failed, rolling back',
         trainingRunId,
@@ -137,7 +130,6 @@ export class TrainingService {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
 
-      // Stop and remove container if it was started
       if (containerName) {
         try {
           await this.dockerService.stopSuperExecContainer(containerName);
@@ -156,7 +148,6 @@ export class TrainingService {
         }
       }
 
-      // Remove run participant if created
       if (nodeId) {
         try {
           await this.runParticipantService.removeParticipant(
@@ -179,7 +170,6 @@ export class TrainingService {
           });
         }
 
-        // Delete the node
         try {
           await this.nodesService.remove(nodeId);
           this.logger.log({
@@ -241,9 +231,27 @@ export class TrainingService {
     const participants =
       await this.runParticipantService.getParticipantsByRun(trainingRunId);
 
-    const readyNodes = participants.filter(
-      (p) => p.node.status === 'READY' || p.node.status === 'ACTIVE',
+    const initializingNodes = participants.filter(
+      (p) => p.node.status === 'INITIALIZING',
     );
+
+    if (initializingNodes.length > 0) {
+      throw new BadRequestException({
+        code: ErrorCode.NODES_NOT_READY,
+        message: `${initializingNodes.length} node(s) still initializing. Wait for FAB installation to complete.`,
+      });
+    }
+
+    const activeNodes = participants.filter((p) => p.node.status === 'ACTIVE');
+
+    if (activeNodes.length > 0) {
+      throw new BadRequestException({
+        code: ErrorCode.NODES_ALREADY_ACTIVE,
+        message: `${activeNodes.length} node(s) already participating in active training. Complete or stop current training first.`,
+      });
+    }
+
+    const readyNodes = participants.filter((p) => p.node.status === 'READY');
 
     if (readyNodes.length === 0) {
       throw new BadRequestException('No ready nodes available for training');
@@ -262,6 +270,19 @@ export class TrainingService {
       fabContent,
       overrideConfig: config ?? undefined,
       federation: uuidToBase32(trainingRunId),
+    });
+
+    // Transition participating nodes from READY to ACTIVE
+    await Promise.all(
+      readyNodes.map((p) =>
+        this.nodesService.updateNodeStatus(p.node.id, 'ACTIVE'),
+      ),
+    );
+
+    this.logger.log({
+      message: 'Training started, nodes marked as ACTIVE',
+      trainingRunId,
+      nodeIds: readyNodes.map((p) => p.node.id),
     });
 
     const updatedTrainingRun = await this.update(trainingRunId, {
@@ -351,6 +372,12 @@ export class TrainingService {
     return this.prisma.trainingRun.update({
       where: { id: trainingRunId },
       data: updateData,
+    });
+  }
+
+  async getRunByFlowerId(runId: string) {
+    return this.prisma.trainingRun.findFirst({
+      where: { flowerRunId: runId },
     });
   }
 }

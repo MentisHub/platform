@@ -1,24 +1,35 @@
 import {
-  Inject,
   Injectable,
   Logger,
   NotFoundException,
   UnauthorizedException,
-  forwardRef,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ErrorCode } from '@platform/contracts';
 import { Node, Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
+import * as fs from 'fs';
+import { AuthenticationService } from 'src/authentication/auth.service';
 import { DockerService } from '../../docker/docker.service';
-import { FlowerService } from '../../flower/flower.service';
+import { FlowerService } from '../../flower/services/flower.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProjectsService } from '../../projects/projects.service';
 import { RunParticipantService } from '../../training/services/run-participant.service';
-import { generatePSKWithHash, hashPSK, uuidToBase32 } from '../../utils';
-import type { PKIIssueCertificateResponse } from '../../vault/types/pki';
-import { CreateNodeDto, ListNodesQueryDto, UpdateNodeDto } from '../nodes.dto';
+import {
+  base32ToUuid,
+  generatePSKWithHash,
+  uuidToBase32,
+  validatePSK,
+} from '../../utils';
+import {
+  CreateNodeDto,
+  HeartbeatResponseDto,
+  ListNodesQueryDto,
+  UpdateNodeDto,
+} from '../nodes.dto';
 import { NodeCertificateBundle } from '../nodes.interface';
-import { NodeCertificateService } from './node-cert.service';
+import { NodeRefreshTokenService } from './refresh-token.service';
+import { NodeSignatureService } from './signature.service';
 
 @Injectable()
 export class NodesService {
@@ -28,10 +39,12 @@ export class NodesService {
     private readonly prisma: PrismaService,
     private readonly flowerService: FlowerService,
     private readonly projectsService: ProjectsService,
-    private readonly nodeCertService: NodeCertificateService,
     private readonly runParticipantService: RunParticipantService,
-    @Inject(forwardRef(() => DockerService))
+    private readonly configService: ConfigService,
     private readonly dockerService: DockerService,
+    private readonly authService: AuthenticationService,
+    private readonly refreshTokenService: NodeRefreshTokenService,
+    private readonly signatureService: NodeSignatureService,
   ) {}
 
   async create(
@@ -55,15 +68,15 @@ export class NodesService {
     const node = await this.prisma.node.create({
       data: {
         name: input.name || `node-${randomBytes(4).toString('hex')}`,
-        id: hash,
         metadata: input.metadata,
+        pskHash: hash,
         organizationId,
         projectId: input.projectId,
         createdById: userId,
       },
     });
 
-    return { node, psk: `${uuidToBase32(organizationId)}.${psk}` };
+    return { node, psk: `${uuidToBase32(node.id)}.${psk}` };
   }
 
   async findAll(
@@ -157,14 +170,6 @@ export class NodesService {
   async remove(nodeId: string): Promise<void> {
     const node = await this.prisma.node.findUnique({
       where: { id: nodeId },
-      include: {
-        certificate: true,
-        organization: {
-          include: {
-            ca: true,
-          },
-        },
-      },
     });
 
     if (!node) {
@@ -178,10 +183,6 @@ export class NodesService {
     const containerName =
       metadata && typeof metadata.containerName === 'string'
         ? metadata.containerName
-        : null;
-    const flowerNodeId =
-      metadata && typeof metadata.flowerNodeId === 'string'
-        ? metadata.flowerNodeId
         : null;
 
     if (containerName) {
@@ -197,30 +198,14 @@ export class NodesService {
       }
     }
 
-    if (flowerNodeId) {
+    if (node.flowerNodeId) {
       try {
-        await this.flowerService.unregisterNode(flowerNodeId);
+        await this.flowerService.unregisterNode(node.flowerNodeId);
       } catch (error) {
         this.logger.warn({
           message: 'Failed to unregister node from Flower',
           nodeId: node.id,
-          flowerNodeId,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-    }
-
-    if (node.certificate && node.organization.ca) {
-      try {
-        await this.nodeCertService.revokeCertificate(
-          node.organization.ca.vaultMountPath,
-          node.certificate.serialNumber,
-        );
-      } catch (error) {
-        this.logger.warn({
-          message: 'Failed to revoke certificate',
-          nodeId: node.id,
-          serialNumber: node.certificate.serialNumber,
+          flowerNodeId: node.flowerNodeId,
           error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
@@ -231,7 +216,13 @@ export class NodesService {
 
   async updateNodeStatus(
     nodeId: string,
-    newStatus: 'CREATED' | 'READY' | 'ACTIVE' | 'ERROR' | 'OFFLINE',
+    newStatus:
+      | 'CREATED'
+      | 'INITIALIZING'
+      | 'READY'
+      | 'ACTIVE'
+      | 'ERROR'
+      | 'OFFLINE',
   ): Promise<Node> {
     const node = await this.prisma.node.findUnique({
       where: { id: nodeId },
@@ -253,172 +244,229 @@ export class NodesService {
     return updatedNode;
   }
 
-  async bootstrap(
+  async activate(
     psk: string,
-    csr: string,
     ecPublicKey: string,
   ): Promise<NodeCertificateBundle> {
     const pskParts = psk.split('.');
-    const actualPsk = pskParts.length === 2 ? pskParts[1] : psk;
-    const pskHash = hashPSK(actualPsk);
+    if (pskParts.length !== 2) {
+      throw new UnauthorizedException({
+        code: ErrorCode.INVALID_NODE_CREDENTIALS,
+        message: 'Invalid PSK format',
+      });
+    }
 
-    const node = await this.prisma.node.findFirst({
-      where: {
-        id: pskHash,
-        certificate: null,
-      },
-      include: {
-        organization: {
-          include: {
-            ca: true,
-          },
-        },
-      },
+    const nodeId = base32ToUuid(pskParts[0]);
+    const pskSecret = pskParts[1];
+
+    const node = await this.prisma.node.findUnique({
+      where: { id: nodeId },
     });
 
     if (!node) {
       throw new UnauthorizedException({
         code: ErrorCode.INVALID_NODE_CREDENTIALS,
-        message: 'Node not found or PSK already in use',
+        message: 'Node not found',
       });
     }
 
-    let cert: PKIIssueCertificateResponse;
-    let rootCa: string;
-    let mountPath: string | undefined;
-
-    try {
-      const certData = await this.nodeCertService.issueCertificate(node, csr);
-      cert = certData.cert;
-      rootCa = certData.rootCa;
-      mountPath = certData.mountPath;
-    } catch (error) {
-      this.logger.error({
-        message: 'Failed to issue certificate during bootstrap',
-        nodeId: node.id,
-        error: error instanceof Error ? error.message : 'Unknown error',
+    if (!node.pskHash || !validatePSK(pskSecret, node.pskHash)) {
+      throw new UnauthorizedException({
+        code: ErrorCode.INVALID_NODE_CREDENTIALS,
+        message: 'Invalid PSK',
       });
-      throw error;
     }
 
+    if (node.activatedAt) {
+      throw new UnauthorizedException({
+        code: ErrorCode.INVALID_NODE_CREDENTIALS,
+        message: 'PSK already used',
+      });
+    }
     const trainingRunData =
       await this.runParticipantService.getActiveTrainingRunForNode(node.id);
-
-    const originalSerial = cert.serial_number;
-    const serialNumber = originalSerial.replace(/:/g, '').toLowerCase();
     let flowerNodeId: string | undefined;
-
-    try {
-      await this.prisma.$transaction(async (tx) => {
-        let newStatus: 'READY' | 'ACTIVE' = 'READY';
-
-        if (trainingRunData && !trainingRunData.isServerApp) {
-          try {
-            const publicKeyBuffer = Buffer.from(ecPublicKey, 'base64');
-            flowerNodeId =
-              await this.flowerService.registerNode(publicKeyBuffer);
-            newStatus = 'ACTIVE';
-          } catch (error) {
-            this.logger.error({
-              message: 'Failed to register node with Flower',
-              nodeId: node.id,
-              error: error instanceof Error ? error.message : 'Unknown error',
-            });
-            throw error;
-          }
-        }
-
-        await this.nodeCertService.create(
-          {
-            node: { connect: { id: node.id } },
-            serialNumber,
-            issuedAt: new Date(),
-            expiresAt: new Date(cert.expiration * 1000),
-            revokedAt: null,
-          },
-          tx,
-        );
-
-        await tx.node.update({
-          where: { id: node.id },
-          data: {
-            status: newStatus,
-            ...(flowerNodeId && {
-              metadata: {
-                ...(node.metadata as object),
-                flowerNodeId,
-              },
-            }),
-          },
-        });
-
-        this.logger.log({
-          message: 'Node bootstrap completed',
-          nodeId: node.id,
-          nodeName: node.name,
-          status: newStatus,
-          hasFlowerNodeId: !!flowerNodeId,
-        });
-      });
-    } catch (error) {
-      this.logger.error({
-        message: 'Transaction failed during bootstrap, rolling back',
-        nodeId: node.id,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
+    if (trainingRunData && !trainingRunData.isServerApp) {
       try {
-        if (mountPath) {
-          await this.nodeCertService.revokeCertificate(
-            mountPath,
-            originalSerial,
-          );
-        }
-      } catch (revokeError) {
+        const pemPublicKey = Buffer.from(ecPublicKey, 'base64').toString(
+          'utf-8',
+        );
+        const publicKeyBuffer = Buffer.from(pemPublicKey, 'utf-8');
+
+        flowerNodeId = await this.flowerService.registerNode(publicKeyBuffer);
+      } catch (error) {
         this.logger.error({
-          message: 'Failed to revoke certificate during rollback',
+          message: 'Failed to register node with Flower',
           nodeId: node.id,
-          error:
-            revokeError instanceof Error
-              ? revokeError.message
-              : 'Unknown error',
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
+    }
 
-      if (flowerNodeId) {
-        try {
-          await this.flowerService.unregisterNode(flowerNodeId);
-        } catch (unregisterError) {
-          this.logger.error({
-            message: 'Failed to unregister Flower node during rollback',
-            nodeId: node.id,
-            error:
-              unregisterError instanceof Error
-                ? unregisterError.message
-                : 'Unknown error',
-          });
-        }
-      }
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
 
-      throw error;
+    const accessToken = await this.authService.generateToken(
+      {
+        sub: node.id,
+      },
+      '15m',
+      'RS256',
+    );
+
+    const refreshToken = await this.refreshTokenService.create(node.id, 30);
+
+    await this.prisma.node.update({
+      where: { id: node.id },
+      data: {
+        status: 'INITIALIZING',
+        flowerNodeId,
+        ecPublicKey,
+        activatedAt: new Date(),
+        lastActiveAt: new Date(),
+      },
+    });
+
+    const caPath = this.configService.getOrThrow<string>('BACKEND_CA_PATH');
+    let rootCa: string;
+    try {
+      rootCa = fs.readFileSync(caPath, 'utf8');
+    } catch (error) {
+      this.logger.error(`Failed to read Root CA from ${caPath}`, error);
+      rootCa = '';
     }
 
     return {
-      certificate: cert.certificate,
-      issuingCa: cert.issuing_ca,
-      caChain: cert.ca_chain,
-      serialNumber: cert.serial_number,
-      expiration: cert.expiration,
       rootCa,
+      nodeId: flowerNodeId,
+      accessToken,
+      refreshToken,
+      expiresAt,
     };
   }
 
-  async renewCertificate(
-    certificateSerial: string,
-    csr: string,
-  ): Promise<NodeCertificateBundle> {
-    const certificate = await this.nodeCertService.findOne(certificateSerial);
-    const node = certificate.node;
+  async refresh(refreshToken: string): Promise<{
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: Date;
+  }> {
+    const nodeId = await this.refreshTokenService.validate(refreshToken);
+
+    if (!nodeId) {
+      throw new UnauthorizedException({
+        code: ErrorCode.TOKEN_INVALID,
+        message: 'Invalid or expired refresh token',
+      });
+    }
+
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+    const accessToken = await this.authService.generateToken(
+      { sub: nodeId },
+      '15m',
+      'RS256',
+    );
+
+    const newRefreshToken = await this.refreshTokenService.rotate(refreshToken);
+
+    if (!newRefreshToken) {
+      throw new UnauthorizedException({
+        code: ErrorCode.TOKEN_INVALID,
+        message: 'Failed to rotate refresh token',
+      });
+    }
+
+    await this.prisma.node.update({
+      where: { id: nodeId },
+      data: { lastActiveAt: new Date() },
+    });
+
+    return {
+      accessToken,
+      refreshToken: newRefreshToken,
+      expiresAt,
+    };
+  }
+
+  async recover(
+    nodeId: string,
+    challenge: string,
+    signature: string,
+  ): Promise<{
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: Date;
+  }> {
+    const node = await this.prisma.node.findUnique({
+      where: { id: nodeId },
+      select: { id: true, ecPublicKey: true, activatedAt: true },
+    });
+
+    if (!node) {
+      throw new UnauthorizedException({
+        code: ErrorCode.NODE_NOT_FOUND,
+        message: 'Node not found',
+      });
+    }
+
+    if (!node.activatedAt) {
+      throw new UnauthorizedException({
+        code: ErrorCode.INVALID_NODE_CREDENTIALS,
+        message: 'Node not activated',
+      });
+    }
+
+    if (!node.ecPublicKey) {
+      throw new UnauthorizedException({
+        code: ErrorCode.INVALID_NODE_CREDENTIALS,
+        message: 'No public key registered',
+      });
+    }
+
+    const isValid = this.signatureService.verifySignature(
+      node.ecPublicKey,
+      challenge,
+      signature,
+    );
+
+    if (!isValid) {
+      throw new UnauthorizedException({
+        code: ErrorCode.INVALID_NODE_CREDENTIALS,
+        message: 'Invalid signature',
+      });
+    }
+
+    await this.refreshTokenService.revokeAllForNode(node.id);
+
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+    const accessToken = await this.authService.generateToken(
+      { sub: node.id },
+      '15m',
+      'RS256',
+    );
+
+    const refreshToken = await this.refreshTokenService.create(node.id, 30);
+
+    await this.prisma.node.update({
+      where: { id: node.id },
+      data: { lastActiveAt: new Date() },
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresAt,
+    };
+  }
+
+  async markNodeReady(nodeId: string): Promise<void> {
+    const node = await this.prisma.node.findUnique({
+      where: { id: nodeId },
+      select: { id: true, status: true },
+    });
 
     if (!node) {
       throw new NotFoundException({
@@ -427,94 +475,71 @@ export class NodesService {
       });
     }
 
-    if (certificate.expiresAt < new Date()) {
-      throw new UnauthorizedException({
-        code: ErrorCode.INVALID_NODE_CREDENTIALS,
-        message: 'Certificate expired. Please bootstrap the node again.',
+    if (node.status !== 'INITIALIZING') {
+      this.logger.warn({
+        message:
+          'Attempted to mark node as ready but status is not INITIALIZING',
+        nodeId,
+        currentStatus: node.status,
       });
+      return;
     }
 
-    let cert: PKIIssueCertificateResponse;
-    let rootCa: string;
-    let mountPath: string;
+    await this.prisma.node.update({
+      where: { id: nodeId },
+      data: {
+        status: 'READY',
+        lastActiveAt: new Date(),
+      },
+    });
 
-    try {
-      const certData = await this.nodeCertService.issueCertificate(node, csr);
-      cert = certData.cert;
-      rootCa = certData.rootCa;
-      mountPath = certData.mountPath;
-    } catch (error) {
-      this.logger.error({
-        message: 'Failed to issue new certificate during renewal',
-        nodeId: node.id,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      throw error;
+    this.logger.log({
+      message: 'Node marked as ready',
+      nodeId,
+    });
+  }
+
+  async heartbeat(nodeId: string): Promise<HeartbeatResponseDto> {
+    const node = await this.prisma.node.findUnique({ where: { id: nodeId } });
+    if (!node) {
+      throw new NotFoundException('Node not found');
     }
 
-    const newSerialNumber = cert.serial_number.replace(/:/g, '');
-    let certificateRevoked = false;
+    await this.prisma.node.update({
+      where: { id: nodeId },
+      data: { lastActiveAt: new Date() },
+    });
 
-    try {
-      await this.prisma.$transaction(async (tx) => {
-        await this.nodeCertService.update(
-          certificate.nodeId,
-          { revokedAt: new Date() },
-          tx,
-        );
+    const trainingRunData =
+      await this.runParticipantService.getActiveTrainingRunForNode(nodeId);
+    let training: { runId: string; fabName: string } | undefined;
 
-        await this.nodeCertService.revokeCertificate(
-          mountPath,
-          certificate.serialNumber,
-        );
-        certificateRevoked = true;
-
-        await this.nodeCertService.create(
-          {
-            node: { connect: { id: node.id } },
-            serialNumber: newSerialNumber,
-            issuedAt: new Date(),
-            expiresAt: new Date(cert.expiration * 1000),
-            revokedAt: null,
-          },
-          tx,
-        );
-      });
-    } catch (error) {
-      this.logger.error({
-        message: 'Transaction failed during certificate renewal, rolling back',
-        nodeId: node.id,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      if (certificateRevoked) {
-        try {
-          await this.nodeCertService.revokeCertificate(
-            mountPath,
-            newSerialNumber,
-          );
-        } catch (revokeError) {
-          this.logger.error({
-            message: 'Failed to revoke new certificate during rollback',
-            nodeId: node.id,
-            error:
-              revokeError instanceof Error
-                ? revokeError.message
-                : 'Unknown error',
-          });
-        }
-      }
-
-      throw error;
+    if (trainingRunData && trainingRunData.fab) {
+      const { publisherName, name, version, fabHash } = trainingRunData.fab;
+      const fabName = `${publisherName}.${name}.${version}.${fabHash}.fab`;
+      const runIdBase32 = uuidToBase32(trainingRunData.runId);
+      training = {
+        runId: runIdBase32,
+        fabName,
+      };
     }
 
     return {
-      certificate: cert.certificate,
-      issuingCa: cert.issuing_ca,
-      caChain: cert.ca_chain,
-      serialNumber: cert.serial_number,
-      expiration: cert.expiration,
-      rootCa,
+      status: node.status,
+      training,
     };
+  }
+
+  async findByFlowerNodeId(flowerNodeId: string): Promise<Node | null> {
+    return this.prisma.node.findUnique({
+      where: { flowerNodeId },
+    });
+  }
+
+  async setFlowerNodeId(nodeId: string, flowerNodeId: string): Promise<Node> {
+    return this.prisma.node.update({
+      where: { id: nodeId },
+      data: { flowerNodeId },
+    });
   }
 }

@@ -11,15 +11,101 @@ import { Run } from "./run.js";
 
 export const protobufPackage = "flwr.proto";
 
+export interface Account {
+  id: string;
+  name: string;
+}
+
 export interface Federation {
   name: string;
+  /** Deprecated in v1.26.0 */
   memberAids: string[];
   nodes: NodeInfo[];
   runs: Run[];
+  /** Added in v1.26.0 */
+  description: string;
+  /** Added in v1.26.0 */
+  accounts: Account[];
 }
 
+function createBaseAccount(): Account {
+  return { id: "", name: "" };
+}
+
+export const Account: MessageFns<Account> = {
+  encode(message: Account, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.name !== "") {
+      writer.uint32(18).string(message.name);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Account {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAccount();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.name = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Account {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+    };
+  },
+
+  toJSON(message: Account): unknown {
+    const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.name !== "") {
+      obj.name = message.name;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Account>, I>>(base?: I): Account {
+    return Account.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Account>, I>>(object: I): Account {
+    const message = createBaseAccount();
+    message.id = object.id ?? "";
+    message.name = object.name ?? "";
+    return message;
+  },
+};
+
 function createBaseFederation(): Federation {
-  return { name: "", memberAids: [], nodes: [], runs: [] };
+  return { name: "", memberAids: [], nodes: [], runs: [], description: "", accounts: [] };
 }
 
 export const Federation: MessageFns<Federation> = {
@@ -35,6 +121,12 @@ export const Federation: MessageFns<Federation> = {
     }
     for (const v of message.runs) {
       Run.encode(v!, writer.uint32(34).fork()).join();
+    }
+    if (message.description !== "") {
+      writer.uint32(42).string(message.description);
+    }
+    for (const v of message.accounts) {
+      Account.encode(v!, writer.uint32(50).fork()).join();
     }
     return writer;
   },
@@ -78,6 +170,22 @@ export const Federation: MessageFns<Federation> = {
           message.runs.push(Run.decode(reader, reader.uint32()));
           continue;
         }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.description = reader.string();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.accounts.push(Account.decode(reader, reader.uint32()));
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -95,6 +203,8 @@ export const Federation: MessageFns<Federation> = {
         : [],
       nodes: globalThis.Array.isArray(object?.nodes) ? object.nodes.map((e: any) => NodeInfo.fromJSON(e)) : [],
       runs: globalThis.Array.isArray(object?.runs) ? object.runs.map((e: any) => Run.fromJSON(e)) : [],
+      description: isSet(object.description) ? globalThis.String(object.description) : "",
+      accounts: globalThis.Array.isArray(object?.accounts) ? object.accounts.map((e: any) => Account.fromJSON(e)) : [],
     };
   },
 
@@ -112,6 +222,12 @@ export const Federation: MessageFns<Federation> = {
     if (message.runs?.length) {
       obj.runs = message.runs.map((e) => Run.toJSON(e));
     }
+    if (message.description !== "") {
+      obj.description = message.description;
+    }
+    if (message.accounts?.length) {
+      obj.accounts = message.accounts.map((e) => Account.toJSON(e));
+    }
     return obj;
   },
 
@@ -124,6 +240,8 @@ export const Federation: MessageFns<Federation> = {
     message.memberAids = object.memberAids?.map((e) => e) || [];
     message.nodes = object.nodes?.map((e) => NodeInfo.fromPartial(e)) || [];
     message.runs = object.runs?.map((e) => Run.fromPartial(e)) || [];
+    message.description = object.description ?? "";
+    message.accounts = object.accounts?.map((e) => Account.fromPartial(e)) || [];
     return message;
   },
 };

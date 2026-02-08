@@ -18,8 +18,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
-import { CurrentUser } from 'src/authentication/decorators/current-user.decorator';
-import { JwtPayload } from 'src/authentication/interfaces/jwt-payload.interface';
+import { UserPayload } from 'src/authentication/decorators/user.decorator';
+import { UserPayloadData } from 'src/authentication/interfaces/payload.interface';
 import { RequireOrgRole } from 'src/authorization/decorators/roles.decorator';
 import {
   CreateNodeDto,
@@ -73,7 +73,7 @@ export class OrgNodesController {
   async create(
     @Param('organizationId') organizationId: string,
     @Body() createNodeDto: CreateNodeDto,
-    @CurrentUser() jwtPayload: JwtPayload,
+    @UserPayload() jwtPayload: UserPayloadData,
   ): Promise<CreateNodeResponseDto> {
     const { node, psk } = await this.nodesService.create(
       organizationId,

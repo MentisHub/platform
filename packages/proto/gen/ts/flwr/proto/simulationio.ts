@@ -34,8 +34,6 @@ import {
   GetFederationOptionsResponse,
   GetRunRequest,
   GetRunResponse,
-  GetRunStatusRequest,
-  GetRunStatusResponse,
   UpdateRunStatusRequest,
   UpdateRunStatusResponse,
 } from "./run.js";
@@ -77,7 +75,19 @@ export const SimulationIoService = {
     responseSerialize: (value: GetRunResponse): Buffer => Buffer.from(GetRunResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetRunResponse => GetRunResponse.decode(value),
   },
-  /** Pull Simulation inputs */
+  /** App heartbeat */
+  sendAppHeartbeat: {
+    path: "/flwr.proto.SimulationIo/SendAppHeartbeat",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: SendAppHeartbeatRequest): Buffer =>
+      Buffer.from(SendAppHeartbeatRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): SendAppHeartbeatRequest => SendAppHeartbeatRequest.decode(value),
+    responseSerialize: (value: SendAppHeartbeatResponse): Buffer =>
+      Buffer.from(SendAppHeartbeatResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): SendAppHeartbeatResponse => SendAppHeartbeatResponse.decode(value),
+  },
+  /** Pull app inputs */
   pullAppInputs: {
     path: "/flwr.proto.SimulationIo/PullAppInputs",
     requestStream: false,
@@ -88,7 +98,7 @@ export const SimulationIoService = {
       Buffer.from(PullAppInputsResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): PullAppInputsResponse => PullAppInputsResponse.decode(value),
   },
-  /** Push Simulation outputs */
+  /** Push app outputs */
   pushAppOutputs: {
     path: "/flwr.proto.SimulationIo/PushAppOutputs",
     requestStream: false,
@@ -134,29 +144,6 @@ export const SimulationIoService = {
       Buffer.from(GetFederationOptionsResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetFederationOptionsResponse => GetFederationOptionsResponse.decode(value),
   },
-  /** Get Run Status */
-  getRunStatus: {
-    path: "/flwr.proto.SimulationIo/GetRunStatus",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: GetRunStatusRequest): Buffer => Buffer.from(GetRunStatusRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): GetRunStatusRequest => GetRunStatusRequest.decode(value),
-    responseSerialize: (value: GetRunStatusResponse): Buffer =>
-      Buffer.from(GetRunStatusResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): GetRunStatusResponse => GetRunStatusResponse.decode(value),
-  },
-  /** App heartbeat */
-  sendAppHeartbeat: {
-    path: "/flwr.proto.SimulationIo/SendAppHeartbeat",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: SendAppHeartbeatRequest): Buffer =>
-      Buffer.from(SendAppHeartbeatRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): SendAppHeartbeatRequest => SendAppHeartbeatRequest.decode(value),
-    responseSerialize: (value: SendAppHeartbeatResponse): Buffer =>
-      Buffer.from(SendAppHeartbeatResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): SendAppHeartbeatResponse => SendAppHeartbeatResponse.decode(value),
-  },
 } as const;
 
 export interface SimulationIoServer extends UntypedServiceImplementation {
@@ -166,9 +153,11 @@ export interface SimulationIoServer extends UntypedServiceImplementation {
   requestToken: handleUnaryCall<RequestTokenRequest, RequestTokenResponse>;
   /** Get run details */
   getRun: handleUnaryCall<GetRunRequest, GetRunResponse>;
-  /** Pull Simulation inputs */
+  /** App heartbeat */
+  sendAppHeartbeat: handleUnaryCall<SendAppHeartbeatRequest, SendAppHeartbeatResponse>;
+  /** Pull app inputs */
   pullAppInputs: handleUnaryCall<PullAppInputsRequest, PullAppInputsResponse>;
-  /** Push Simulation outputs */
+  /** Push app outputs */
   pushAppOutputs: handleUnaryCall<PushAppOutputsRequest, PushAppOutputsResponse>;
   /** Update the status of a given run */
   updateRunStatus: handleUnaryCall<UpdateRunStatusRequest, UpdateRunStatusResponse>;
@@ -176,10 +165,6 @@ export interface SimulationIoServer extends UntypedServiceImplementation {
   pushLogs: handleUnaryCall<PushLogsRequest, PushLogsResponse>;
   /** Get Federation Options */
   getFederationOptions: handleUnaryCall<GetFederationOptionsRequest, GetFederationOptionsResponse>;
-  /** Get Run Status */
-  getRunStatus: handleUnaryCall<GetRunStatusRequest, GetRunStatusResponse>;
-  /** App heartbeat */
-  sendAppHeartbeat: handleUnaryCall<SendAppHeartbeatRequest, SendAppHeartbeatResponse>;
 }
 
 export interface SimulationIoClient extends Client {
@@ -231,7 +216,23 @@ export interface SimulationIoClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetRunResponse) => void,
   ): ClientUnaryCall;
-  /** Pull Simulation inputs */
+  /** App heartbeat */
+  sendAppHeartbeat(
+    request: SendAppHeartbeatRequest,
+    callback: (error: ServiceError | null, response: SendAppHeartbeatResponse) => void,
+  ): ClientUnaryCall;
+  sendAppHeartbeat(
+    request: SendAppHeartbeatRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: SendAppHeartbeatResponse) => void,
+  ): ClientUnaryCall;
+  sendAppHeartbeat(
+    request: SendAppHeartbeatRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: SendAppHeartbeatResponse) => void,
+  ): ClientUnaryCall;
+  /** Pull app inputs */
   pullAppInputs(
     request: PullAppInputsRequest,
     callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
@@ -247,7 +248,7 @@ export interface SimulationIoClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
   ): ClientUnaryCall;
-  /** Push Simulation outputs */
+  /** Push app outputs */
   pushAppOutputs(
     request: PushAppOutputsRequest,
     callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
@@ -310,38 +311,6 @@ export interface SimulationIoClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetFederationOptionsResponse) => void,
-  ): ClientUnaryCall;
-  /** Get Run Status */
-  getRunStatus(
-    request: GetRunStatusRequest,
-    callback: (error: ServiceError | null, response: GetRunStatusResponse) => void,
-  ): ClientUnaryCall;
-  getRunStatus(
-    request: GetRunStatusRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: GetRunStatusResponse) => void,
-  ): ClientUnaryCall;
-  getRunStatus(
-    request: GetRunStatusRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: GetRunStatusResponse) => void,
-  ): ClientUnaryCall;
-  /** App heartbeat */
-  sendAppHeartbeat(
-    request: SendAppHeartbeatRequest,
-    callback: (error: ServiceError | null, response: SendAppHeartbeatResponse) => void,
-  ): ClientUnaryCall;
-  sendAppHeartbeat(
-    request: SendAppHeartbeatRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: SendAppHeartbeatResponse) => void,
-  ): ClientUnaryCall;
-  sendAppHeartbeat(
-    request: SendAppHeartbeatRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: SendAppHeartbeatResponse) => void,
   ): ClientUnaryCall;
 }
 

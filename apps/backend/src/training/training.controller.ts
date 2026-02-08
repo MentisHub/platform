@@ -15,8 +15,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ProjectRole } from '@prisma/client';
-import { CurrentUser } from 'src/authentication/decorators/current-user.decorator';
-import type { JwtPayload } from 'src/authentication/interfaces/jwt-payload.interface';
 import { OrgMembership } from 'src/authorization/decorators/membership.decorator';
 import { RequireProjectRole } from 'src/authorization/decorators/roles.decorator';
 import { OrganizationMembership } from 'src/authorization/interfaces/membership.interface';
@@ -28,6 +26,8 @@ import {
   TrainingRunResponseDto,
 } from './training.dto';
 import { TrainingService } from './services/training.service';
+import { UserPayload } from 'src/authentication/decorators/user.decorator';
+import { UserPayloadData } from 'src/authentication/interfaces/payload.interface';
 
 @ApiTags('training')
 @ApiBearerAuth()
@@ -71,7 +71,7 @@ export class ProjTrainingController {
   async create(
     @Param('projectId') projectId: string,
     @Body() createTrainingDto: CreateTrainingDto,
-    @CurrentUser() user: JwtPayload,
+    @UserPayload() user: UserPayloadData,
     @OrgMembership() orgMembership: OrganizationMembership,
   ) {
     const trainingRun = await this.trainingService.createTrainingRun(
@@ -128,7 +128,7 @@ export class ProjTrainingController {
   })
   async deploy(
     @Param('trainingId') trainingId: string,
-    @CurrentUser() user: JwtPayload,
+    @UserPayload() user: UserPayloadData,
     @OrgMembership() orgMembership: OrganizationMembership,
   ): Promise<StartTrainingResponseDto> {
     const trainingRunUpdated = await this.trainingService.deployServerApp(

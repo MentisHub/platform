@@ -18,8 +18,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
-import { CurrentUser } from 'src/authentication/decorators/current-user.decorator';
-import { JwtPayload } from 'src/authentication/interfaces/jwt-payload.interface';
+import { UserPayload } from 'src/authentication/decorators/user.decorator';
+import { UserPayloadData } from 'src/authentication/interfaces/payload.interface';
 import { RequireOrgRole } from 'src/authorization/decorators/roles.decorator';
 import {
   CreateProjectDto,
@@ -72,7 +72,7 @@ export class OrgProjectsController {
   async create(
     @Param('organizationId') organizationId: string,
     @Body() createProjectDto: CreateProjectDto,
-    @CurrentUser() user: JwtPayload,
+    @UserPayload() user: UserPayloadData,
   ): Promise<ProjectResponseDto> {
     const project = await this.projectsService.create(
       organizationId,

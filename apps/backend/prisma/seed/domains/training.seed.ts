@@ -226,22 +226,10 @@ export async function seedTraining(
 
   await Promise.all(
     roundParticipants.map((rp) => {
-      const participated = faker.datatype.boolean(0.9);
       return prisma.roundParticipant.create({
         data: {
           roundId: rp.roundId,
           nodeId: rp.nodeId,
-          participated,
-          failureReason: !participated
-            ? faker.helpers.arrayElement([
-                'Connection timeout',
-                'Node offline',
-                'Out of memory',
-                'Training error',
-                'Certificate expired',
-                'Data loading failed',
-              ])
-            : null,
         },
       });
     }),

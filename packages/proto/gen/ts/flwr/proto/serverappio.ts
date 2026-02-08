@@ -32,7 +32,7 @@ import {
   RequestTokenRequest,
   RequestTokenResponse,
 } from "./appio.js";
-import { GetFabRequest, GetFabResponse } from "./fab.js";
+import { PushEventsRequest, PushEventsResponse } from "./event.js";
 import { SendAppHeartbeatRequest, SendAppHeartbeatResponse } from "./heartbeat.js";
 import { PushLogsRequest, PushLogsResponse } from "./log.js";
 import {
@@ -44,14 +44,7 @@ import {
   PushObjectResponse,
 } from "./message.js";
 import { Node } from "./node.js";
-import {
-  GetRunRequest,
-  GetRunResponse,
-  GetRunStatusRequest,
-  GetRunStatusResponse,
-  UpdateRunStatusRequest,
-  UpdateRunStatusResponse,
-} from "./run.js";
+import { GetRunRequest, GetRunResponse, UpdateRunStatusRequest, UpdateRunStatusResponse } from "./run.js";
 
 export const protobufPackage = "flwr.proto";
 
@@ -205,40 +198,6 @@ export const ServerAppIoService = {
       Buffer.from(RequestTokenResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): RequestTokenResponse => RequestTokenResponse.decode(value),
   },
-  /** Return a set of nodes */
-  getNodes: {
-    path: "/flwr.proto.ServerAppIo/GetNodes",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: GetNodesRequest): Buffer => Buffer.from(GetNodesRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): GetNodesRequest => GetNodesRequest.decode(value),
-    responseSerialize: (value: GetNodesResponse): Buffer => Buffer.from(GetNodesResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): GetNodesResponse => GetNodesResponse.decode(value),
-  },
-  /** Create one or more messages */
-  pushMessages: {
-    path: "/flwr.proto.ServerAppIo/PushMessages",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: PushAppMessagesRequest): Buffer =>
-      Buffer.from(PushAppMessagesRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): PushAppMessagesRequest => PushAppMessagesRequest.decode(value),
-    responseSerialize: (value: PushAppMessagesResponse): Buffer =>
-      Buffer.from(PushAppMessagesResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): PushAppMessagesResponse => PushAppMessagesResponse.decode(value),
-  },
-  /** Get message results */
-  pullMessages: {
-    path: "/flwr.proto.ServerAppIo/PullMessages",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: PullAppMessagesRequest): Buffer =>
-      Buffer.from(PullAppMessagesRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): PullAppMessagesRequest => PullAppMessagesRequest.decode(value),
-    responseSerialize: (value: PullAppMessagesResponse): Buffer =>
-      Buffer.from(PullAppMessagesResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): PullAppMessagesResponse => PullAppMessagesResponse.decode(value),
-  },
   /** Get run details */
   getRun: {
     path: "/flwr.proto.ServerAppIo/GetRun",
@@ -248,72 +207,6 @@ export const ServerAppIoService = {
     requestDeserialize: (value: Buffer): GetRunRequest => GetRunRequest.decode(value),
     responseSerialize: (value: GetRunResponse): Buffer => Buffer.from(GetRunResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetRunResponse => GetRunResponse.decode(value),
-  },
-  /** Get FAB */
-  getFab: {
-    path: "/flwr.proto.ServerAppIo/GetFab",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: GetFabRequest): Buffer => Buffer.from(GetFabRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): GetFabRequest => GetFabRequest.decode(value),
-    responseSerialize: (value: GetFabResponse): Buffer => Buffer.from(GetFabResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): GetFabResponse => GetFabResponse.decode(value),
-  },
-  /** Pull ServerApp inputs */
-  pullAppInputs: {
-    path: "/flwr.proto.ServerAppIo/PullAppInputs",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: PullAppInputsRequest): Buffer => Buffer.from(PullAppInputsRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): PullAppInputsRequest => PullAppInputsRequest.decode(value),
-    responseSerialize: (value: PullAppInputsResponse): Buffer =>
-      Buffer.from(PullAppInputsResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): PullAppInputsResponse => PullAppInputsResponse.decode(value),
-  },
-  /** Push ServerApp outputs */
-  pushAppOutputs: {
-    path: "/flwr.proto.ServerAppIo/PushAppOutputs",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: PushAppOutputsRequest): Buffer =>
-      Buffer.from(PushAppOutputsRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): PushAppOutputsRequest => PushAppOutputsRequest.decode(value),
-    responseSerialize: (value: PushAppOutputsResponse): Buffer =>
-      Buffer.from(PushAppOutputsResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): PushAppOutputsResponse => PushAppOutputsResponse.decode(value),
-  },
-  /** Update the status of a given run */
-  updateRunStatus: {
-    path: "/flwr.proto.ServerAppIo/UpdateRunStatus",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: UpdateRunStatusRequest): Buffer =>
-      Buffer.from(UpdateRunStatusRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): UpdateRunStatusRequest => UpdateRunStatusRequest.decode(value),
-    responseSerialize: (value: UpdateRunStatusResponse): Buffer =>
-      Buffer.from(UpdateRunStatusResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): UpdateRunStatusResponse => UpdateRunStatusResponse.decode(value),
-  },
-  /** Get the status of a given run */
-  getRunStatus: {
-    path: "/flwr.proto.ServerAppIo/GetRunStatus",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: GetRunStatusRequest): Buffer => Buffer.from(GetRunStatusRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): GetRunStatusRequest => GetRunStatusRequest.decode(value),
-    responseSerialize: (value: GetRunStatusResponse): Buffer =>
-      Buffer.from(GetRunStatusResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): GetRunStatusResponse => GetRunStatusResponse.decode(value),
-  },
-  /** Push ServerApp logs */
-  pushLogs: {
-    path: "/flwr.proto.ServerAppIo/PushLogs",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: PushLogsRequest): Buffer => Buffer.from(PushLogsRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): PushLogsRequest => PushLogsRequest.decode(value),
-    responseSerialize: (value: PushLogsResponse): Buffer => Buffer.from(PushLogsResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): PushLogsResponse => PushLogsResponse.decode(value),
   },
   /** App heartbeat */
   sendAppHeartbeat: {
@@ -326,6 +219,29 @@ export const ServerAppIoService = {
     responseSerialize: (value: SendAppHeartbeatResponse): Buffer =>
       Buffer.from(SendAppHeartbeatResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): SendAppHeartbeatResponse => SendAppHeartbeatResponse.decode(value),
+  },
+  /** Pull app inputs */
+  pullAppInputs: {
+    path: "/flwr.proto.ServerAppIo/PullAppInputs",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: PullAppInputsRequest): Buffer => Buffer.from(PullAppInputsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PullAppInputsRequest => PullAppInputsRequest.decode(value),
+    responseSerialize: (value: PullAppInputsResponse): Buffer =>
+      Buffer.from(PullAppInputsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PullAppInputsResponse => PullAppInputsResponse.decode(value),
+  },
+  /** Push app outputs */
+  pushAppOutputs: {
+    path: "/flwr.proto.ServerAppIo/PushAppOutputs",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: PushAppOutputsRequest): Buffer =>
+      Buffer.from(PushAppOutputsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PushAppOutputsRequest => PushAppOutputsRequest.decode(value),
+    responseSerialize: (value: PushAppOutputsResponse): Buffer =>
+      Buffer.from(PushAppOutputsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PushAppOutputsResponse => PushAppOutputsResponse.decode(value),
   },
   /** Push Object */
   pushObject: {
@@ -360,6 +276,72 @@ export const ServerAppIoService = {
     responseDeserialize: (value: Buffer): ConfirmMessageReceivedResponse =>
       ConfirmMessageReceivedResponse.decode(value),
   },
+  /** Update the status of a given run */
+  updateRunStatus: {
+    path: "/flwr.proto.ServerAppIo/UpdateRunStatus",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: UpdateRunStatusRequest): Buffer =>
+      Buffer.from(UpdateRunStatusRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): UpdateRunStatusRequest => UpdateRunStatusRequest.decode(value),
+    responseSerialize: (value: UpdateRunStatusResponse): Buffer =>
+      Buffer.from(UpdateRunStatusResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): UpdateRunStatusResponse => UpdateRunStatusResponse.decode(value),
+  },
+  /** Push ServerApp logs */
+  pushLogs: {
+    path: "/flwr.proto.ServerAppIo/PushLogs",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: PushLogsRequest): Buffer => Buffer.from(PushLogsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PushLogsRequest => PushLogsRequest.decode(value),
+    responseSerialize: (value: PushLogsResponse): Buffer => Buffer.from(PushLogsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PushLogsResponse => PushLogsResponse.decode(value),
+  },
+  /** Push training events from ServerApp */
+  pushEvents: {
+    path: "/flwr.proto.ServerAppIo/PushEvents",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: PushEventsRequest): Buffer => Buffer.from(PushEventsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PushEventsRequest => PushEventsRequest.decode(value),
+    responseSerialize: (value: PushEventsResponse): Buffer => Buffer.from(PushEventsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PushEventsResponse => PushEventsResponse.decode(value),
+  },
+  /** Create one or more messages */
+  pushMessages: {
+    path: "/flwr.proto.ServerAppIo/PushMessages",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: PushAppMessagesRequest): Buffer =>
+      Buffer.from(PushAppMessagesRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PushAppMessagesRequest => PushAppMessagesRequest.decode(value),
+    responseSerialize: (value: PushAppMessagesResponse): Buffer =>
+      Buffer.from(PushAppMessagesResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PushAppMessagesResponse => PushAppMessagesResponse.decode(value),
+  },
+  /** Get message results */
+  pullMessages: {
+    path: "/flwr.proto.ServerAppIo/PullMessages",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: PullAppMessagesRequest): Buffer =>
+      Buffer.from(PullAppMessagesRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PullAppMessagesRequest => PullAppMessagesRequest.decode(value),
+    responseSerialize: (value: PullAppMessagesResponse): Buffer =>
+      Buffer.from(PullAppMessagesResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PullAppMessagesResponse => PullAppMessagesResponse.decode(value),
+  },
+  /** Return a set of nodes */
+  getNodes: {
+    path: "/flwr.proto.ServerAppIo/GetNodes",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: GetNodesRequest): Buffer => Buffer.from(GetNodesRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetNodesRequest => GetNodesRequest.decode(value),
+    responseSerialize: (value: GetNodesResponse): Buffer => Buffer.from(GetNodesResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetNodesResponse => GetNodesResponse.decode(value),
+  },
 } as const;
 
 export interface ServerAppIoServer extends UntypedServiceImplementation {
@@ -367,34 +349,32 @@ export interface ServerAppIoServer extends UntypedServiceImplementation {
   listAppsToLaunch: handleUnaryCall<ListAppsToLaunchRequest, ListAppsToLaunchResponse>;
   /** Request token for a run */
   requestToken: handleUnaryCall<RequestTokenRequest, RequestTokenResponse>;
-  /** Return a set of nodes */
-  getNodes: handleUnaryCall<GetNodesRequest, GetNodesResponse>;
-  /** Create one or more messages */
-  pushMessages: handleUnaryCall<PushAppMessagesRequest, PushAppMessagesResponse>;
-  /** Get message results */
-  pullMessages: handleUnaryCall<PullAppMessagesRequest, PullAppMessagesResponse>;
   /** Get run details */
   getRun: handleUnaryCall<GetRunRequest, GetRunResponse>;
-  /** Get FAB */
-  getFab: handleUnaryCall<GetFabRequest, GetFabResponse>;
-  /** Pull ServerApp inputs */
-  pullAppInputs: handleUnaryCall<PullAppInputsRequest, PullAppInputsResponse>;
-  /** Push ServerApp outputs */
-  pushAppOutputs: handleUnaryCall<PushAppOutputsRequest, PushAppOutputsResponse>;
-  /** Update the status of a given run */
-  updateRunStatus: handleUnaryCall<UpdateRunStatusRequest, UpdateRunStatusResponse>;
-  /** Get the status of a given run */
-  getRunStatus: handleUnaryCall<GetRunStatusRequest, GetRunStatusResponse>;
-  /** Push ServerApp logs */
-  pushLogs: handleUnaryCall<PushLogsRequest, PushLogsResponse>;
   /** App heartbeat */
   sendAppHeartbeat: handleUnaryCall<SendAppHeartbeatRequest, SendAppHeartbeatResponse>;
+  /** Pull app inputs */
+  pullAppInputs: handleUnaryCall<PullAppInputsRequest, PullAppInputsResponse>;
+  /** Push app outputs */
+  pushAppOutputs: handleUnaryCall<PushAppOutputsRequest, PushAppOutputsResponse>;
   /** Push Object */
   pushObject: handleUnaryCall<PushObjectRequest, PushObjectResponse>;
   /** Pull Object */
   pullObject: handleUnaryCall<PullObjectRequest, PullObjectResponse>;
   /** Confirm Message Received */
   confirmMessageReceived: handleUnaryCall<ConfirmMessageReceivedRequest, ConfirmMessageReceivedResponse>;
+  /** Update the status of a given run */
+  updateRunStatus: handleUnaryCall<UpdateRunStatusRequest, UpdateRunStatusResponse>;
+  /** Push ServerApp logs */
+  pushLogs: handleUnaryCall<PushLogsRequest, PushLogsResponse>;
+  /** Push training events from ServerApp */
+  pushEvents: handleUnaryCall<PushEventsRequest, PushEventsResponse>;
+  /** Create one or more messages */
+  pushMessages: handleUnaryCall<PushAppMessagesRequest, PushAppMessagesResponse>;
+  /** Get message results */
+  pullMessages: handleUnaryCall<PullAppMessagesRequest, PullAppMessagesResponse>;
+  /** Return a set of nodes */
+  getNodes: handleUnaryCall<GetNodesRequest, GetNodesResponse>;
 }
 
 export interface ServerAppIoClient extends Client {
@@ -430,54 +410,6 @@ export interface ServerAppIoClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: RequestTokenResponse) => void,
   ): ClientUnaryCall;
-  /** Return a set of nodes */
-  getNodes(
-    request: GetNodesRequest,
-    callback: (error: ServiceError | null, response: GetNodesResponse) => void,
-  ): ClientUnaryCall;
-  getNodes(
-    request: GetNodesRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: GetNodesResponse) => void,
-  ): ClientUnaryCall;
-  getNodes(
-    request: GetNodesRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: GetNodesResponse) => void,
-  ): ClientUnaryCall;
-  /** Create one or more messages */
-  pushMessages(
-    request: PushAppMessagesRequest,
-    callback: (error: ServiceError | null, response: PushAppMessagesResponse) => void,
-  ): ClientUnaryCall;
-  pushMessages(
-    request: PushAppMessagesRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: PushAppMessagesResponse) => void,
-  ): ClientUnaryCall;
-  pushMessages(
-    request: PushAppMessagesRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: PushAppMessagesResponse) => void,
-  ): ClientUnaryCall;
-  /** Get message results */
-  pullMessages(
-    request: PullAppMessagesRequest,
-    callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
-  ): ClientUnaryCall;
-  pullMessages(
-    request: PullAppMessagesRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
-  ): ClientUnaryCall;
-  pullMessages(
-    request: PullAppMessagesRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
-  ): ClientUnaryCall;
   /** Get run details */
   getRun(
     request: GetRunRequest,
@@ -494,102 +426,6 @@ export interface ServerAppIoClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetRunResponse) => void,
   ): ClientUnaryCall;
-  /** Get FAB */
-  getFab(
-    request: GetFabRequest,
-    callback: (error: ServiceError | null, response: GetFabResponse) => void,
-  ): ClientUnaryCall;
-  getFab(
-    request: GetFabRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: GetFabResponse) => void,
-  ): ClientUnaryCall;
-  getFab(
-    request: GetFabRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: GetFabResponse) => void,
-  ): ClientUnaryCall;
-  /** Pull ServerApp inputs */
-  pullAppInputs(
-    request: PullAppInputsRequest,
-    callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
-  ): ClientUnaryCall;
-  pullAppInputs(
-    request: PullAppInputsRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
-  ): ClientUnaryCall;
-  pullAppInputs(
-    request: PullAppInputsRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
-  ): ClientUnaryCall;
-  /** Push ServerApp outputs */
-  pushAppOutputs(
-    request: PushAppOutputsRequest,
-    callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
-  ): ClientUnaryCall;
-  pushAppOutputs(
-    request: PushAppOutputsRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
-  ): ClientUnaryCall;
-  pushAppOutputs(
-    request: PushAppOutputsRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
-  ): ClientUnaryCall;
-  /** Update the status of a given run */
-  updateRunStatus(
-    request: UpdateRunStatusRequest,
-    callback: (error: ServiceError | null, response: UpdateRunStatusResponse) => void,
-  ): ClientUnaryCall;
-  updateRunStatus(
-    request: UpdateRunStatusRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: UpdateRunStatusResponse) => void,
-  ): ClientUnaryCall;
-  updateRunStatus(
-    request: UpdateRunStatusRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: UpdateRunStatusResponse) => void,
-  ): ClientUnaryCall;
-  /** Get the status of a given run */
-  getRunStatus(
-    request: GetRunStatusRequest,
-    callback: (error: ServiceError | null, response: GetRunStatusResponse) => void,
-  ): ClientUnaryCall;
-  getRunStatus(
-    request: GetRunStatusRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: GetRunStatusResponse) => void,
-  ): ClientUnaryCall;
-  getRunStatus(
-    request: GetRunStatusRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: GetRunStatusResponse) => void,
-  ): ClientUnaryCall;
-  /** Push ServerApp logs */
-  pushLogs(
-    request: PushLogsRequest,
-    callback: (error: ServiceError | null, response: PushLogsResponse) => void,
-  ): ClientUnaryCall;
-  pushLogs(
-    request: PushLogsRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: PushLogsResponse) => void,
-  ): ClientUnaryCall;
-  pushLogs(
-    request: PushLogsRequest,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: PushLogsResponse) => void,
-  ): ClientUnaryCall;
   /** App heartbeat */
   sendAppHeartbeat(
     request: SendAppHeartbeatRequest,
@@ -605,6 +441,38 @@ export interface ServerAppIoClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: SendAppHeartbeatResponse) => void,
+  ): ClientUnaryCall;
+  /** Pull app inputs */
+  pullAppInputs(
+    request: PullAppInputsRequest,
+    callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
+  ): ClientUnaryCall;
+  pullAppInputs(
+    request: PullAppInputsRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
+  ): ClientUnaryCall;
+  pullAppInputs(
+    request: PullAppInputsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: PullAppInputsResponse) => void,
+  ): ClientUnaryCall;
+  /** Push app outputs */
+  pushAppOutputs(
+    request: PushAppOutputsRequest,
+    callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
+  ): ClientUnaryCall;
+  pushAppOutputs(
+    request: PushAppOutputsRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
+  ): ClientUnaryCall;
+  pushAppOutputs(
+    request: PushAppOutputsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: PushAppOutputsResponse) => void,
   ): ClientUnaryCall;
   /** Push Object */
   pushObject(
@@ -653,6 +521,102 @@ export interface ServerAppIoClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: ConfirmMessageReceivedResponse) => void,
+  ): ClientUnaryCall;
+  /** Update the status of a given run */
+  updateRunStatus(
+    request: UpdateRunStatusRequest,
+    callback: (error: ServiceError | null, response: UpdateRunStatusResponse) => void,
+  ): ClientUnaryCall;
+  updateRunStatus(
+    request: UpdateRunStatusRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: UpdateRunStatusResponse) => void,
+  ): ClientUnaryCall;
+  updateRunStatus(
+    request: UpdateRunStatusRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: UpdateRunStatusResponse) => void,
+  ): ClientUnaryCall;
+  /** Push ServerApp logs */
+  pushLogs(
+    request: PushLogsRequest,
+    callback: (error: ServiceError | null, response: PushLogsResponse) => void,
+  ): ClientUnaryCall;
+  pushLogs(
+    request: PushLogsRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: PushLogsResponse) => void,
+  ): ClientUnaryCall;
+  pushLogs(
+    request: PushLogsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: PushLogsResponse) => void,
+  ): ClientUnaryCall;
+  /** Push training events from ServerApp */
+  pushEvents(
+    request: PushEventsRequest,
+    callback: (error: ServiceError | null, response: PushEventsResponse) => void,
+  ): ClientUnaryCall;
+  pushEvents(
+    request: PushEventsRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: PushEventsResponse) => void,
+  ): ClientUnaryCall;
+  pushEvents(
+    request: PushEventsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: PushEventsResponse) => void,
+  ): ClientUnaryCall;
+  /** Create one or more messages */
+  pushMessages(
+    request: PushAppMessagesRequest,
+    callback: (error: ServiceError | null, response: PushAppMessagesResponse) => void,
+  ): ClientUnaryCall;
+  pushMessages(
+    request: PushAppMessagesRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: PushAppMessagesResponse) => void,
+  ): ClientUnaryCall;
+  pushMessages(
+    request: PushAppMessagesRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: PushAppMessagesResponse) => void,
+  ): ClientUnaryCall;
+  /** Get message results */
+  pullMessages(
+    request: PullAppMessagesRequest,
+    callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
+  ): ClientUnaryCall;
+  pullMessages(
+    request: PullAppMessagesRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
+  ): ClientUnaryCall;
+  pullMessages(
+    request: PullAppMessagesRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
+  ): ClientUnaryCall;
+  /** Return a set of nodes */
+  getNodes(
+    request: GetNodesRequest,
+    callback: (error: ServiceError | null, response: GetNodesResponse) => void,
+  ): ClientUnaryCall;
+  getNodes(
+    request: GetNodesRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetNodesResponse) => void,
+  ): ClientUnaryCall;
+  getNodes(
+    request: GetNodesRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetNodesResponse) => void,
   ): ClientUnaryCall;
 }
 

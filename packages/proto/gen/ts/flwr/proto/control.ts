@@ -20,6 +20,7 @@ import {
   type ServiceError,
   type UntypedServiceImplementation,
 } from "@grpc/grpc-js";
+import { Event } from "./event.js";
 import { Fab } from "./fab.js";
 import { Federation } from "./federation.js";
 import { NodeInfo } from "./node.js";
@@ -53,6 +54,17 @@ export interface StreamLogsRequest {
 
 export interface StreamLogsResponse {
   logOutput: string;
+  latestTimestamp: number;
+}
+
+export interface StreamEventsRequest {
+  /** If not set, stream events for all runs */
+  runId?: string | undefined;
+  afterTimestamp: number;
+}
+
+export interface StreamEventsResponse {
+  events: Event[];
   latestTimestamp: number;
 }
 
@@ -583,6 +595,158 @@ export const StreamLogsResponse: MessageFns<StreamLogsResponse> = {
   fromPartial<I extends Exact<DeepPartial<StreamLogsResponse>, I>>(object: I): StreamLogsResponse {
     const message = createBaseStreamLogsResponse();
     message.logOutput = object.logOutput ?? "";
+    message.latestTimestamp = object.latestTimestamp ?? 0;
+    return message;
+  },
+};
+
+function createBaseStreamEventsRequest(): StreamEventsRequest {
+  return { runId: undefined, afterTimestamp: 0 };
+}
+
+export const StreamEventsRequest: MessageFns<StreamEventsRequest> = {
+  encode(message: StreamEventsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.runId !== undefined) {
+      writer.uint32(8).uint64(message.runId);
+    }
+    if (message.afterTimestamp !== 0) {
+      writer.uint32(17).double(message.afterTimestamp);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StreamEventsRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseStreamEventsRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.runId = reader.uint64().toString();
+          continue;
+        }
+        case 2: {
+          if (tag !== 17) {
+            break;
+          }
+
+          message.afterTimestamp = reader.double();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): StreamEventsRequest {
+    return {
+      runId: isSet(object.runId) ? globalThis.String(object.runId) : undefined,
+      afterTimestamp: isSet(object.afterTimestamp) ? globalThis.Number(object.afterTimestamp) : 0,
+    };
+  },
+
+  toJSON(message: StreamEventsRequest): unknown {
+    const obj: any = {};
+    if (message.runId !== undefined) {
+      obj.runId = message.runId;
+    }
+    if (message.afterTimestamp !== 0) {
+      obj.afterTimestamp = message.afterTimestamp;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<StreamEventsRequest>, I>>(base?: I): StreamEventsRequest {
+    return StreamEventsRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<StreamEventsRequest>, I>>(object: I): StreamEventsRequest {
+    const message = createBaseStreamEventsRequest();
+    message.runId = object.runId ?? undefined;
+    message.afterTimestamp = object.afterTimestamp ?? 0;
+    return message;
+  },
+};
+
+function createBaseStreamEventsResponse(): StreamEventsResponse {
+  return { events: [], latestTimestamp: 0 };
+}
+
+export const StreamEventsResponse: MessageFns<StreamEventsResponse> = {
+  encode(message: StreamEventsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.events) {
+      Event.encode(v!, writer.uint32(10).fork()).join();
+    }
+    if (message.latestTimestamp !== 0) {
+      writer.uint32(17).double(message.latestTimestamp);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StreamEventsResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseStreamEventsResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.events.push(Event.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 2: {
+          if (tag !== 17) {
+            break;
+          }
+
+          message.latestTimestamp = reader.double();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): StreamEventsResponse {
+    return {
+      events: globalThis.Array.isArray(object?.events) ? object.events.map((e: any) => Event.fromJSON(e)) : [],
+      latestTimestamp: isSet(object.latestTimestamp) ? globalThis.Number(object.latestTimestamp) : 0,
+    };
+  },
+
+  toJSON(message: StreamEventsResponse): unknown {
+    const obj: any = {};
+    if (message.events?.length) {
+      obj.events = message.events.map((e) => Event.toJSON(e));
+    }
+    if (message.latestTimestamp !== 0) {
+      obj.latestTimestamp = message.latestTimestamp;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<StreamEventsResponse>, I>>(base?: I): StreamEventsResponse {
+    return StreamEventsResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<StreamEventsResponse>, I>>(object: I): StreamEventsResponse {
+    const message = createBaseStreamEventsResponse();
+    message.events = object.events?.map((e) => Event.fromPartial(e)) || [];
     message.latestTimestamp = object.latestTimestamp ?? 0;
     return message;
   },
@@ -1971,6 +2135,17 @@ export const ControlService = {
     responseSerialize: (value: StreamLogsResponse): Buffer => Buffer.from(StreamLogsResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): StreamLogsResponse => StreamLogsResponse.decode(value),
   },
+  /** Start event stream upon request */
+  streamEvents: {
+    path: "/flwr.proto.Control/StreamEvents",
+    requestStream: false,
+    responseStream: true,
+    requestSerialize: (value: StreamEventsRequest): Buffer => Buffer.from(StreamEventsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): StreamEventsRequest => StreamEventsRequest.decode(value),
+    responseSerialize: (value: StreamEventsResponse): Buffer =>
+      Buffer.from(StreamEventsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): StreamEventsResponse => StreamEventsResponse.decode(value),
+  },
   /** flwr ls command */
   listRuns: {
     path: "/flwr.proto.Control/ListRuns",
@@ -2081,6 +2256,8 @@ export interface ControlServer extends UntypedServiceImplementation {
   stopRun: handleUnaryCall<StopRunRequest, StopRunResponse>;
   /** Start log stream upon request */
   streamLogs: handleServerStreamingCall<StreamLogsRequest, StreamLogsResponse>;
+  /** Start event stream upon request */
+  streamEvents: handleServerStreamingCall<StreamEventsRequest, StreamEventsResponse>;
   /** flwr ls command */
   listRuns: handleUnaryCall<ListRunsRequest, ListRunsResponse>;
   /** Get login details upon request */
@@ -2141,6 +2318,16 @@ export interface ControlClient extends Client {
     metadata?: Metadata,
     options?: Partial<CallOptions>,
   ): ClientReadableStream<StreamLogsResponse>;
+  /** Start event stream upon request */
+  streamEvents(
+    request: StreamEventsRequest,
+    options?: Partial<CallOptions>,
+  ): ClientReadableStream<StreamEventsResponse>;
+  streamEvents(
+    request: StreamEventsRequest,
+    metadata?: Metadata,
+    options?: Partial<CallOptions>,
+  ): ClientReadableStream<StreamEventsResponse>;
   /** flwr ls command */
   listRuns(
     request: ListRunsRequest,

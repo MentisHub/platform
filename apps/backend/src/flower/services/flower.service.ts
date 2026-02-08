@@ -1,9 +1,9 @@
-import { credentials } from '@grpc/grpc-js';
+import { credentials, Metadata } from '@grpc/grpc-js';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ControlClient } from '@platform/proto';
 import * as fs from 'fs';
-import { StartRunOptions } from './flower.interface';
+import { StartRunOptions } from '../flower.interface';
 
 @Injectable()
 export class FlowerService implements OnModuleInit {
@@ -11,6 +11,11 @@ export class FlowerService implements OnModuleInit {
   private controlClient!: ControlClient;
 
   constructor(private readonly configService: ConfigService) {}
+
+  private getMetadata(): Metadata {
+    // Return empty metadata to trigger NoOp auth plugin on SuperLink
+    return new Metadata();
+  }
 
   onModuleInit() {
     const grpcHost = this.configService.getOrThrow<string>('SUPERLINK_HOST');
@@ -37,6 +42,7 @@ export class FlowerService implements OnModuleInit {
     return new Promise((resolve, reject) => {
       this.controlClient.registerNode(
         { publicKey: new Uint8Array(publicKeyBytes) },
+        this.getMetadata(),
         (error, response) => {
           if (error) {
             this.logger.error('Failed to register SuperNode', error);
@@ -58,15 +64,19 @@ export class FlowerService implements OnModuleInit {
 
   async unregisterNode(nodeId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.controlClient.unregisterNode({ nodeId }, (error) => {
-        if (error) {
-          this.logger.error('Failed to unregister node', error);
-          reject(error);
-        } else {
-          this.logger.log(`SuperNode ${nodeId} unregistered successfully`);
-          resolve();
-        }
-      });
+      this.controlClient.unregisterNode(
+        { nodeId },
+        this.getMetadata(),
+        (error) => {
+          if (error) {
+            this.logger.error('Failed to unregister node', error);
+            reject(error);
+          } else {
+            this.logger.log(`SuperNode ${nodeId} unregistered successfully`);
+            resolve();
+          }
+        },
+      );
     });
   }
 
@@ -78,32 +88,37 @@ export class FlowerService implements OnModuleInit {
         verifications: {},
       },
       overrideConfig: {}, // options.overrideConfig,
-      federation: 'default', // options.federation,
+      federation: '@none/default', // options.federation - NOOP_FEDERATION for local development
       appSpec: '',
       federationOptions: undefined,
     };
 
     return new Promise((resolve, reject) => {
-      this.controlClient.startRun(request, (error, response) => {
-        if (error) {
-          reject(error);
-          return;
-        }
+      this.controlClient.startRun(
+        request,
+        this.getMetadata(),
+        (error, response) => {
+          if (error) {
+            reject(error);
+            return;
+          }
 
-        if (!response || response.runId === undefined) {
-          reject(new Error('No runId returned'));
-          return;
-        }
+          if (!response || response.runId === undefined) {
+            reject(new Error('No runId returned'));
+            return;
+          }
 
-        resolve(response.runId);
-      });
+          resolve(response.runId);
+        },
+      );
     });
   }
 
-  async stopRun(runId: number): Promise<boolean> {
+  async stopRun(runId: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
       this.controlClient.stopRun(
         { runId: String(runId) },
+        this.getMetadata(),
         (error, response) => {
           if (error) {
             reject(error);
@@ -113,5 +128,31 @@ export class FlowerService implements OnModuleInit {
         },
       );
     });
+  }
+
+  streamEvents(runId?: string, afterTimestamp: number = 0) {
+    const request = {
+      runId: runId ? String(runId) : undefined,
+      afterTimestamp,
+    };
+
+    const metadata = this.getMetadata();
+    const stream = this.controlClient.streamEvents(request, metadata);
+
+    const streamId = runId ? `run ${runId}` : 'all runs';
+    stream.on('error', (error: Error & { code?: number }) => {
+      // UNKNOWN (code 2) errors are common when there are no active runs
+      if (error.code === 2) {
+        this.logger.debug(`No active runs to stream for ${streamId}`);
+      } else {
+        this.logger.error(`StreamEvents error for ${streamId}:`, error);
+      }
+    });
+
+    stream.on('end', () => {
+      this.logger.debug(`StreamEvents ended for ${streamId}`);
+    });
+
+    return stream;
   }
 }

@@ -1,8 +1,7 @@
 export interface NodeCertificateBundle {
-  certificate: string;
-  issuingCa: string;
-  caChain: string[];
-  serialNumber: string;
-  expiration: number;
   rootCa: string;
+  nodeId?: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: Date;
 }

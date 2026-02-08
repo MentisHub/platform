@@ -11,6 +11,7 @@ import { Request } from 'express';
 import { AuthorizationService } from './auth.service';
 import { ORG_ROLES_KEY, PROJECT_ROLES_KEY } from './decorators/roles.decorator';
 import { OrgRole, ProjectRole } from '@prisma/client';
+import { TokenType } from 'src/authentication/interfaces/payload.interface';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -34,15 +35,14 @@ export class RolesGuard implements CanActivate {
 
     const request = ctx.switchToHttp().getRequest<Request>();
 
-    if (!request.jwtPayload) {
+    if (!request.auth || request.auth?.kind !== TokenType.BEARER) {
       throw new UnauthorizedException({
-        statusCode: 401,
         code: ErrorCode.AUTHENTICATION_REQUIRED,
         message: 'Authentication required',
       });
     }
 
-    const userId = request.jwtPayload.sub;
+    const userId = request.auth.payload.sub;
     let organizationId = request.params.organizationId;
 
     if (!organizationId && request.params.projectId) {

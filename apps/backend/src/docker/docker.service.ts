@@ -72,7 +72,11 @@ export class DockerService implements OnModuleInit {
     const container = await this.docker.createContainer({
       name: containerName,
       Image: 'mentishub/fl-serverapp:latest',
-      Env: [`NODE_PSK=${nodePsk}`, `BACKEND_URL=https://platform-backend:3000`],
+      Env: [
+        `NODE_PSK=${nodePsk}`,
+        `BACKEND_URL=http://platform-backend:3000`,
+        `OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4318`,
+      ],
       Cmd: [
         'flower-superexec',
         '--plugin-type',

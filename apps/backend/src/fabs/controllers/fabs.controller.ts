@@ -3,7 +3,6 @@ import {
   Controller,
   Get,
   Post,
-  UnauthorizedException,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -15,12 +14,12 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { ErrorCode } from '@platform/contracts';
-import { CurrentUser } from 'src/authentication/decorators/current-user.decorator';
-import { Public } from 'src/authentication/decorators/public.decorator';
-import type { JwtPayload } from 'src/authentication/interfaces/jwt-payload.interface';
-import { ClientCertificate } from 'src/nodes/decorators/node-from-cert.decorator';
-import { PeerCertificate } from 'tls';
+import { NodePayload } from 'src/authentication/decorators/node.decorator';
+import { UserPayload } from 'src/authentication/decorators/user.decorator';
+import {
+  NodePayloadData,
+  UserPayloadData,
+} from 'src/authentication/interfaces/payload.interface';
 import {
   FabPackageResponseDto,
   FabResponseDto,
@@ -60,7 +59,7 @@ export class AdminFabsController {
     description: 'File upload or storage failed',
   })
   async uploadDefault(
-    @CurrentUser() user: JwtPayload,
+    @UserPayload() user: UserPayloadData,
     @Body() dto: UploadDefaultFabDto,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<FabResponseDto> {
@@ -68,12 +67,11 @@ export class AdminFabsController {
     return FabResponseDto.fromEntity(fab);
   }
 
-  @Public()
   @Get('node/info')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get node FAB metadata',
-    description:
-      'Retrieves FAB metadata for an authenticated node using its client certificate',
+    description: 'Retrieves FAB metadata for authenticated node',
   })
   @ApiResponse({
     status: 200,
@@ -81,36 +79,21 @@ export class AdminFabsController {
     type: FabResponseDto,
   })
   @ApiResponse({
-    status: 401,
-    description: 'Invalid client certificate or missing serial number',
-  })
-  @ApiResponse({
     status: 404,
     description: 'FAB not found for this node',
   })
   async getNodeFabInfo(
-    @ClientCertificate() certificate: PeerCertificate,
+    @NodePayload() node: NodePayloadData,
   ): Promise<FabResponseDto> {
-    if (!certificate.serialNumber) {
-      throw new UnauthorizedException({
-        code: ErrorCode.INVALID_NODE_CREDENTIALS,
-        message: 'Invalid certificate: missing serial number',
-      });
-    }
-
-    const fab = await this.fabsService.getFabMetadataByNodeCertificate(
-      certificate.serialNumber,
-    );
-
+    const fab = await this.fabsService.getFabMetadataByNode(node.sub);
     return FabResponseDto.fromEntity(fab);
   }
 
-  @Public()
   @Get('node/package')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Download node FAB package',
-    description:
-      'Retrieves the complete FAB package (including content) for an authenticated node',
+    description: 'Retrieves complete FAB package for authenticated node',
   })
   @ApiResponse({
     status: 200,
@@ -118,33 +101,13 @@ export class AdminFabsController {
     type: FabPackageResponseDto,
   })
   @ApiResponse({
-    status: 401,
-    description: 'Invalid client certificate or no training run assigned',
-  })
-  @ApiResponse({
     status: 404,
     description: 'FAB package not found for this node',
   })
   async getNodeFabPackage(
-    @ClientCertificate() certificate: PeerCertificate,
+    @NodePayload() node: NodePayloadData,
   ): Promise<FabPackageResponseDto> {
-    if (!certificate.serialNumber) {
-      throw new UnauthorizedException({
-        code: ErrorCode.INVALID_NODE_CREDENTIALS,
-        message: 'Invalid certificate: missing serial number',
-      });
-    }
-
-    const fabPackage = await this.fabsService.getFabPackageByNodeCertificate(
-      certificate.serialNumber,
-    );
-
-    if (!fabPackage.trainingRun) {
-      throw new UnauthorizedException({
-        code: ErrorCode.INVALID_NODE_CREDENTIALS,
-        message: 'Invalid certificate: missing serial number',
-      });
-    }
+    const fabPackage = await this.fabsService.getFabPackageByNode(node.sub);
     return FabPackageResponseDto.fromEntity(fabPackage);
   }
 }

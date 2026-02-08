@@ -2,11 +2,12 @@ import { z } from 'zod';
 import { paginationQuerySchema, sortOrderSchema } from '../common/pagination.dto';
 
 export const nodeStatusSchema = z.enum([
-  'CREATED',  // Node just created, waiting for bootstrap (certificate issuance)
-  'READY',    // Node has valid certificate and is ready to participate in training
-  'ACTIVE',   // Node is currently participating in an active training run
-  'ERROR',    // Node encountered an error (e.g., certificate issues, connection problems)
-  'OFFLINE',  // Node is disconnected or unreachable
+  'CREATED',      // Node just created, waiting for bootstrap (certificate issuance)
+  'INITIALIZING', // Node activated, downloading FAB and installing dependencies
+  'READY',        // Node has valid certificate and is ready to participate in training
+  'ACTIVE',       // Node is currently participating in an active training run
+  'ERROR',        // Node encountered an error (e.g., certificate issues, connection problems)
+  'OFFLINE',      // Node is disconnected or unreachable
 ]).describe('Current operational status of the node');
 
 export const nodeBaseSchema = z.object({
@@ -50,28 +51,42 @@ export const listNodesQuerySchema = paginationQuerySchema.extend({
 
 export const bootstrapRequestSchema = z.object({
   psk: z.string().describe('Pre-shared key issued during node creation'),
-  csr: z.string().describe('Certificate Signing Request (PEM format)'),
   ecPublicKey: z.string().describe('Elliptic Curve public key for secure communication'),
 });
 
 export const bootstrapResponseSchema = z.object({
-  certificate: z.string().describe('Issued TLS certificate (PEM format)'),
-  issuingCa: z.string().describe('Issuing Certificate Authority certificate (PEM format)'),
-  caChain: z.array(z.string()).describe('Certificate Authority chain (PEM format)'),
-  serialNumber: z.string().describe('Certificate serial number in hexadecimal format'),
-  expiration: z.number().describe('Certificate expiration timestamp (Unix epoch)'),
   rootCa: z.string().describe('Root Certificate Authority certificate (PEM format)'),
+  accessToken: z.string().describe('Short-lived access token (15 minutes)'),
+  refreshToken: z.string().describe('Long-lived refresh token (30 days)'),
+  expiresAt: z.string().datetime().describe('Access token expiration timestamp'),
 });
 
-export const renewCertificateRequestSchema = z.object({
-  csr: z.string().describe('Certificate Signing Request (PEM format)'),
+export const refreshTokenRequestSchema = z.object({
+  refreshToken: z.string().describe('Current refresh token'),
 });
 
-export const renewCertificateResponseSchema = z.object({
-  certificate: z.string().describe('Renewed TLS certificate (PEM format)'),
-  issuingCa: z.string().describe('Issuing Certificate Authority certificate (PEM format)'),
-  caChain: z.array(z.string()).describe('Certificate Authority chain (PEM format)'),
-  serialNumber: z.string().describe('New certificate serial number in hexadecimal format'),
-  expiration: z.number().describe('New certificate expiration timestamp (Unix epoch)'),
-  rootCa: z.string().describe('Root Certificate Authority certificate (PEM format)'),
+export const refreshTokenResponseSchema = z.object({
+  accessToken: z.string().describe('New short-lived access token (15 minutes)'),
+  refreshToken: z.string().describe('New long-lived refresh token (30 days)'),
+  expiresAt: z.string().datetime().describe('Access token expiration timestamp'),
+});
+
+export const recoverRequestSchema = z.object({
+  nodeId: z.string().uuid().describe('Node ID'),
+  challenge: z.string().describe('Challenge string to be signed'),
+  signature: z.string().describe('Base64-encoded signature of the challenge'),
+});
+
+export const recoverResponseSchema = z.object({
+  accessToken: z.string().describe('New short-lived access token (15 minutes)'),
+  refreshToken: z.string().describe('New long-lived refresh token (30 days)'),
+  expiresAt: z.string().datetime().describe('Access token expiration timestamp'),
+});
+
+export const heartbeatResponseSchema = z.object({
+  status: nodeStatusSchema.describe('Current node status'),
+  training: z.object({
+    runId: z.string().describe('Training run ID (as base32 for federation name)'),
+    fabName: z.string().describe('Full FAB name: publisher.name.version.hash.fab'),
+  }).optional().describe('Active training information if available'),
 });

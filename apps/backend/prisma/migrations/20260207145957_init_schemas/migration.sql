@@ -8,10 +8,10 @@ CREATE TYPE "platform"."OrgRole" AS ENUM ('ADMIN', 'MEMBER');
 CREATE TYPE "platform"."ProjectRole" AS ENUM ('ADMIN', 'MEMBER');
 
 -- CreateEnum
-CREATE TYPE "platform"."TrainingStatus" AS ENUM ('PENDING', 'DEPLOYING', 'READY', 'RUNNING', 'PAUSED', 'FAILED', 'CANCELLED');
+CREATE TYPE "platform"."TrainingStatus" AS ENUM ('PENDING', 'DEPLOYING', 'READY', 'RUNNING', 'PAUSED', 'COMPLETED', 'FAILED', 'CANCELLED');
 
 -- CreateEnum
-CREATE TYPE "platform"."NodeStatus" AS ENUM ('CREATED', 'READY', 'ACTIVE', 'ERROR', 'OFFLINE');
+CREATE TYPE "platform"."NodeStatus" AS ENUM ('CREATED', 'INITIALIZING', 'READY', 'ACTIVE', 'ERROR', 'OFFLINE');
 
 -- CreateTable
 CREATE TABLE "platform"."fabs" (
@@ -33,25 +33,6 @@ CREATE TABLE "platform"."fabs" (
     "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "fabs_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "platform"."organization_cas" (
-    "id" UUID NOT NULL,
-    "organization_id" UUID NOT NULL,
-    "vault_mount_path" TEXT NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "organization_cas_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "platform"."node_certificates" (
-    "node_id" TEXT NOT NULL,
-    "serial_number" VARCHAR(40) NOT NULL,
-    "issued_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "expires_at" TIMESTAMP(3) NOT NULL,
-    "revoked_at" TIMESTAMP(3)
 );
 
 -- CreateTable
@@ -111,17 +92,34 @@ CREATE TABLE "platform"."project_members" (
 
 -- CreateTable
 CREATE TABLE "platform"."nodes" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL,
     "name" VARCHAR(255) NOT NULL,
     "status" "platform"."NodeStatus" NOT NULL DEFAULT 'CREATED',
+    "flower_node_id" TEXT,
     "metadata" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
+    "ec_public_key" TEXT,
     "organization_id" UUID NOT NULL,
     "project_id" UUID,
     "created_by_id" UUID NOT NULL,
+    "token_hash" TEXT,
+    "activated_at" TIMESTAMP(3),
+    "last_seen_at" TIMESTAMP(3),
 
     CONSTRAINT "nodes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "platform"."node_refresh_tokens" (
+    "id" UUID NOT NULL,
+    "token" TEXT NOT NULL,
+    "node_id" UUID NOT NULL,
+    "expires_at" TIMESTAMP(3) NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "revoked_at" TIMESTAMP(3),
+
+    CONSTRAINT "node_refresh_tokens_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -136,7 +134,8 @@ CREATE TABLE "platform"."training_runs" (
     "flower_run_id" TEXT,
     "configuration" JSONB,
     "created_by_id" UUID NOT NULL,
-    "serverapp_id" TEXT,
+    "metrics" JSONB,
+    "serverapp_id" UUID,
 
     CONSTRAINT "training_runs_pkey" PRIMARY KEY ("id")
 );
@@ -147,6 +146,9 @@ CREATE TABLE "platform"."rounds" (
     "number" INTEGER NOT NULL,
     "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "completed_at" TIMESTAMP(3),
+    "total_participants" INTEGER,
+    "successful_participants" INTEGER,
+    "metrics" JSONB,
     "run_id" UUID NOT NULL,
 
     CONSTRAINT "rounds_pkey" PRIMARY KEY ("id")
@@ -155,19 +157,21 @@ CREATE TABLE "platform"."rounds" (
 -- CreateTable
 CREATE TABLE "platform"."run_participants" (
     "joined_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "endedAt" TIMESTAMP(3),
+    "ended_at" TIMESTAMP(3),
     "run_id" UUID NOT NULL,
-    "node_id" TEXT NOT NULL,
+    "node_id" UUID NOT NULL,
 
     CONSTRAINT "run_participants_pkey" PRIMARY KEY ("run_id","node_id")
 );
 
 -- CreateTable
 CREATE TABLE "platform"."round_participants" (
-    "participated" BOOLEAN NOT NULL DEFAULT true,
     "failure_reason" VARCHAR(500),
+    "started_at" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
+    "completed_at" TIMESTAMP(3),
+    "metrics" JSONB,
     "round_id" UUID NOT NULL,
-    "node_id" TEXT NOT NULL,
+    "node_id" UUID NOT NULL,
 
     CONSTRAINT "round_participants_pkey" PRIMARY KEY ("round_id","node_id")
 );
@@ -212,22 +216,25 @@ CREATE INDEX "fabs_is_default_is_public_idx" ON "platform"."fabs"("is_default", 
 CREATE UNIQUE INDEX "fabs_fab_hash_version_key" ON "platform"."fabs"("fab_hash", "version");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "organization_cas_organization_id_key" ON "platform"."organization_cas"("organization_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "node_certificates_node_id_key" ON "platform"."node_certificates"("node_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "node_certificates_serial_number_key" ON "platform"."node_certificates"("serial_number");
-
--- CreateIndex
 CREATE INDEX "organizations_owner_id_idx" ON "platform"."organizations"("owner_id");
 
 -- CreateIndex
 CREATE INDEX "project_members_user_id_idx" ON "platform"."project_members"("user_id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "nodes_flower_node_id_key" ON "platform"."nodes"("flower_node_id");
+
+-- CreateIndex
 CREATE INDEX "nodes_organization_id_idx" ON "platform"."nodes"("organization_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "node_refresh_tokens_token_key" ON "platform"."node_refresh_tokens"("token");
+
+-- CreateIndex
+CREATE INDEX "node_refresh_tokens_node_id_idx" ON "platform"."node_refresh_tokens"("node_id");
+
+-- CreateIndex
+CREATE INDEX "node_refresh_tokens_token_idx" ON "platform"."node_refresh_tokens"("token");
 
 -- CreateIndex
 CREATE INDEX "training_runs_project_id_status_idx" ON "platform"."training_runs"("project_id", "status");
@@ -252,12 +259,6 @@ ALTER TABLE "platform"."fabs" ADD CONSTRAINT "fabs_project_id_fkey" FOREIGN KEY 
 
 -- AddForeignKey
 ALTER TABLE "platform"."fabs" ADD CONSTRAINT "fabs_uploaded_by_id_fkey" FOREIGN KEY ("uploaded_by_id") REFERENCES "platform"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "platform"."organization_cas" ADD CONSTRAINT "organization_cas_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "platform"."node_certificates" ADD CONSTRAINT "node_certificates_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "platform"."nodes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "platform"."organizations" ADD CONSTRAINT "organizations_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "platform"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -291,6 +292,9 @@ ALTER TABLE "platform"."nodes" ADD CONSTRAINT "nodes_organization_id_fkey" FOREI
 
 -- AddForeignKey
 ALTER TABLE "platform"."nodes" ADD CONSTRAINT "nodes_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "platform"."projects"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "platform"."node_refresh_tokens" ADD CONSTRAINT "node_refresh_tokens_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "platform"."nodes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "platform"."training_runs" ADD CONSTRAINT "training_runs_serverapp_id_fkey" FOREIGN KEY ("serverapp_id") REFERENCES "platform"."nodes"("id") ON DELETE SET NULL ON UPDATE CASCADE;

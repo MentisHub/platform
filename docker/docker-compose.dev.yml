@@ -1,24 +1,4 @@
 services:
-  vault-agent-backend:
-    image: hashicorp/vault:1.21
-    container_name: vault-agent-backend
-    user: "0:0"
-    volumes:
-      - vault_certs:/etc/backend/creds:ro
-      - backend_certs:/etc/backend/certs
-      - ./vault-agent.hcl:/vault/config/vault-agent.hcl:ro
-      - ./templates:/vault/templates:ro
-    environment:
-      CERT_DOMAIN: ${CERT_DOMAIN:-localhost}
-    networks:
-      - mentishub-network
-    entrypoint: ["/bin/sh", "-c"]
-    command: ["vault agent -config=/vault/config/vault-agent.hcl"]
-    depends_on:
-      vault-init:
-        condition: service_completed_successfully
-    restart: unless-stopped
-
   platform-backend:
     container_name: platform-backend
     build:
@@ -28,10 +8,10 @@ services:
       - ..:/usr/src/app
       - backend-deps:/usr/src/app/node_modules
       - pnpm-cache:/root/.local/share/pnpm/store
-      - backend_certs:/etc/backend/certs:ro
-      - vault_certs:/vault/creds:ro
       - /var/run/docker.sock:/var/run/docker.sock
-      - ../../docker:/app/platform/docker:ro
+      - ../../docker:/usr/src/app/platform/docker:ro
+      - ../../certs:/usr/src/app/certs:ro
+      - ../../flower/framework/proto/flwr:/opt/flower-proto/flwr:ro  # Mount local Flower protos
     ports:
       - "3000:3000"
     environment:
@@ -40,16 +20,15 @@ services:
       SUPABASE_URL: http://supabase-kong:8000
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       JWT_SECRET: ${JWT_SECRET}
-      VAULT_ADDR: http://vault:8200
-      VAULT_ROLE_ID_FILE: /vault/creds/platform-role-id
-      VAULT_SECRET_ID_FILE: /vault/creds/platform-secret-id
-      OTEL_EXPORTER_URL: https://otel-collector:4318
-      BACKEND_CERT_PATH: /etc/backend/certs/backend.crt
-      BACKEND_KEY_PATH: /etc/backend/certs/backend.key
-      BACKEND_CA_PATH: /vault/creds/root-ca.crt
+      JWT_PRIVATE_KEY_PATH: /usr/src/app/certs/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /usr/src/app/certs/jwt_public.pem
+      BASE_URL: http://platform-backend:3000
+      OTEL_EXPORTER_URL: https://otel-collector:4317
+      BACKEND_CERT_PATH: /usr/src/app/certs/server.crt
+      BACKEND_KEY_PATH: /usr/src/app/certs/server.key
+      BACKEND_CA_PATH: /usr/src/app/certs/ca.crt
       DOCKER_SOCKET: /var/run/docker.sock
       SUPERLINK_HOST: superlink
-      CERT_DOMAIN: ${CERT_DOMAIN:-localhost}
     networks:
       - mentishub-network
     depends_on:
@@ -57,10 +36,12 @@ services:
         condition: service_healthy
       supabase-auth:
         condition: service_healthy
-      vault-agent-backend:
-        condition: service_started
-      otel-collector:
-        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
 
   platform-frontend:
     container_name: platform-frontend
@@ -82,32 +63,29 @@ services:
       - platform-backend
 
   superlink:
-    image: flwr/superlink:1.25.0
     container_name: superlink
+    build:
+      context: ../../flower
+      dockerfile: ../platform/docker/flower/superlink.Dockerfile
     command:
-      - --ssl-certfile=/certs/backend.crt
-      - --ssl-keyfile=/certs/backend.key
-      - --ssl-ca-certfile=/vault/creds/root-ca.crt
+      - --ssl-certfile=/certs/server.crt
+      - --ssl-keyfile=/certs/server.key
+      - --ssl-ca-certfile=/certs/ca.crt
       - --enable-supernode-auth
       - --isolation
       - process
-    working_dir: /app
+      - --database=/data/state.db
     volumes:
-      - backend_certs:/certs:ro
-      - vault_certs:/vault/creds:ro
+      - ../../certs:/certs:ro
     ports:
       - "9091:9091"
       - "9092:9092"
       - "9093:9093"
     networks:
       - mentishub-network
-    depends_on:
-      - vault-agent-backend
-      - vault-init
     restart: unless-stopped
 
 volumes:
   backend-deps:
   frontend-deps:
   pnpm-cache:
-  backend_certs:

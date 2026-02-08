@@ -22,8 +22,8 @@ import {
 } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
 import { Response } from 'express';
-import { CurrentUser } from 'src/authentication/decorators/current-user.decorator';
-import type { JwtPayload } from 'src/authentication/interfaces/jwt-payload.interface';
+import { UserPayload } from 'src/authentication/decorators/user.decorator';
+import { UserPayloadData } from 'src/authentication/interfaces/payload.interface';
 import { RequireOrgRole } from 'src/authorization/decorators/roles.decorator';
 import {
   FabResponseDto,
@@ -82,7 +82,7 @@ export class FabsController {
   })
   async upload(
     @Param('organizationId') organizationId: string,
-    @CurrentUser() user: JwtPayload,
+    @UserPayload() user: UserPayloadData,
     @Body() dto: UploadFabDto,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<FabResponseDto> {

@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthenticationService } from './auth.service';
 import { AuthGuard } from './auth.guard';
+import { OIDCController } from './oidc.controller';
 
 @Module({
-  imports: [ConfigModule],
+  controllers: [OIDCController],
   providers: [
     AuthenticationService,
     {
@@ -13,5 +13,6 @@ import { AuthGuard } from './auth.guard';
       useClass: AuthGuard,
     },
   ],
+  exports: [AuthenticationService],
 })
 export class AuthenticationModule {}

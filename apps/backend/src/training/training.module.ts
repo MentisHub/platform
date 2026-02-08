@@ -1,27 +1,39 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { DockerModule } from '../docker/docker.module';
 import { FabsModule } from '../fabs/fabs.module';
 import { FlowerModule } from '../flower/flower.module';
 import { NodesModule } from '../nodes/nodes.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ProjectsModule } from '../projects/projects.module';
-import { VaultModule } from '../vault/vault.module';
-import { ProjTrainingController } from './training.controller';
+import { RoundParticipantService } from './services/round-participant.service';
+import { RoundService } from './services/round.service';
 import { RunParticipantService } from './services/run-participant.service';
 import { TrainingService } from './services/training.service';
+import { ProjTrainingController } from './training.controller';
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot(),
     PrismaModule,
-    VaultModule,
     DockerModule,
-    FlowerModule,
-    FabsModule,
+    forwardRef(() => FlowerModule),
+    forwardRef(() => FabsModule),
     ProjectsModule,
     forwardRef(() => NodesModule),
   ],
   controllers: [ProjTrainingController],
-  providers: [TrainingService, RunParticipantService],
-  exports: [TrainingService, RunParticipantService],
+  providers: [
+    TrainingService,
+    RunParticipantService,
+    RoundService,
+    RoundParticipantService,
+  ],
+  exports: [
+    TrainingService,
+    RunParticipantService,
+    RoundService,
+    RoundParticipantService,
+  ],
 })
 export class TrainingModule {}
