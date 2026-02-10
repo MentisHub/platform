@@ -31,6 +31,7 @@ import {
   RequestTokenRequest,
   RequestTokenResponse,
 } from "./appio.js";
+import { PushEventsRequest, PushEventsResponse } from "./event.js";
 import { SendAppHeartbeatRequest, SendAppHeartbeatResponse } from "./heartbeat.js";
 import {
   ConfirmMessageReceivedRequest,
@@ -171,6 +172,16 @@ export const ClientAppIoService = {
       Buffer.from(PullAppMessagesResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): PullAppMessagesResponse => PullAppMessagesResponse.decode(value),
   },
+  /** Push training events from ClientApp */
+  pushEvents: {
+    path: "/flwr.proto.ClientAppIo/PushEvents",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: PushEventsRequest): Buffer => Buffer.from(PushEventsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PushEventsRequest => PushEventsRequest.decode(value),
+    responseSerialize: (value: PushEventsResponse): Buffer => Buffer.from(PushEventsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PushEventsResponse => PushEventsResponse.decode(value),
+  },
 } as const;
 
 export interface ClientAppIoServer extends UntypedServiceImplementation {
@@ -196,6 +207,8 @@ export interface ClientAppIoServer extends UntypedServiceImplementation {
   pushMessage: handleUnaryCall<PushAppMessagesRequest, PushAppMessagesResponse>;
   /** Pull Message */
   pullMessage: handleUnaryCall<PullAppMessagesRequest, PullAppMessagesResponse>;
+  /** Push training events from ClientApp */
+  pushEvents: handleUnaryCall<PushEventsRequest, PushEventsResponse>;
 }
 
 export interface ClientAppIoClient extends Client {
@@ -374,6 +387,22 @@ export interface ClientAppIoClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: PullAppMessagesResponse) => void,
+  ): ClientUnaryCall;
+  /** Push training events from ClientApp */
+  pushEvents(
+    request: PushEventsRequest,
+    callback: (error: ServiceError | null, response: PushEventsResponse) => void,
+  ): ClientUnaryCall;
+  pushEvents(
+    request: PushEventsRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: PushEventsResponse) => void,
+  ): ClientUnaryCall;
+  pushEvents(
+    request: PushEventsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: PushEventsResponse) => void,
   ): ClientUnaryCall;
 }
 

@@ -58,8 +58,6 @@ export interface StreamLogsResponse {
 }
 
 export interface StreamEventsRequest {
-  /** If not set, stream events for all runs */
-  runId?: string | undefined;
   afterTimestamp: number;
 }
 
@@ -601,14 +599,11 @@ export const StreamLogsResponse: MessageFns<StreamLogsResponse> = {
 };
 
 function createBaseStreamEventsRequest(): StreamEventsRequest {
-  return { runId: undefined, afterTimestamp: 0 };
+  return { afterTimestamp: 0 };
 }
 
 export const StreamEventsRequest: MessageFns<StreamEventsRequest> = {
   encode(message: StreamEventsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.runId !== undefined) {
-      writer.uint32(8).uint64(message.runId);
-    }
     if (message.afterTimestamp !== 0) {
       writer.uint32(17).double(message.afterTimestamp);
     }
@@ -622,14 +617,6 @@ export const StreamEventsRequest: MessageFns<StreamEventsRequest> = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 8) {
-            break;
-          }
-
-          message.runId = reader.uint64().toString();
-          continue;
-        }
         case 2: {
           if (tag !== 17) {
             break;
@@ -648,17 +635,11 @@ export const StreamEventsRequest: MessageFns<StreamEventsRequest> = {
   },
 
   fromJSON(object: any): StreamEventsRequest {
-    return {
-      runId: isSet(object.runId) ? globalThis.String(object.runId) : undefined,
-      afterTimestamp: isSet(object.afterTimestamp) ? globalThis.Number(object.afterTimestamp) : 0,
-    };
+    return { afterTimestamp: isSet(object.afterTimestamp) ? globalThis.Number(object.afterTimestamp) : 0 };
   },
 
   toJSON(message: StreamEventsRequest): unknown {
     const obj: any = {};
-    if (message.runId !== undefined) {
-      obj.runId = message.runId;
-    }
     if (message.afterTimestamp !== 0) {
       obj.afterTimestamp = message.afterTimestamp;
     }
@@ -670,7 +651,6 @@ export const StreamEventsRequest: MessageFns<StreamEventsRequest> = {
   },
   fromPartial<I extends Exact<DeepPartial<StreamEventsRequest>, I>>(object: I): StreamEventsRequest {
     const message = createBaseStreamEventsRequest();
-    message.runId = object.runId ?? undefined;
     message.afterTimestamp = object.afterTimestamp ?? 0;
     return message;
   },

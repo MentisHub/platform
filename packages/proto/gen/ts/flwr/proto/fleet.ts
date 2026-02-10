@@ -18,6 +18,7 @@ import {
   type ServiceError,
   type UntypedServiceImplementation,
 } from "@grpc/grpc-js";
+import { PushEventsRequest, PushEventsResponse } from "./event.js";
 import { GetFabRequest, GetFabResponse } from "./fab.js";
 import { SendNodeHeartbeatRequest, SendNodeHeartbeatResponse } from "./heartbeat.js";
 import {
@@ -1260,6 +1261,16 @@ export const FleetService = {
     responseDeserialize: (value: Buffer): ConfirmMessageReceivedResponse =>
       ConfirmMessageReceivedResponse.decode(value),
   },
+  /** Push training events from SuperNode */
+  pushEvents: {
+    path: "/flwr.proto.Fleet/PushEvents",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: PushEventsRequest): Buffer => Buffer.from(PushEventsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PushEventsRequest => PushEventsRequest.decode(value),
+    responseSerialize: (value: PushEventsResponse): Buffer => Buffer.from(PushEventsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PushEventsResponse => PushEventsResponse.decode(value),
+  },
 } as const;
 
 export interface FleetServer extends UntypedServiceImplementation {
@@ -1293,6 +1304,8 @@ export interface FleetServer extends UntypedServiceImplementation {
   pullObject: handleUnaryCall<PullObjectRequest, PullObjectResponse>;
   /** Confirm Message Received */
   confirmMessageReceived: handleUnaryCall<ConfirmMessageReceivedRequest, ConfirmMessageReceivedResponse>;
+  /** Push training events from SuperNode */
+  pushEvents: handleUnaryCall<PushEventsRequest, PushEventsResponse>;
 }
 
 export interface FleetClient extends Client {
@@ -1493,6 +1506,22 @@ export interface FleetClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: ConfirmMessageReceivedResponse) => void,
+  ): ClientUnaryCall;
+  /** Push training events from SuperNode */
+  pushEvents(
+    request: PushEventsRequest,
+    callback: (error: ServiceError | null, response: PushEventsResponse) => void,
+  ): ClientUnaryCall;
+  pushEvents(
+    request: PushEventsRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: PushEventsResponse) => void,
+  ): ClientUnaryCall;
+  pushEvents(
+    request: PushEventsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: PushEventsResponse) => void,
   ): ClientUnaryCall;
 }
 

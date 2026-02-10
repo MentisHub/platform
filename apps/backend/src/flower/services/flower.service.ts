@@ -130,27 +130,25 @@ export class FlowerService implements OnModuleInit {
     });
   }
 
-  streamEvents(runId?: string, afterTimestamp: number = 0) {
+  streamEvents(afterTimestamp: number = 0) {
     const request = {
-      runId: runId ? String(runId) : undefined,
       afterTimestamp,
     };
 
     const metadata = this.getMetadata();
     const stream = this.controlClient.streamEvents(request, metadata);
 
-    const streamId = runId ? `run ${runId}` : 'all runs';
     stream.on('error', (error: Error & { code?: number }) => {
       // UNKNOWN (code 2) errors are common when there are no active runs
       if (error.code === 2) {
-        this.logger.debug(`No active runs to stream for ${streamId}`);
+        this.logger.debug(`No active runs to stream events`);
       } else {
-        this.logger.error(`StreamEvents error for ${streamId}:`, error);
+        this.logger.error(`StreamEvents error:`, error);
       }
     });
 
     stream.on('end', () => {
-      this.logger.debug(`StreamEvents ended for ${streamId}`);
+      this.logger.debug(`StreamEvents ended`);
     });
 
     return stream;

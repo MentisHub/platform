@@ -11,83 +11,95 @@ import { Node } from "./node.js";
 export const protobufPackage = "flwr.proto";
 
 export enum EventType {
-  EVENT_TYPE_UNSPECIFIED = 0,
-  /** EVENT_TYPE_ROUND_STARTED - Round lifecycle events */
-  EVENT_TYPE_ROUND_STARTED = 1,
-  EVENT_TYPE_ROUND_FIT_RECEIVED = 2,
-  EVENT_TYPE_ROUND_FIT_AGGREGATED = 3,
-  EVENT_TYPE_ROUND_EVALUATE_RECEIVED = 4,
-  EVENT_TYPE_ROUND_EVALUATE_AGGREGATED = 5,
-  EVENT_TYPE_ROUND_COMPLETED = 6,
-  EVENT_TYPE_ROUND_FAILED = 7,
-  /** EVENT_TYPE_RUN_STARTED - Run lifecycle events */
-  EVENT_TYPE_RUN_STARTED = 9,
-  EVENT_TYPE_RUN_COMPLETED = 10,
-  EVENT_TYPE_RUN_FAILED = 11,
-  /** EVENT_TYPE_NODE_FIT_COMPLETED - Node task events */
-  EVENT_TYPE_NODE_FIT_COMPLETED = 12,
-  EVENT_TYPE_NODE_EVALUATE_COMPLETED = 13,
-  EVENT_TYPE_NODE_FIT_FAILED = 14,
-  EVENT_TYPE_NODE_EVALUATE_FAILED = 15,
-  /** EVENT_TYPE_NODE_CONNECTED - Node lifecycle events */
-  EVENT_TYPE_NODE_CONNECTED = 16,
-  EVENT_TYPE_NODE_DISCONNECTED = 17,
+  /** ROUND_STARTED - Round lifecycle events */
+  ROUND_STARTED = 0,
+  ROUND_FIT_STARTED = 1,
+  ROUND_FIT_AGGREGATED = 2,
+  ROUND_FIT_FAILED = 3,
+  ROUND_EVALUATE_STARTED = 4,
+  ROUND_EVALUATE_AGGREGATED = 5,
+  ROUND_EVALUATE_FAILED = 6,
+  ROUND_COMPLETED = 7,
+  ROUND_FAILED = 8,
+  /** RUN_STARTED - Run lifecycle events */
+  RUN_STARTED = 9,
+  RUN_COMPLETED = 10,
+  RUN_FAILED = 11,
+  /** NODE_FIT_STARTED - Node task events */
+  NODE_FIT_STARTED = 12,
+  NODE_FIT_COMPLETED = 13,
+  NODE_FIT_FAILED = 14,
+  NODE_EVALUATE_STARTED = 15,
+  NODE_EVALUATE_COMPLETED = 16,
+  NODE_EVALUATE_FAILED = 17,
+  /** NODE_CONNECTED - Node lifecycle events */
+  NODE_CONNECTED = 18,
+  NODE_DISCONNECTED = 19,
   UNRECOGNIZED = -1,
 }
 
 export function eventTypeFromJSON(object: any): EventType {
   switch (object) {
     case 0:
-    case "EVENT_TYPE_UNSPECIFIED":
-      return EventType.EVENT_TYPE_UNSPECIFIED;
+    case "ROUND_STARTED":
+      return EventType.ROUND_STARTED;
     case 1:
-    case "EVENT_TYPE_ROUND_STARTED":
-      return EventType.EVENT_TYPE_ROUND_STARTED;
+    case "ROUND_FIT_STARTED":
+      return EventType.ROUND_FIT_STARTED;
     case 2:
-    case "EVENT_TYPE_ROUND_FIT_RECEIVED":
-      return EventType.EVENT_TYPE_ROUND_FIT_RECEIVED;
+    case "ROUND_FIT_AGGREGATED":
+      return EventType.ROUND_FIT_AGGREGATED;
     case 3:
-    case "EVENT_TYPE_ROUND_FIT_AGGREGATED":
-      return EventType.EVENT_TYPE_ROUND_FIT_AGGREGATED;
+    case "ROUND_FIT_FAILED":
+      return EventType.ROUND_FIT_FAILED;
     case 4:
-    case "EVENT_TYPE_ROUND_EVALUATE_RECEIVED":
-      return EventType.EVENT_TYPE_ROUND_EVALUATE_RECEIVED;
+    case "ROUND_EVALUATE_STARTED":
+      return EventType.ROUND_EVALUATE_STARTED;
     case 5:
-    case "EVENT_TYPE_ROUND_EVALUATE_AGGREGATED":
-      return EventType.EVENT_TYPE_ROUND_EVALUATE_AGGREGATED;
+    case "ROUND_EVALUATE_AGGREGATED":
+      return EventType.ROUND_EVALUATE_AGGREGATED;
     case 6:
-    case "EVENT_TYPE_ROUND_COMPLETED":
-      return EventType.EVENT_TYPE_ROUND_COMPLETED;
+    case "ROUND_EVALUATE_FAILED":
+      return EventType.ROUND_EVALUATE_FAILED;
     case 7:
-    case "EVENT_TYPE_ROUND_FAILED":
-      return EventType.EVENT_TYPE_ROUND_FAILED;
+    case "ROUND_COMPLETED":
+      return EventType.ROUND_COMPLETED;
+    case 8:
+    case "ROUND_FAILED":
+      return EventType.ROUND_FAILED;
     case 9:
-    case "EVENT_TYPE_RUN_STARTED":
-      return EventType.EVENT_TYPE_RUN_STARTED;
+    case "RUN_STARTED":
+      return EventType.RUN_STARTED;
     case 10:
-    case "EVENT_TYPE_RUN_COMPLETED":
-      return EventType.EVENT_TYPE_RUN_COMPLETED;
+    case "RUN_COMPLETED":
+      return EventType.RUN_COMPLETED;
     case 11:
-    case "EVENT_TYPE_RUN_FAILED":
-      return EventType.EVENT_TYPE_RUN_FAILED;
+    case "RUN_FAILED":
+      return EventType.RUN_FAILED;
     case 12:
-    case "EVENT_TYPE_NODE_FIT_COMPLETED":
-      return EventType.EVENT_TYPE_NODE_FIT_COMPLETED;
+    case "NODE_FIT_STARTED":
+      return EventType.NODE_FIT_STARTED;
     case 13:
-    case "EVENT_TYPE_NODE_EVALUATE_COMPLETED":
-      return EventType.EVENT_TYPE_NODE_EVALUATE_COMPLETED;
+    case "NODE_FIT_COMPLETED":
+      return EventType.NODE_FIT_COMPLETED;
     case 14:
-    case "EVENT_TYPE_NODE_FIT_FAILED":
-      return EventType.EVENT_TYPE_NODE_FIT_FAILED;
+    case "NODE_FIT_FAILED":
+      return EventType.NODE_FIT_FAILED;
     case 15:
-    case "EVENT_TYPE_NODE_EVALUATE_FAILED":
-      return EventType.EVENT_TYPE_NODE_EVALUATE_FAILED;
+    case "NODE_EVALUATE_STARTED":
+      return EventType.NODE_EVALUATE_STARTED;
     case 16:
-    case "EVENT_TYPE_NODE_CONNECTED":
-      return EventType.EVENT_TYPE_NODE_CONNECTED;
+    case "NODE_EVALUATE_COMPLETED":
+      return EventType.NODE_EVALUATE_COMPLETED;
     case 17:
-    case "EVENT_TYPE_NODE_DISCONNECTED":
-      return EventType.EVENT_TYPE_NODE_DISCONNECTED;
+    case "NODE_EVALUATE_FAILED":
+      return EventType.NODE_EVALUATE_FAILED;
+    case 18:
+    case "NODE_CONNECTED":
+      return EventType.NODE_CONNECTED;
+    case 19:
+    case "NODE_DISCONNECTED":
+      return EventType.NODE_DISCONNECTED;
     case -1:
     case "UNRECOGNIZED":
     default:
@@ -97,40 +109,46 @@ export function eventTypeFromJSON(object: any): EventType {
 
 export function eventTypeToJSON(object: EventType): string {
   switch (object) {
-    case EventType.EVENT_TYPE_UNSPECIFIED:
-      return "EVENT_TYPE_UNSPECIFIED";
-    case EventType.EVENT_TYPE_ROUND_STARTED:
-      return "EVENT_TYPE_ROUND_STARTED";
-    case EventType.EVENT_TYPE_ROUND_FIT_RECEIVED:
-      return "EVENT_TYPE_ROUND_FIT_RECEIVED";
-    case EventType.EVENT_TYPE_ROUND_FIT_AGGREGATED:
-      return "EVENT_TYPE_ROUND_FIT_AGGREGATED";
-    case EventType.EVENT_TYPE_ROUND_EVALUATE_RECEIVED:
-      return "EVENT_TYPE_ROUND_EVALUATE_RECEIVED";
-    case EventType.EVENT_TYPE_ROUND_EVALUATE_AGGREGATED:
-      return "EVENT_TYPE_ROUND_EVALUATE_AGGREGATED";
-    case EventType.EVENT_TYPE_ROUND_COMPLETED:
-      return "EVENT_TYPE_ROUND_COMPLETED";
-    case EventType.EVENT_TYPE_ROUND_FAILED:
-      return "EVENT_TYPE_ROUND_FAILED";
-    case EventType.EVENT_TYPE_RUN_STARTED:
-      return "EVENT_TYPE_RUN_STARTED";
-    case EventType.EVENT_TYPE_RUN_COMPLETED:
-      return "EVENT_TYPE_RUN_COMPLETED";
-    case EventType.EVENT_TYPE_RUN_FAILED:
-      return "EVENT_TYPE_RUN_FAILED";
-    case EventType.EVENT_TYPE_NODE_FIT_COMPLETED:
-      return "EVENT_TYPE_NODE_FIT_COMPLETED";
-    case EventType.EVENT_TYPE_NODE_EVALUATE_COMPLETED:
-      return "EVENT_TYPE_NODE_EVALUATE_COMPLETED";
-    case EventType.EVENT_TYPE_NODE_FIT_FAILED:
-      return "EVENT_TYPE_NODE_FIT_FAILED";
-    case EventType.EVENT_TYPE_NODE_EVALUATE_FAILED:
-      return "EVENT_TYPE_NODE_EVALUATE_FAILED";
-    case EventType.EVENT_TYPE_NODE_CONNECTED:
-      return "EVENT_TYPE_NODE_CONNECTED";
-    case EventType.EVENT_TYPE_NODE_DISCONNECTED:
-      return "EVENT_TYPE_NODE_DISCONNECTED";
+    case EventType.ROUND_STARTED:
+      return "ROUND_STARTED";
+    case EventType.ROUND_FIT_STARTED:
+      return "ROUND_FIT_STARTED";
+    case EventType.ROUND_FIT_AGGREGATED:
+      return "ROUND_FIT_AGGREGATED";
+    case EventType.ROUND_FIT_FAILED:
+      return "ROUND_FIT_FAILED";
+    case EventType.ROUND_EVALUATE_STARTED:
+      return "ROUND_EVALUATE_STARTED";
+    case EventType.ROUND_EVALUATE_AGGREGATED:
+      return "ROUND_EVALUATE_AGGREGATED";
+    case EventType.ROUND_EVALUATE_FAILED:
+      return "ROUND_EVALUATE_FAILED";
+    case EventType.ROUND_COMPLETED:
+      return "ROUND_COMPLETED";
+    case EventType.ROUND_FAILED:
+      return "ROUND_FAILED";
+    case EventType.RUN_STARTED:
+      return "RUN_STARTED";
+    case EventType.RUN_COMPLETED:
+      return "RUN_COMPLETED";
+    case EventType.RUN_FAILED:
+      return "RUN_FAILED";
+    case EventType.NODE_FIT_STARTED:
+      return "NODE_FIT_STARTED";
+    case EventType.NODE_FIT_COMPLETED:
+      return "NODE_FIT_COMPLETED";
+    case EventType.NODE_FIT_FAILED:
+      return "NODE_FIT_FAILED";
+    case EventType.NODE_EVALUATE_STARTED:
+      return "NODE_EVALUATE_STARTED";
+    case EventType.NODE_EVALUATE_COMPLETED:
+      return "NODE_EVALUATE_COMPLETED";
+    case EventType.NODE_EVALUATE_FAILED:
+      return "NODE_EVALUATE_FAILED";
+    case EventType.NODE_CONNECTED:
+      return "NODE_CONNECTED";
+    case EventType.NODE_DISCONNECTED:
+      return "NODE_DISCONNECTED";
     case EventType.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";

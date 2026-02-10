@@ -20,7 +20,7 @@ export class FlowerSyncService implements OnModuleInit {
     private readonly roundParticipantService: RoundParticipantService,
     private readonly nodesService: NodesService,
     private readonly trainingService: TrainingService,
-  ) { }
+  ) {}
 
   onModuleInit() {
     this.startGlobalEventStream();
@@ -72,15 +72,15 @@ export class FlowerSyncService implements OnModuleInit {
     try {
       // Handle node lifecycle events (not tied to a specific run)
       if (
-        event.eventType === EventType.EVENT_TYPE_NODE_CONNECTED ||
-        event.eventType === EventType.EVENT_TYPE_NODE_DISCONNECTED
+        event.eventType === EventType.NODE_CONNECTED ||
+        event.eventType === EventType.NODE_DISCONNECTED
       ) {
         await this.handleNodeLifecycleEvent(event);
         return;
       }
 
       const mentisRunId = await this.trainingService.getRunByFlowerId(
-        event.runId,
+        event.runId!,
       );
       if (!mentisRunId) {
         return; // Run not from MentisHub
@@ -91,51 +91,83 @@ export class FlowerSyncService implements OnModuleInit {
       );
 
       switch (event.eventType) {
-        case EventType.EVENT_TYPE_ROUND_STARTED:
-          await this.handleRoundStarted(mentisRunId.id, event);
+        // Run lifecycle events
+        case EventType.RUN_STARTED:
+          await this.handleRunStarted(mentisRunId.id, event);
           break;
 
-        case EventType.EVENT_TYPE_ROUND_FIT_RECEIVED:
-          // First fit response received - just log for now
-          this.logger.debug(
-            `First fit response received for round ${event.metadata['round_number']}`,
-          );
-          break;
-
-        case EventType.EVENT_TYPE_NODE_FIT_COMPLETED:
-          await this.handleNodeFitCompleted(mentisRunId.id, event);
-          break;
-
-        case EventType.EVENT_TYPE_NODE_EVALUATE_COMPLETED:
-          await this.handleNodeEvaluateCompleted(mentisRunId.id, event);
-          break;
-
-        case EventType.EVENT_TYPE_NODE_FIT_FAILED:
-          await this.handleNodeFitFailed(mentisRunId.id, event);
-          break;
-
-        case EventType.EVENT_TYPE_NODE_EVALUATE_FAILED:
-          await this.handleNodeEvaluateFailed(mentisRunId.id, event);
-          break;
-
-        case EventType.EVENT_TYPE_ROUND_FIT_AGGREGATED:
-          await this.handleRoundFitAggregated(mentisRunId.id, event);
-          break;
-
-        case EventType.EVENT_TYPE_ROUND_EVALUATE_AGGREGATED:
-          await this.handleRoundEvaluateAggregated(mentisRunId.id, event);
-          break;
-
-        case EventType.EVENT_TYPE_ROUND_COMPLETED:
-          await this.handleRoundCompleted(mentisRunId.id, event);
-          break;
-
-        case EventType.EVENT_TYPE_RUN_COMPLETED:
+        case EventType.RUN_COMPLETED:
           await this.handleRunCompleted(mentisRunId.id, event);
           break;
 
-        case EventType.EVENT_TYPE_RUN_FAILED:
+        case EventType.RUN_FAILED:
           await this.handleRunFailed(mentisRunId.id, event);
+          break;
+
+        // Round lifecycle events
+        case EventType.ROUND_STARTED:
+          await this.handleRoundStarted(mentisRunId.id, event);
+          break;
+
+        case EventType.ROUND_FIT_STARTED:
+          this.logger.debug(
+            `Round ${event.metadata['round']} fit phase started`,
+          );
+          break;
+
+        case EventType.ROUND_FIT_AGGREGATED:
+          await this.handleRoundFitAggregated(mentisRunId.id, event);
+          break;
+
+        case EventType.ROUND_FIT_FAILED:
+          await this.handleRoundFitFailed(mentisRunId.id, event);
+          break;
+
+        case EventType.ROUND_EVALUATE_STARTED:
+          this.logger.debug(
+            `Round ${event.metadata['round']} evaluate phase started`,
+          );
+          break;
+
+        case EventType.ROUND_EVALUATE_AGGREGATED:
+          await this.handleRoundEvaluateAggregated(mentisRunId.id, event);
+          break;
+
+        case EventType.ROUND_EVALUATE_FAILED:
+          await this.handleRoundEvaluateFailed(mentisRunId.id, event);
+          break;
+
+        case EventType.ROUND_COMPLETED:
+          await this.handleRoundCompleted(mentisRunId.id);
+          break;
+
+        case EventType.ROUND_FAILED:
+          await this.handleRoundFailed(mentisRunId.id, event);
+          break;
+
+        // Node task events
+        case EventType.NODE_FIT_STARTED:
+          await this.handleNodeFitStarted(mentisRunId.id, event);
+          break;
+
+        case EventType.NODE_FIT_COMPLETED:
+          await this.handleNodeFitCompleted(mentisRunId.id, event);
+          break;
+
+        case EventType.NODE_FIT_FAILED:
+          await this.handleNodeFitFailed(mentisRunId.id, event);
+          break;
+
+        case EventType.NODE_EVALUATE_STARTED:
+          await this.handleNodeEvaluateStarted(mentisRunId.id, event);
+          break;
+
+        case EventType.NODE_EVALUATE_COMPLETED:
+          await this.handleNodeEvaluateCompleted(mentisRunId.id, event);
+          break;
+
+        case EventType.NODE_EVALUATE_FAILED:
+          await this.handleNodeEvaluateFailed(mentisRunId.id, event);
           break;
 
         default:
@@ -147,13 +179,30 @@ export class FlowerSyncService implements OnModuleInit {
     }
   }
 
+  private async handleRunStarted(
+    mentisRunId: string,
+    event: Event,
+  ): Promise<void> {
+    await this.prisma.trainingRun.update({
+      where: { id: mentisRunId },
+      data: {
+        status: 'RUNNING',
+        startedAt: new Date(event.timestamp * 1000),
+      },
+    });
+
+    this.logger.log(
+      `Training run ${mentisRunId} started with ${event.metadata['num_rounds'] || 'unknown'} rounds`,
+    );
+  }
+
   private async handleRoundStarted(
     mentisRunId: string,
     event: Event,
   ): Promise<void> {
-    const roundNumber = parseInt(event.metadata['round_number'] || '0');
+    const roundNumber = parseInt(event.metadata['round'] || '0');
     if (roundNumber === 0) {
-      this.logger.warn('Round started event missing round_number metadata');
+      this.logger.warn('Round started event missing round metadata');
       return;
     }
 
@@ -164,6 +213,50 @@ export class FlowerSyncService implements OnModuleInit {
     });
 
     this.logger.log(`Round ${roundNumber} started for run ${mentisRunId}`);
+  }
+
+  private async handleNodeFitStarted(
+    mentisRunId: string,
+    event: Event,
+  ): Promise<void> {
+    this.logger.debug(
+      `Handling NODE_FIT_STARTED for node ${event.nodeId} in run ${mentisRunId}`,
+    );
+
+    const mentisNodeId = await this.nodesService.findByFlowerNodeId(
+      event.nodeId,
+    );
+    if (!mentisNodeId) {
+      this.logger.warn(`Node with Flower ID ${event.nodeId} not found in MentisHub`);
+      return;
+    }
+
+    const round = await this.roundService.getLatestRound(mentisRunId);
+    if (!round) {
+      this.logger.warn(
+        `No round found for node fit started event in run ${mentisRunId}`,
+      );
+      return;
+    }
+
+    // Mark node as ACTIVE when it starts participating in training
+    if (mentisNodeId.status === 'READY') {
+      await this.prisma.node.update({
+        where: { id: mentisNodeId.id },
+        data: { status: 'ACTIVE' },
+      });
+    }
+
+    await this.roundParticipantService.upsertParticipant({
+      roundId: round.id,
+      nodeId: mentisNodeId.id,
+      startedAt: new Date(event.timestamp * 1000),
+      metrics: {},
+    });
+
+    this.logger.log(
+      `Node ${mentisNodeId.name} started fit for round ${event.metadata['round']}`,
+    );
   }
 
   private async handleNodeFitCompleted(
@@ -185,21 +278,36 @@ export class FlowerSyncService implements OnModuleInit {
       return;
     }
 
-    // Mark node as ACTIVE when it starts participating in training
-    if (mentisNodeId.status === 'READY') {
-      await this.prisma.node.update({
-        where: { id: mentisNodeId.id },
-        data: { status: 'ACTIVE' },
-      });
-    }
-
     await this.roundParticipantService.upsertParticipant({
       roundId: round.id,
       nodeId: mentisNodeId.id,
-      startedAt: new Date(event.timestamp * 1000),
       completedAt: new Date(event.timestamp * 1000),
       metrics: event.metadata,
     });
+  }
+
+  private async handleNodeEvaluateStarted(
+    mentisRunId: string,
+    event: Event,
+  ): Promise<void> {
+    const mentisNodeId = await this.nodesService.findByFlowerNodeId(
+      event.nodeId,
+    );
+    if (!mentisNodeId) {
+      return;
+    }
+
+    const round = await this.roundService.getLatestRound(mentisRunId);
+    if (!round) {
+      this.logger.warn(
+        `No round found for node evaluate started event in run ${mentisRunId}`,
+      );
+      return;
+    }
+
+    this.logger.debug(
+      `Node ${mentisNodeId.name} started evaluate for round ${event.metadata['round_number']}`,
+    );
   }
 
   private async handleNodeEvaluateCompleted(
@@ -224,7 +332,6 @@ export class FlowerSyncService implements OnModuleInit {
     await this.roundParticipantService.upsertParticipant({
       roundId: round.id,
       nodeId: mentisNodeId.id,
-      startedAt: new Date(event.timestamp * 1000),
       completedAt: new Date(event.timestamp * 1000),
       metrics: event.metadata,
     });
@@ -318,22 +425,37 @@ export class FlowerSyncService implements OnModuleInit {
       return;
     }
 
-    // server.py emits fit_clients/fit_failures, workflows emit num_results/num_failures
-    const fitClients = parseInt(
-      event.metadata['fit_clients'] || event.metadata['num_results'] || '0',
-    );
-    const fitFailures = parseInt(
-      event.metadata['fit_failures'] || event.metadata['num_failures'] || '0',
-    );
+    const numResults = parseInt(event.metadata['num_results'] || '0');
+    const numFailures = parseInt(event.metadata['num_failures'] || '0');
 
     await this.roundService.updateParticipants(
       round.id,
-      fitClients + fitFailures,
-      fitClients,
+      numResults + numFailures,
+      numResults,
     );
 
     this.logger.log(
-      `Round ${round.number} fit aggregated: ${fitClients} clients, ${fitFailures} failures`,
+      `Round ${round.number} fit aggregated: ${numResults} clients, ${numFailures} failures`,
+    );
+  }
+
+  private async handleRoundFitFailed(
+    mentisRunId: string,
+    event: Event,
+  ): Promise<void> {
+    const round = await this.roundService.getLatestRound(mentisRunId);
+    if (!round) {
+      this.logger.warn(
+        `No round found for fit failed event in run ${mentisRunId}`,
+      );
+      return;
+    }
+
+    const errorType = event.metadata['error_type'] || 'Unknown';
+    const errorMessage = event.metadata['error_message'] || 'Fit phase failed';
+
+    this.logger.error(
+      `Round ${round.number} fit phase failed: ${errorType} - ${errorMessage}`,
     );
   }
 
@@ -357,10 +479,28 @@ export class FlowerSyncService implements OnModuleInit {
     );
   }
 
-  private async handleRoundCompleted(
+  private async handleRoundEvaluateFailed(
     mentisRunId: string,
     event: Event,
   ): Promise<void> {
+    const round = await this.roundService.getLatestRound(mentisRunId);
+    if (!round) {
+      this.logger.warn(
+        `No round found for evaluate failed event in run ${mentisRunId}`,
+      );
+      return;
+    }
+
+    const errorType = event.metadata['error_type'] || 'Unknown';
+    const errorMessage =
+      event.metadata['error_message'] || 'Evaluate phase failed';
+
+    this.logger.error(
+      `Round ${round.number} evaluate phase failed: ${errorType} - ${errorMessage}`,
+    );
+  }
+
+  private async handleRoundCompleted(mentisRunId: string): Promise<void> {
     const round = await this.roundService.getLatestRound(mentisRunId);
     if (!round) {
       this.logger.warn(
@@ -372,6 +512,29 @@ export class FlowerSyncService implements OnModuleInit {
     await this.roundService.completeRound(round.id);
 
     this.logger.log(`Round ${round.number} completed`);
+  }
+
+  private async handleRoundFailed(
+    mentisRunId: string,
+    event: Event,
+  ): Promise<void> {
+    const round = await this.roundService.getLatestRound(mentisRunId);
+    if (!round) {
+      this.logger.warn(
+        `No round found for round failed event in run ${mentisRunId}`,
+      );
+      return;
+    }
+
+    const errorType = event.metadata['error_type'] || 'Unknown';
+    const errorMessage = event.metadata['error_message'] || 'Round failed';
+
+    // Mark round as failed
+    await this.roundService.completeRound(round.id);
+
+    this.logger.error(
+      `Round ${round.number} failed: ${errorType} - ${errorMessage}`,
+    );
   }
 
   private async handleRunCompleted(
@@ -463,7 +626,7 @@ export class FlowerSyncService implements OnModuleInit {
       return;
     }
 
-    const isConnected = event.eventType === EventType.EVENT_TYPE_NODE_CONNECTED;
+    const isConnected = event.eventType === EventType.NODE_CONNECTED;
 
     if (isConnected) {
       // When node connects to Flower, just update lastActiveAt
@@ -489,7 +652,9 @@ export class FlowerSyncService implements OnModuleInit {
         },
       });
 
-      this.logger.log(`Node ${mentisNode.name} disconnected from Flower SuperLink`);
+      this.logger.log(
+        `Node ${mentisNode.name} disconnected from Flower SuperLink`,
+      );
     }
   }
 }

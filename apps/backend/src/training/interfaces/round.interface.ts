@@ -16,7 +16,7 @@ export interface UpdateRoundInput {
 export interface CreateRoundParticipantInput {
   roundId: string;
   nodeId: string;
-  startedAt: Date;
+  startedAt?: Date;
   completedAt?: Date | null;
   metrics?: Prisma.InputJsonValue | null;
   failureReason?: string | null;
