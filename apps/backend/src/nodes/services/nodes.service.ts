@@ -14,7 +14,6 @@ import { DockerService } from '../../docker/docker.service';
 import { FlowerService } from '../../flower/services/flower.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProjectsService } from '../../projects/projects.service';
-import { RunParticipantService } from '../../training/services/run-participant.service';
 import {
   base32ToUuid,
   generatePSKWithHash,
@@ -39,7 +38,6 @@ export class NodesService {
     private readonly prisma: PrismaService,
     private readonly flowerService: FlowerService,
     private readonly projectsService: ProjectsService,
-    private readonly runParticipantService: RunParticipantService,
     private readonly configService: ConfigService,
     private readonly dockerService: DockerService,
     private readonly authService: AuthenticationService,
@@ -142,6 +140,13 @@ export class NodesService {
     return node;
   }
 
+  async getNodesByProject(projectId: string): Promise<Node[]> {
+    return this.prisma.node.findMany({
+      where: { projectId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async update(nodeId: string, input: UpdateNodeDto): Promise<Node> {
     const node = await this.findById(nodeId);
 
@@ -170,6 +175,9 @@ export class NodesService {
   async remove(nodeId: string): Promise<void> {
     const node = await this.prisma.node.findUnique({
       where: { id: nodeId },
+      include: {
+        project: true,
+      },
     });
 
     if (!node) {
@@ -198,7 +206,21 @@ export class NodesService {
       }
     }
 
-    if (node.flowerNodeId) {
+    if (node.flowerNodeId && node.project) {
+      try {
+        await this.flowerService.removeNodesFromFederation(
+          node.project.id,
+          [node.flowerNodeId],
+        );
+      } catch (error) {
+        this.logger.warn({
+          message: 'Failed to remove node from federation',
+          nodeId: node.id,
+          flowerNodeId: node.flowerNodeId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+
       try {
         await this.flowerService.unregisterNode(node.flowerNodeId);
       } catch (error) {
@@ -261,6 +283,9 @@ export class NodesService {
 
     const node = await this.prisma.node.findUnique({
       where: { id: nodeId },
+      include: {
+        project: true,
+      },
     });
 
     if (!node) {
@@ -283,10 +308,14 @@ export class NodesService {
         message: 'PSK already used',
       });
     }
-    const trainingRunData =
-      await this.runParticipantService.getActiveTrainingRunForNode(node.id);
+
     let flowerNodeId: string | undefined;
-    if (trainingRunData && !trainingRunData.isServerApp) {
+
+    const isServerApp = node.metadata
+      ? (node.metadata as Record<string, unknown>).containerName !== undefined
+      : false;
+
+    if (!isServerApp && node.project) {
       try {
         const pemPublicKey = Buffer.from(ecPublicKey, 'base64').toString(
           'utf-8',
@@ -294,6 +323,16 @@ export class NodesService {
         const publicKeyBuffer = Buffer.from(pemPublicKey, 'utf-8');
 
         flowerNodeId = await this.flowerService.registerNode(publicKeyBuffer);
+
+        await this.flowerService.ensureFederationExists(
+          node.project.id,
+          node.project.name,
+        );
+
+        await this.flowerService.addNodesToFederation(
+          node.project.id,
+          [flowerNodeId],
+        );
       } catch (error) {
         this.logger.error({
           message: 'Failed to register node with Flower',
@@ -500,7 +539,21 @@ export class NodesService {
   }
 
   async heartbeat(nodeId: string): Promise<HeartbeatResponseDto> {
-    const node = await this.prisma.node.findUnique({ where: { id: nodeId } });
+    const node = await this.prisma.node.findUnique({
+      where: { id: nodeId },
+      include: {
+        trainingRuns: {
+          where: {
+            status: 'RUNNING',
+          },
+          include: {
+            fab: true,
+          },
+          take: 1,
+        },
+      },
+    });
+
     if (!node) {
       throw new NotFoundException('Node not found');
     }
@@ -510,14 +563,13 @@ export class NodesService {
       data: { lastActiveAt: new Date() },
     });
 
-    const trainingRunData =
-      await this.runParticipantService.getActiveTrainingRunForNode(nodeId);
     let training: { runId: string; fabName: string } | undefined;
 
-    if (trainingRunData && trainingRunData.fab) {
-      const { publisherName, name, version, fabHash } = trainingRunData.fab;
+    const activeTraining = node.trainingRuns[0];
+    if (activeTraining && activeTraining.fab) {
+      const { publisherName, name, version, fabHash } = activeTraining.fab;
       const fabName = `${publisherName}.${name}.${version}.${fabHash}.fab`;
-      const runIdBase32 = uuidToBase32(trainingRunData.runId);
+      const runIdBase32 = uuidToBase32(activeTraining.id);
       training = {
         runId: runIdBase32,
         fabName,

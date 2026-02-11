@@ -1,16 +1,13 @@
 import {
   BadRequestException,
-  Inject,
   Injectable,
   NotFoundException,
-  forwardRef,
 } from '@nestjs/common';
 import { ErrorCode } from '@platform/contracts';
 import type { Fab } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
 import { SupabaseService } from '../supabase/supabase.service';
-import { RunParticipantService } from '../training/services/run-participant.service';
 import type { UploadDefaultFabDto, UploadFabDto } from './fabs.dto';
 import { FabPackage } from './fabs.interface';
 import {
@@ -28,8 +25,6 @@ export class FabsService {
     private readonly prisma: PrismaService,
     private readonly supabase: SupabaseService,
     private readonly projectsService: ProjectsService,
-    @Inject(forwardRef(() => RunParticipantService))
-    private readonly runParticipantService: RunParticipantService,
   ) {}
 
   async uploadFab(
@@ -192,44 +187,80 @@ export class FabsService {
   }
 
   async getFabPackageByNode(nodeId: string): Promise<FabPackage> {
-    const trainingRunData =
-      await this.runParticipantService.getActiveTrainingRunForNode(nodeId);
+    const node = await this.prisma.node.findUnique({
+      where: { id: nodeId },
+      include: {
+        project: {
+          include: {
+            trainingRuns: {
+              where: {
+                status: 'RUNNING',
+              },
+              include: {
+                fab: true,
+              },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
 
-    if (!trainingRunData) {
+    if (!node || !node.project) {
+      throw new BadRequestException({
+        code: ErrorCode.NODE_NOT_FOUND,
+        message: 'Node not found or not associated with a project',
+      });
+    }
+
+    const activeTraining = node.project.trainingRuns[0];
+
+    if (!activeTraining) {
       throw new BadRequestException({
         code: ErrorCode.TRAINING_NOT_FOUND,
         message: 'No active training run found for this node',
       });
     }
 
-    const [trainingRun, fab] = await Promise.all([
-      this.prisma.trainingRun.findUniqueOrThrow({
-        where: { id: trainingRunData.runId },
-      }),
-      trainingRunData.fab
-        ? this.prisma.fab.findUniqueOrThrow({
-            where: { fabHash: trainingRunData.fab.fabHash },
-          })
-        : this.getDefaultFab(),
-    ]);
+    const fab = activeTraining.fab || (await this.getDefaultFab());
 
     const content = await this.supabase.downloadFile(
       this.storageBucket,
       fab.storagePath,
     );
 
-    return { trainingRun, fab, content };
+    return { trainingRun: activeTraining, fab, content };
   }
 
   async getFabMetadataByNode(nodeId: string) {
-    const trainingRunData =
-      await this.runParticipantService.getActiveTrainingRunForNode(nodeId);
+    const node = await this.prisma.node.findUnique({
+      where: { id: nodeId },
+      include: {
+        project: {
+          include: {
+            trainingRuns: {
+              where: {
+                status: 'RUNNING',
+              },
+              include: {
+                fab: true,
+              },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
 
-    if (trainingRunData?.fab) {
-      const fab = await this.prisma.fab.findFirst({
-        where: { fabHash: trainingRunData.fab.fabHash },
-      });
-      if (fab) return fab;
+    if (!node || !node.project) {
+      return this.getDefaultFab();
+    }
+
+    const activeTraining = node.project.trainingRuns[0];
+    const fab = activeTraining?.fab;
+
+    if (fab) {
+      return fab;
     }
 
     return this.getDefaultFab();

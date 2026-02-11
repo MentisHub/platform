@@ -30,18 +30,19 @@ model OrganizationMember {
 }
 
 model Project {
-  id             String                @id @default(uuid()) @db.Uuid
-  name           String                @db.VarChar(255)
-  organizationId String                @map("organization_id") @db.Uuid
-  trainingConfig Json?                 @map("training_config")
-  createdAt      DateTime              @default(now()) @map("created_at")
-  updatedAt      DateTime              @updatedAt @map("updated_at")
-  nodes          Node[]
-  collaborators  ProjectCollaborator[]
-  fabs           Fab[]
-  projectMembers ProjectMember[]
-  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  trainingRuns   TrainingRun[]
+  id              String                @id @default(uuid()) @db.Uuid
+  name            String                @db.VarChar(255)
+  organizationId  String                @map("organization_id") @db.Uuid
+  trainingConfig  Json?                 @map("training_config")
+  federationName  String                @map("federation_name") @db.VarChar(255)
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+  nodes           Node[]
+  collaborators   ProjectCollaborator[]
+  fabs            Fab[]
+  projectMembers  ProjectMember[]
+  organization    Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  trainingRuns    TrainingRun[]
 
   @@map("projects")
   @@schema("platform")

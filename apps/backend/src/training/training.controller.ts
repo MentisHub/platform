@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   HttpCode,
   HttpStatus,
   Param,
@@ -20,8 +19,6 @@ import { RequireProjectRole } from 'src/authorization/decorators/roles.decorator
 import { OrganizationMembership } from 'src/authorization/interfaces/membership.interface';
 import {
   CreateTrainingDto,
-  LinkNodeToTrainingDto,
-  LinkNodeToTrainingResponse,
   StartTrainingResponseDto,
   TrainingRunResponseDto,
 } from './training.dto';
@@ -144,7 +141,8 @@ export class ProjTrainingController {
   @RequireProjectRole(ProjectRole.ADMIN)
   @ApiOperation({
     summary: 'Start training execution',
-    description: 'Initiates the execution of a training run on linked nodes',
+    description:
+      'Initiates the execution of a training run on all ready nodes in the project',
   })
   @ApiParam({
     name: 'projectId',
@@ -164,7 +162,7 @@ export class ProjTrainingController {
   @ApiResponse({
     status: 400,
     description:
-      'Training cannot be started (invalid state or no nodes linked)',
+      'Training cannot be started (invalid state or no nodes ready)',
   })
   @ApiResponse({
     status: 401,
@@ -184,108 +182,5 @@ export class ProjTrainingController {
     const trainingRun = await this.trainingService.runTraining(trainingId);
 
     return TrainingRunResponseDto.fromEntity(trainingRun);
-  }
-
-  @Post(':trainingId/nodes')
-  @RequireProjectRole(ProjectRole.ADMIN)
-  @ApiOperation({
-    summary: 'Link nodes to training',
-    description:
-      'Associates nodes with a training run to participate in federated learning',
-  })
-  @ApiParam({
-    name: 'projectId',
-    description: 'Project UUID',
-    type: String,
-  })
-  @ApiParam({
-    name: 'trainingId',
-    description: 'Training run UUID',
-    type: String,
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Nodes linked successfully',
-    type: LinkNodeToTrainingResponse,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid node IDs or nodes already linked',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Insufficient permissions (requires PROJECT ADMIN role)',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Project, training run, or nodes not found',
-  })
-  async linkNodeToTraining(
-    @Param('trainingId') trainingId: string,
-    @Body() input: LinkNodeToTrainingDto,
-  ): Promise<LinkNodeToTrainingResponse> {
-    const batch = await this.trainingService.linkNodeToTraining(
-      trainingId,
-      input.nodesId,
-    );
-
-    return {
-      count: batch.count,
-    };
-  }
-
-  @Delete(':trainingId/nodes/:nodeId')
-  @RequireProjectRole(ProjectRole.ADMIN)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    summary: 'Unlink node from training',
-    description:
-      'Removes a node from a training run. Only allowed when training is PENDING or READY (before execution starts). Cannot remove ServerApp node or nodes that have already participated in rounds.',
-  })
-  @ApiParam({
-    name: 'projectId',
-    description: 'Project UUID',
-    type: String,
-  })
-  @ApiParam({
-    name: 'trainingId',
-    description: 'Training run UUID',
-    type: String,
-  })
-  @ApiParam({
-    name: 'nodeId',
-    description: 'Node ID to unlink',
-    type: String,
-  })
-  @ApiResponse({
-    status: 204,
-    description: 'Node unlinked successfully',
-  })
-  @ApiResponse({
-    status: 400,
-    description:
-      'Invalid operation (training already running, node is ServerApp, or node participated in rounds)',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Insufficient permissions (requires PROJECT ADMIN role)',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Project, training run, or node not found',
-  })
-  async unlinkNodeFromTraining(
-    @Param('trainingId') trainingId: string,
-    @Param('nodeId') nodeId: string,
-  ): Promise<void> {
-    await this.trainingService.unlinkNodeFromTraining(trainingId, nodeId);
   }
 }

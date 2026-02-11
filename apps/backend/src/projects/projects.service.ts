@@ -1,24 +1,40 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { ErrorCode } from '@platform/contracts';
 import type { Project } from '@prisma/client';
+import { FlowerService } from '../flower/services/flower.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto, UpdateProjectDto } from './projects.dto';
 
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => FlowerService))
+    private readonly flowerService: FlowerService,
+  ) {}
 
   async create(
     organizationId: string,
     userId: string,
     createProjectDto: CreateProjectDto,
   ): Promise<Project> {
-    return this.prisma.project.create({
+    const project = await this.prisma.project.create({
       data: {
         name: createProjectDto.name,
         organizationId,
         trainingConfig: createProjectDto.trainingConfig ?? undefined,
+        federationName: '',
       },
+    });
+
+    const federationName = await this.flowerService.createFederation(
+      project.id,
+      project.name,
+    );
+
+    return this.prisma.project.update({
+      where: { id: project.id },
+      data: { federationName },
     });
   }
 

@@ -19,7 +19,6 @@ model Node {
   organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project             Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
   roundParticipations RoundParticipant[]
-  runParticipations   RunParticipant[]
   trainingRuns        TrainingRun[]
   refreshTokens       NodeRefreshToken[]
 
@@ -58,7 +57,6 @@ model TrainingRun {
   metrics       Json?            // Stores final metrics like loss, accuracy, etc.
   artifacts     Artifact[]
   rounds        Round[]
-  participants  RunParticipant[]
   serverAppId   String?          @map("serverapp_id") @db.Uuid
   serverAppNode Node?            @relation(fields: [serverAppId], references: [id], onDelete: SetNull)
   fab           Fab?             @relation(fields: [fabId], references: [id], onDelete: SetNull)
@@ -85,19 +83,6 @@ model Round {
 
   @@unique([runId, number])
   @@map("rounds")
-  @@schema("platform")
-}
-
-model RunParticipant {
-  joinedAt DateTime    @default(now()) @map("joined_at")
-  endedAt  DateTime?   @map("ended_at")
-  runId    String      @map("run_id") @db.Uuid
-  nodeId   String      @map("node_id") @db.Uuid
-  node     Node        @relation(fields: [nodeId], references: [id], onDelete: Restrict)
-  run      TrainingRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-
-  @@id([runId, nodeId])
-  @@map("run_participants")
   @@schema("platform")
 }
 

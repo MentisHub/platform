@@ -10,13 +10,11 @@ import { ConfigService } from '@nestjs/config';
 import { ErrorCode } from '@platform/contracts';
 import type { Prisma, TrainingRun } from '@prisma/client';
 import { NodesService } from 'src/nodes/services/nodes.service';
-import { uuidToBase32 } from 'src/utils';
 import { DockerService } from '../../docker/docker.service';
 import { FabsService } from '../../fabs/fabs.service';
 import { FlowerService } from '../../flower/services/flower.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProjectsService } from '../../projects/projects.service';
-import { RunParticipantService } from './run-participant.service';
 
 @Injectable()
 export class TrainingService {
@@ -31,7 +29,6 @@ export class TrainingService {
     private readonly projectsService: ProjectsService,
     private readonly dockerService: DockerService,
     private readonly configService: ConfigService,
-    private readonly runParticipantService: RunParticipantService,
   ) {}
 
   async createTrainingRun(
@@ -89,11 +86,6 @@ export class TrainingService {
         serverAppNode: { connect: { id: node.id } },
       });
 
-      await this.runParticipantService.createParticipant(
-        node.id,
-        trainingRunId,
-      );
-
       const superlinkHost =
         this.configService.getOrThrow<string>('SUPERLINK_HOST');
 
@@ -149,27 +141,6 @@ export class TrainingService {
       }
 
       if (nodeId) {
-        try {
-          await this.runParticipantService.removeParticipant(
-            nodeId,
-            trainingRunId,
-          );
-          this.logger.log({
-            message: 'Run participant removed during rollback',
-            trainingRunId,
-            nodeId,
-          });
-        } catch (removeError) {
-          this.logger.error({
-            message: 'Failed to remove run participant during rollback',
-            nodeId,
-            error:
-              removeError instanceof Error
-                ? removeError.message
-                : 'Unknown error',
-          });
-        }
-
         try {
           await this.nodesService.remove(nodeId);
           this.logger.log({
@@ -228,11 +199,12 @@ export class TrainingService {
       });
     }
 
-    const participants =
-      await this.runParticipantService.getParticipantsByRun(trainingRunId);
+    const projectNodes = await this.nodesService.getNodesByProject(
+      trainingRun.projectId,
+    );
 
-    const initializingNodes = participants.filter(
-      (p) => p.node.status === 'INITIALIZING',
+    const initializingNodes = projectNodes.filter(
+      (node) => node.status === 'INITIALIZING',
     );
 
     if (initializingNodes.length > 0) {
@@ -242,7 +214,7 @@ export class TrainingService {
       });
     }
 
-    const activeNodes = participants.filter((p) => p.node.status === 'ACTIVE');
+    const activeNodes = projectNodes.filter((node) => node.status === 'ACTIVE');
 
     if (activeNodes.length > 0) {
       throw new BadRequestException({
@@ -251,17 +223,24 @@ export class TrainingService {
       });
     }
 
-    const readyNodes = participants.filter((p) => p.node.status === 'READY');
+    const readyNodes = projectNodes.filter((node) => node.status === 'READY');
 
     if (readyNodes.length === 0) {
       throw new BadRequestException('No ready nodes available for training');
     }
 
     const fab = await this.fabsService.getFabById(trainingRun.fabId);
+    const project = await this.projectsService.getProjectById(
+      trainingRun.projectId,
+    );
+
+    await this.flowerService.ensureFederationExists(
+      project.id,
+      project.name,
+    );
 
     const config = (trainingRun.configuration ??
-      (await this.projectsService.getProjectById(trainingRun.projectId))
-        .trainingConfig ??
+      project.trainingConfig ??
       {}) as Prisma.JsonObject;
     const fabContent = await this.fabsService.downloadFabById(fab.id);
 
@@ -269,20 +248,19 @@ export class TrainingService {
       fabHash: fab.fabHash,
       fabContent,
       overrideConfig: config ?? undefined,
-      federation: uuidToBase32(trainingRunId),
+      federation: project.federationName,
     });
 
-    // Transition participating nodes from READY to ACTIVE
     await Promise.all(
-      readyNodes.map((p) =>
-        this.nodesService.updateNodeStatus(p.node.id, 'ACTIVE'),
+      readyNodes.map((node) =>
+        this.nodesService.updateNodeStatus(node.id, 'ACTIVE'),
       ),
     );
 
     this.logger.log({
       message: 'Training started, nodes marked as ACTIVE',
       trainingRunId,
-      nodeIds: readyNodes.map((p) => p.node.id),
+      nodeIds: readyNodes.map((node) => node.id),
     });
 
     const updatedTrainingRun = await this.update(trainingRunId, {
@@ -315,36 +293,6 @@ export class TrainingService {
     }
 
     return trainingRun;
-  }
-
-  async linkNodeToTraining(trainingId: string, nodesId: string[]) {
-    const training = await this.getTrainingRun(trainingId);
-
-    return await this.runParticipantService.linkNodesToRun(
-      trainingId,
-      nodesId,
-      training.status,
-    );
-  }
-
-  async unlinkNodeFromTraining(
-    trainingId: string,
-    nodeId: string,
-  ): Promise<void> {
-    const training = await this.getTrainingRun(trainingId);
-
-    await this.runParticipantService.unlinkNodeFromRun(
-      nodeId,
-      trainingId,
-      training.status,
-      training.serverAppId,
-    );
-
-    const node = await this.nodesService.findById(nodeId);
-
-    if (node.status === 'ACTIVE') {
-      await this.nodesService.updateNodeStatus(nodeId, 'READY');
-    }
   }
 
   async update(

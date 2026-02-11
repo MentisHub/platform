@@ -8,7 +8,6 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { RoundParticipantService } from './services/round-participant.service';
 import { RoundService } from './services/round.service';
-import { RunParticipantService } from './services/run-participant.service';
 import { TrainingService } from './services/training.service';
 import { ProjTrainingController } from './training.controller';
 
@@ -25,13 +24,11 @@ import { ProjTrainingController } from './training.controller';
   controllers: [ProjTrainingController],
   providers: [
     TrainingService,
-    RunParticipantService,
     RoundService,
     RoundParticipantService,
   ],
   exports: [
     TrainingService,
-    RunParticipantService,
     RoundService,
     RoundParticipantService,
   ],

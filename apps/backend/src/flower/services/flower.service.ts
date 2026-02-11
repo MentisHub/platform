@@ -12,11 +12,6 @@ export class FlowerService implements OnModuleInit {
 
   constructor(private readonly configService: ConfigService) {}
 
-  private getMetadata(): Metadata {
-    // Return empty metadata to trigger NoOp auth plugin on SuperLink
-    return new Metadata();
-  }
-
   onModuleInit() {
     const grpcHost = this.configService.getOrThrow<string>('SUPERLINK_HOST');
     const certPath = this.configService.getOrThrow<string>('BACKEND_CERT_PATH');
@@ -42,7 +37,7 @@ export class FlowerService implements OnModuleInit {
     return new Promise((resolve, reject) => {
       this.controlClient.registerNode(
         { publicKey: new Uint8Array(publicKeyBytes) },
-        this.getMetadata(),
+        new Metadata(),
         (error, response) => {
           if (error) {
             this.logger.error('Failed to register SuperNode', error);
@@ -64,17 +59,109 @@ export class FlowerService implements OnModuleInit {
 
   async unregisterNode(nodeId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.controlClient.unregisterNode(
-        { nodeId },
-        this.getMetadata(),
+      this.controlClient.unregisterNode({ nodeId }, new Metadata(), (error) => {
+        if (error) {
+          this.logger.error('Failed to unregister node', error);
+          reject(error);
+        } else {
+          this.logger.log(`SuperNode ${nodeId} unregistered successfully`);
+          resolve();
+        }
+      });
+    });
+  }
+
+  async createFederation(
+    projectId: string,
+    description?: string,
+  ): Promise<string> {
+    const federationName = `@none/project-${projectId}`;
+
+    return new Promise((resolve, reject) => {
+      this.controlClient.createFederation(
+        { name: federationName, description: description || '' },
+        new Metadata(),
+        (error, response) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve(response.federation.name);
+        },
+      );
+    });
+  }
+
+  async ensureFederationExists(
+    projectId: string,
+    description?: string,
+  ): Promise<string> {
+    const federationName = `@none/project-${projectId}`;
+
+    return new Promise((resolve, reject) => {
+      this.controlClient.showFederation(
+        { federationName },
+        new Metadata(),
         (error) => {
           if (error) {
-            this.logger.error('Failed to unregister node', error);
-            reject(error);
-          } else {
-            this.logger.log(`SuperNode ${nodeId} unregistered successfully`);
-            resolve();
+            this.controlClient.createFederation(
+              { name: federationName, description: description || '' },
+              new Metadata(),
+              (createError, response) => {
+                if (createError) {
+                  reject(createError);
+                  return;
+                }
+                resolve(response.federation.name);
+              },
+            );
+            return;
           }
+          resolve(federationName);
+        },
+      );
+    });
+  }
+
+  async addNodesToFederation(
+    federationName: string,
+    nodeIds: string[],
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.controlClient.addNodeToFederation(
+        {
+          federationName,
+          nodeIds: nodeIds,
+        },
+        new Metadata(),
+        (error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        },
+      );
+    });
+  }
+
+  async removeNodesFromFederation(
+    federationName: string,
+    nodeIds: string[],
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.controlClient.removeNodeFromFederation(
+        {
+          federationName,
+          nodeIds,
+        },
+        new Metadata(),
+        (error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
         },
       );
     });
@@ -87,8 +174,8 @@ export class FlowerService implements OnModuleInit {
         content: new Uint8Array(options.fabContent),
         verifications: {},
       },
-      overrideConfig: {}, // options.overrideConfig,
-      federation: '@none/default', // options.federation - NOOP_FEDERATION for local development
+      overrideConfig: options.overrideConfig || {},
+      federation: options.federation || '@none/default',
       appSpec: '',
       federationOptions: undefined,
     };
@@ -96,7 +183,7 @@ export class FlowerService implements OnModuleInit {
     return new Promise((resolve, reject) => {
       this.controlClient.startRun(
         request,
-        this.getMetadata(),
+        new Metadata(),
         (error, response) => {
           if (error) {
             reject(error);
@@ -118,7 +205,7 @@ export class FlowerService implements OnModuleInit {
     return new Promise((resolve, reject) => {
       this.controlClient.stopRun(
         { runId: String(runId) },
-        this.getMetadata(),
+        new Metadata(),
         (error, response) => {
           if (error) {
             reject(error);
@@ -135,11 +222,10 @@ export class FlowerService implements OnModuleInit {
       afterTimestamp,
     };
 
-    const metadata = this.getMetadata();
+    const metadata = new Metadata();
     const stream = this.controlClient.streamEvents(request, metadata);
 
     stream.on('error', (error: Error & { code?: number }) => {
-      // UNKNOWN (code 2) errors are common when there are no active runs
       if (error.code === 2) {
         this.logger.debug(`No active runs to stream events`);
       } else {
