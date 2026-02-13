@@ -5,7 +5,6 @@ import { DockerModule } from '../docker/docker.module';
 import { FlowerModule } from '../flower/flower.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ProjectsModule } from '../projects/projects.module';
-import { TrainingModule } from '../training/training.module';
 import { NodesController } from './controllers/nodes.controller';
 import { OrgNodesController } from './controllers/org-nodes.controller';
 import { NodeRefreshTokenService } from './services/refresh-token.service';
@@ -20,7 +19,6 @@ import { NodesService } from './services/nodes.service';
     forwardRef(() => FlowerModule),
     ProjectsModule,
     DockerModule,
-    forwardRef(() => TrainingModule),
   ],
   controllers: [OrgNodesController, NodesController],
   providers: [NodesService, NodeRefreshTokenService, NodeSignatureService],

@@ -1,19 +1,26 @@
-import { Module, forwardRef } from '@nestjs/common';
-import { EventEmitterModule } from '@nestjs/event-emitter';
-import { NodesModule } from '../nodes/nodes.module';
+import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
-import { TrainingModule } from '../training/training.module';
 import { FlowerService } from './services/flower.service';
 import { FlowerSyncService } from './services/sync.service';
+import { TrainingService } from 'src/training/services/training.service';
+import { NodesService } from 'src/nodes/services/nodes.service';
+import { RoundParticipantService } from 'src/training/services/round-participant.service';
+import { RoundService } from 'src/training/services/round.service';
+
+@Module({
+  imports: [PrismaModule],
+  providers: [FlowerService],
+  exports: [FlowerService],
+})
+export class FlowerModule {}
 
 @Module({
   imports: [
-    EventEmitterModule.forRoot(),
-    PrismaModule,
-    forwardRef(() => TrainingModule),
-    forwardRef(() => NodesModule),
+    RoundService,
+    RoundParticipantService,
+    NodesService,
+    TrainingService,
   ],
-  providers: [FlowerService, FlowerSyncService],
-  exports: [FlowerService, FlowerSyncService],
+  providers: [FlowerSyncService],
 })
-export class FlowerModule {}
+export class FlowerSyncModule {}

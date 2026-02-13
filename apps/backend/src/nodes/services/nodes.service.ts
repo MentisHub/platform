@@ -1,4 +1,6 @@
 import {
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -36,6 +38,7 @@ export class NodesService {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => FlowerService))
     private readonly flowerService: FlowerService,
     private readonly projectsService: ProjectsService,
     private readonly configService: ConfigService,
@@ -208,10 +211,9 @@ export class NodesService {
 
     if (node.flowerNodeId && node.project) {
       try {
-        await this.flowerService.removeNodesFromFederation(
-          node.project.id,
-          [node.flowerNodeId],
-        );
+        await this.flowerService.removeNodesFromFederation(node.project.id, [
+          node.flowerNodeId,
+        ]);
       } catch (error) {
         this.logger.warn({
           message: 'Failed to remove node from federation',
@@ -329,10 +331,9 @@ export class NodesService {
           node.project.name,
         );
 
-        await this.flowerService.addNodesToFederation(
-          node.project.id,
-          [flowerNodeId],
-        );
+        await this.flowerService.addNodesToFederation(node.project.id, [
+          flowerNodeId,
+        ]);
       } catch (error) {
         this.logger.error({
           message: 'Failed to register node with Flower',

@@ -155,6 +155,38 @@ export interface ShowFederationResponse {
   now: string;
 }
 
+export interface CreateFederationRequest {
+  name: string;
+  description: string;
+}
+
+export interface CreateFederationResponse {
+  federation: Federation | undefined;
+}
+
+export interface ArchiveFederationRequest {
+  federationName: string;
+}
+
+export interface ArchiveFederationResponse {
+}
+
+export interface AddNodeToFederationRequest {
+  federationName: string;
+  nodeIds: string[];
+}
+
+export interface AddNodeToFederationResponse {
+}
+
+export interface RemoveNodeFromFederationRequest {
+  federationName: string;
+  nodeIds: string[];
+}
+
+export interface RemoveNodeFromFederationResponse {
+}
+
 function createBaseStartRunRequest(): StartRunRequest {
   return { fab: undefined, overrideConfig: {}, federationOptions: undefined, appSpec: "", federation: "" };
 }
@@ -2083,6 +2115,511 @@ export const ShowFederationResponse: MessageFns<ShowFederationResponse> = {
   },
 };
 
+function createBaseCreateFederationRequest(): CreateFederationRequest {
+  return { name: "", description: "" };
+}
+
+export const CreateFederationRequest: MessageFns<CreateFederationRequest> = {
+  encode(message: CreateFederationRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.name !== "") {
+      writer.uint32(10).string(message.name);
+    }
+    if (message.description !== "") {
+      writer.uint32(18).string(message.description);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateFederationRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCreateFederationRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.name = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.description = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CreateFederationRequest {
+    return {
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+      description: isSet(object.description) ? globalThis.String(object.description) : "",
+    };
+  },
+
+  toJSON(message: CreateFederationRequest): unknown {
+    const obj: any = {};
+    if (message.name !== "") {
+      obj.name = message.name;
+    }
+    if (message.description !== "") {
+      obj.description = message.description;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CreateFederationRequest>, I>>(base?: I): CreateFederationRequest {
+    return CreateFederationRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CreateFederationRequest>, I>>(object: I): CreateFederationRequest {
+    const message = createBaseCreateFederationRequest();
+    message.name = object.name ?? "";
+    message.description = object.description ?? "";
+    return message;
+  },
+};
+
+function createBaseCreateFederationResponse(): CreateFederationResponse {
+  return { federation: undefined };
+}
+
+export const CreateFederationResponse: MessageFns<CreateFederationResponse> = {
+  encode(message: CreateFederationResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.federation !== undefined) {
+      Federation.encode(message.federation, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateFederationResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCreateFederationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.federation = Federation.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CreateFederationResponse {
+    return { federation: isSet(object.federation) ? Federation.fromJSON(object.federation) : undefined };
+  },
+
+  toJSON(message: CreateFederationResponse): unknown {
+    const obj: any = {};
+    if (message.federation !== undefined) {
+      obj.federation = Federation.toJSON(message.federation);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CreateFederationResponse>, I>>(base?: I): CreateFederationResponse {
+    return CreateFederationResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CreateFederationResponse>, I>>(object: I): CreateFederationResponse {
+    const message = createBaseCreateFederationResponse();
+    message.federation = (object.federation !== undefined && object.federation !== null)
+      ? Federation.fromPartial(object.federation)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseArchiveFederationRequest(): ArchiveFederationRequest {
+  return { federationName: "" };
+}
+
+export const ArchiveFederationRequest: MessageFns<ArchiveFederationRequest> = {
+  encode(message: ArchiveFederationRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.federationName !== "") {
+      writer.uint32(10).string(message.federationName);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ArchiveFederationRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseArchiveFederationRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.federationName = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ArchiveFederationRequest {
+    return { federationName: isSet(object.federationName) ? globalThis.String(object.federationName) : "" };
+  },
+
+  toJSON(message: ArchiveFederationRequest): unknown {
+    const obj: any = {};
+    if (message.federationName !== "") {
+      obj.federationName = message.federationName;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ArchiveFederationRequest>, I>>(base?: I): ArchiveFederationRequest {
+    return ArchiveFederationRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ArchiveFederationRequest>, I>>(object: I): ArchiveFederationRequest {
+    const message = createBaseArchiveFederationRequest();
+    message.federationName = object.federationName ?? "";
+    return message;
+  },
+};
+
+function createBaseArchiveFederationResponse(): ArchiveFederationResponse {
+  return {};
+}
+
+export const ArchiveFederationResponse: MessageFns<ArchiveFederationResponse> = {
+  encode(_: ArchiveFederationResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ArchiveFederationResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseArchiveFederationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): ArchiveFederationResponse {
+    return {};
+  },
+
+  toJSON(_: ArchiveFederationResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ArchiveFederationResponse>, I>>(base?: I): ArchiveFederationResponse {
+    return ArchiveFederationResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ArchiveFederationResponse>, I>>(_: I): ArchiveFederationResponse {
+    const message = createBaseArchiveFederationResponse();
+    return message;
+  },
+};
+
+function createBaseAddNodeToFederationRequest(): AddNodeToFederationRequest {
+  return { federationName: "", nodeIds: [] };
+}
+
+export const AddNodeToFederationRequest: MessageFns<AddNodeToFederationRequest> = {
+  encode(message: AddNodeToFederationRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.federationName !== "") {
+      writer.uint32(10).string(message.federationName);
+    }
+    writer.uint32(18).fork();
+    for (const v of message.nodeIds) {
+      writer.uint64(v);
+    }
+    writer.join();
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AddNodeToFederationRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAddNodeToFederationRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.federationName = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag === 16) {
+            message.nodeIds.push(reader.uint64().toString());
+
+            continue;
+          }
+
+          if (tag === 18) {
+            const end2 = reader.uint32() + reader.pos;
+            while (reader.pos < end2) {
+              message.nodeIds.push(reader.uint64().toString());
+            }
+
+            continue;
+          }
+
+          break;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AddNodeToFederationRequest {
+    return {
+      federationName: isSet(object.federationName) ? globalThis.String(object.federationName) : "",
+      nodeIds: globalThis.Array.isArray(object?.nodeIds) ? object.nodeIds.map((e: any) => globalThis.String(e)) : [],
+    };
+  },
+
+  toJSON(message: AddNodeToFederationRequest): unknown {
+    const obj: any = {};
+    if (message.federationName !== "") {
+      obj.federationName = message.federationName;
+    }
+    if (message.nodeIds?.length) {
+      obj.nodeIds = message.nodeIds;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AddNodeToFederationRequest>, I>>(base?: I): AddNodeToFederationRequest {
+    return AddNodeToFederationRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AddNodeToFederationRequest>, I>>(object: I): AddNodeToFederationRequest {
+    const message = createBaseAddNodeToFederationRequest();
+    message.federationName = object.federationName ?? "";
+    message.nodeIds = object.nodeIds?.map((e) => e) || [];
+    return message;
+  },
+};
+
+function createBaseAddNodeToFederationResponse(): AddNodeToFederationResponse {
+  return {};
+}
+
+export const AddNodeToFederationResponse: MessageFns<AddNodeToFederationResponse> = {
+  encode(_: AddNodeToFederationResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AddNodeToFederationResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAddNodeToFederationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): AddNodeToFederationResponse {
+    return {};
+  },
+
+  toJSON(_: AddNodeToFederationResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AddNodeToFederationResponse>, I>>(base?: I): AddNodeToFederationResponse {
+    return AddNodeToFederationResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AddNodeToFederationResponse>, I>>(_: I): AddNodeToFederationResponse {
+    const message = createBaseAddNodeToFederationResponse();
+    return message;
+  },
+};
+
+function createBaseRemoveNodeFromFederationRequest(): RemoveNodeFromFederationRequest {
+  return { federationName: "", nodeIds: [] };
+}
+
+export const RemoveNodeFromFederationRequest: MessageFns<RemoveNodeFromFederationRequest> = {
+  encode(message: RemoveNodeFromFederationRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.federationName !== "") {
+      writer.uint32(10).string(message.federationName);
+    }
+    writer.uint32(18).fork();
+    for (const v of message.nodeIds) {
+      writer.uint64(v);
+    }
+    writer.join();
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RemoveNodeFromFederationRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRemoveNodeFromFederationRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.federationName = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag === 16) {
+            message.nodeIds.push(reader.uint64().toString());
+
+            continue;
+          }
+
+          if (tag === 18) {
+            const end2 = reader.uint32() + reader.pos;
+            while (reader.pos < end2) {
+              message.nodeIds.push(reader.uint64().toString());
+            }
+
+            continue;
+          }
+
+          break;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RemoveNodeFromFederationRequest {
+    return {
+      federationName: isSet(object.federationName) ? globalThis.String(object.federationName) : "",
+      nodeIds: globalThis.Array.isArray(object?.nodeIds) ? object.nodeIds.map((e: any) => globalThis.String(e)) : [],
+    };
+  },
+
+  toJSON(message: RemoveNodeFromFederationRequest): unknown {
+    const obj: any = {};
+    if (message.federationName !== "") {
+      obj.federationName = message.federationName;
+    }
+    if (message.nodeIds?.length) {
+      obj.nodeIds = message.nodeIds;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RemoveNodeFromFederationRequest>, I>>(base?: I): RemoveNodeFromFederationRequest {
+    return RemoveNodeFromFederationRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RemoveNodeFromFederationRequest>, I>>(
+    object: I,
+  ): RemoveNodeFromFederationRequest {
+    const message = createBaseRemoveNodeFromFederationRequest();
+    message.federationName = object.federationName ?? "";
+    message.nodeIds = object.nodeIds?.map((e) => e) || [];
+    return message;
+  },
+};
+
+function createBaseRemoveNodeFromFederationResponse(): RemoveNodeFromFederationResponse {
+  return {};
+}
+
+export const RemoveNodeFromFederationResponse: MessageFns<RemoveNodeFromFederationResponse> = {
+  encode(_: RemoveNodeFromFederationResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RemoveNodeFromFederationResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRemoveNodeFromFederationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): RemoveNodeFromFederationResponse {
+    return {};
+  },
+
+  toJSON(_: RemoveNodeFromFederationResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RemoveNodeFromFederationResponse>, I>>(
+    base?: I,
+  ): RemoveNodeFromFederationResponse {
+    return RemoveNodeFromFederationResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RemoveNodeFromFederationResponse>, I>>(
+    _: I,
+  ): RemoveNodeFromFederationResponse {
+    const message = createBaseRemoveNodeFromFederationResponse();
+    return message;
+  },
+};
+
 export type ControlService = typeof ControlService;
 export const ControlService = {
   /** Start run upon request */
@@ -2227,6 +2764,56 @@ export const ControlService = {
       Buffer.from(ShowFederationResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): ShowFederationResponse => ShowFederationResponse.decode(value),
   },
+  /** Create Federation */
+  createFederation: {
+    path: "/flwr.proto.Control/CreateFederation",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: CreateFederationRequest): Buffer =>
+      Buffer.from(CreateFederationRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): CreateFederationRequest => CreateFederationRequest.decode(value),
+    responseSerialize: (value: CreateFederationResponse): Buffer =>
+      Buffer.from(CreateFederationResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): CreateFederationResponse => CreateFederationResponse.decode(value),
+  },
+  /** Archive Federation */
+  archiveFederation: {
+    path: "/flwr.proto.Control/ArchiveFederation",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: ArchiveFederationRequest): Buffer =>
+      Buffer.from(ArchiveFederationRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ArchiveFederationRequest => ArchiveFederationRequest.decode(value),
+    responseSerialize: (value: ArchiveFederationResponse): Buffer =>
+      Buffer.from(ArchiveFederationResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ArchiveFederationResponse => ArchiveFederationResponse.decode(value),
+  },
+  /** Add SuperNode to Federation */
+  addNodeToFederation: {
+    path: "/flwr.proto.Control/AddNodeToFederation",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: AddNodeToFederationRequest): Buffer =>
+      Buffer.from(AddNodeToFederationRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AddNodeToFederationRequest => AddNodeToFederationRequest.decode(value),
+    responseSerialize: (value: AddNodeToFederationResponse): Buffer =>
+      Buffer.from(AddNodeToFederationResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AddNodeToFederationResponse => AddNodeToFederationResponse.decode(value),
+  },
+  /** Remove SuperNode from Federation */
+  removeNodeFromFederation: {
+    path: "/flwr.proto.Control/RemoveNodeFromFederation",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: RemoveNodeFromFederationRequest): Buffer =>
+      Buffer.from(RemoveNodeFromFederationRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RemoveNodeFromFederationRequest =>
+      RemoveNodeFromFederationRequest.decode(value),
+    responseSerialize: (value: RemoveNodeFromFederationResponse): Buffer =>
+      Buffer.from(RemoveNodeFromFederationResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RemoveNodeFromFederationResponse =>
+      RemoveNodeFromFederationResponse.decode(value),
+  },
 } as const;
 
 export interface ControlServer extends UntypedServiceImplementation {
@@ -2256,6 +2843,14 @@ export interface ControlServer extends UntypedServiceImplementation {
   listFederations: handleUnaryCall<ListFederationsRequest, ListFederationsResponse>;
   /** Show Federation */
   showFederation: handleUnaryCall<ShowFederationRequest, ShowFederationResponse>;
+  /** Create Federation */
+  createFederation: handleUnaryCall<CreateFederationRequest, CreateFederationResponse>;
+  /** Archive Federation */
+  archiveFederation: handleUnaryCall<ArchiveFederationRequest, ArchiveFederationResponse>;
+  /** Add SuperNode to Federation */
+  addNodeToFederation: handleUnaryCall<AddNodeToFederationRequest, AddNodeToFederationResponse>;
+  /** Remove SuperNode from Federation */
+  removeNodeFromFederation: handleUnaryCall<RemoveNodeFromFederationRequest, RemoveNodeFromFederationResponse>;
 }
 
 export interface ControlClient extends Client {
@@ -2451,6 +3046,70 @@ export interface ControlClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: ShowFederationResponse) => void,
+  ): ClientUnaryCall;
+  /** Create Federation */
+  createFederation(
+    request: CreateFederationRequest,
+    callback: (error: ServiceError | null, response: CreateFederationResponse) => void,
+  ): ClientUnaryCall;
+  createFederation(
+    request: CreateFederationRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: CreateFederationResponse) => void,
+  ): ClientUnaryCall;
+  createFederation(
+    request: CreateFederationRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: CreateFederationResponse) => void,
+  ): ClientUnaryCall;
+  /** Archive Federation */
+  archiveFederation(
+    request: ArchiveFederationRequest,
+    callback: (error: ServiceError | null, response: ArchiveFederationResponse) => void,
+  ): ClientUnaryCall;
+  archiveFederation(
+    request: ArchiveFederationRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: ArchiveFederationResponse) => void,
+  ): ClientUnaryCall;
+  archiveFederation(
+    request: ArchiveFederationRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: ArchiveFederationResponse) => void,
+  ): ClientUnaryCall;
+  /** Add SuperNode to Federation */
+  addNodeToFederation(
+    request: AddNodeToFederationRequest,
+    callback: (error: ServiceError | null, response: AddNodeToFederationResponse) => void,
+  ): ClientUnaryCall;
+  addNodeToFederation(
+    request: AddNodeToFederationRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: AddNodeToFederationResponse) => void,
+  ): ClientUnaryCall;
+  addNodeToFederation(
+    request: AddNodeToFederationRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: AddNodeToFederationResponse) => void,
+  ): ClientUnaryCall;
+  /** Remove SuperNode from Federation */
+  removeNodeFromFederation(
+    request: RemoveNodeFromFederationRequest,
+    callback: (error: ServiceError | null, response: RemoveNodeFromFederationResponse) => void,
+  ): ClientUnaryCall;
+  removeNodeFromFederation(
+    request: RemoveNodeFromFederationRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RemoveNodeFromFederationResponse) => void,
+  ): ClientUnaryCall;
+  removeNodeFromFederation(
+    request: RemoveNodeFromFederationRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RemoveNodeFromFederationResponse) => void,
   ): ClientUnaryCall;
 }
 

@@ -5,7 +5,7 @@ import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AuthenticationModule } from './authentication/auth.module';
 import { AuthorizationModule } from './authorization/auth.module';
 import { FabsModule } from './fabs/fabs.module';
-import { FlowerModule } from './flower/flower.module';
+import { FlowerModule, FlowerSyncModule } from './flower/flower.module';
 import { HealthController } from './health/health.controller';
 import { NodesModule } from './nodes/nodes.module';
 import { OrganizationsModule } from './organizations/organizations.module';
@@ -25,6 +25,7 @@ import { TrainingModule } from './training/training.module';
     NodesModule,
     TrainingModule,
     FlowerModule,
+    FlowerSyncModule,
     FabsModule,
   ],
   controllers: [HealthController],

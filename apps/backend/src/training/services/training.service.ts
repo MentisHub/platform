@@ -234,10 +234,7 @@ export class TrainingService {
       trainingRun.projectId,
     );
 
-    await this.flowerService.ensureFederationExists(
-      project.id,
-      project.name,
-    );
+    await this.flowerService.ensureFederationExists(project.id, project.name);
 
     const config = (trainingRun.configuration ??
       project.trainingConfig ??
@@ -248,7 +245,7 @@ export class TrainingService {
       fabHash: fab.fabHash,
       fabContent,
       overrideConfig: config ?? undefined,
-      federation: project.federationName,
+      federation: project.id,
     });
 
     await Promise.all(

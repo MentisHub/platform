@@ -227,7 +227,9 @@ export class FlowerSyncService implements OnModuleInit {
       event.nodeId,
     );
     if (!mentisNodeId) {
-      this.logger.warn(`Node with Flower ID ${event.nodeId} not found in MentisHub`);
+      this.logger.warn(
+        `Node with Flower ID ${event.nodeId} not found in MentisHub`,
+      );
       return;
     }
 

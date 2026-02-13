@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  forwardRef,
+} from '@nestjs/common';
 import { ErrorCode } from '@platform/contracts';
 import type { Project } from '@prisma/client';
 import { FlowerService } from '../flower/services/flower.service';
@@ -23,19 +28,12 @@ export class ProjectsService {
         name: createProjectDto.name,
         organizationId,
         trainingConfig: createProjectDto.trainingConfig ?? undefined,
-        federationName: '',
       },
     });
 
-    const federationName = await this.flowerService.createFederation(
-      project.id,
-      project.name,
-    );
+    await this.flowerService.createFederation(project.id, project.name);
 
-    return this.prisma.project.update({
-      where: { id: project.id },
-      data: { federationName },
-    });
+    return project;
   }
 
   async findAll(organizationId: string): Promise<Project[]> {

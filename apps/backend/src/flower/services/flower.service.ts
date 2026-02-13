@@ -75,18 +75,16 @@ export class FlowerService implements OnModuleInit {
     projectId: string,
     description?: string,
   ): Promise<string> {
-    const federationName = `@none/project-${projectId}`;
-
     return new Promise((resolve, reject) => {
       this.controlClient.createFederation(
-        { name: federationName, description: description || '' },
+        { name: projectId, description: description || '' },
         new Metadata(),
         (error, response) => {
           if (error) {
             reject(error);
             return;
           }
-          resolve(response.federation.name);
+          resolve(response.federation!.name);
         },
       );
     });
@@ -96,28 +94,26 @@ export class FlowerService implements OnModuleInit {
     projectId: string,
     description?: string,
   ): Promise<string> {
-    const federationName = `@none/project-${projectId}`;
-
     return new Promise((resolve, reject) => {
       this.controlClient.showFederation(
-        { federationName },
+        { federationName: projectId },
         new Metadata(),
         (error) => {
           if (error) {
             this.controlClient.createFederation(
-              { name: federationName, description: description || '' },
+              { name: projectId, description: description || '' },
               new Metadata(),
               (createError, response) => {
                 if (createError) {
                   reject(createError);
                   return;
                 }
-                resolve(response.federation.name);
+                resolve(response.federation!.name);
               },
             );
             return;
           }
-          resolve(federationName);
+          resolve(projectId);
         },
       );
     });
