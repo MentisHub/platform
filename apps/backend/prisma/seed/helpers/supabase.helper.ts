@@ -40,8 +40,6 @@ export async function uploadFABToStorage(
     throw error;
   }
 
-  console.log(`  ✓ Uploaded FAB to: ${bucketName}/${bucketKey}`);
-
   const { data: publicUrlData } = supabase.storage
     .from(bucketName)
     .getPublicUrl(bucketKey);

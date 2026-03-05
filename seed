@@ -1,0 +1,264 @@
+root@fe13c1d65e86:/usr/src/app/apps/backend# pnpm db:seed
+
+> @platform/backend@0.1.0 db:seed /usr/src/app/apps/backend
+> tsx prisma/seed/index.ts
+
+Starting seed...
+
+Cleaning up existing data...
+  Cleanup completed
+
+Seeding users...
+Seeding users...
+  [AUTH]  user1@mentishub.dev  →  e52399fa-babf-4014-8acd-fbab757bfac2
+    access:   eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlNTIzOTlmYS1iYWJmLTQwMTQtOGFjZC1mYmFiNzU3YmZhYzIiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzcyNzM4MjA0LCJpYXQiOjE3NzI3MzQ2MDQsImVtYWlsIjoidXNlcjFAbWVudGlzaHViLmRldiIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiJUYXlsb3IgS3VsYXMifSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc3MjczNDYwNH1dLCJzZXNzaW9uX2lkIjoiNjEzODA0MTctNWQxZi00YjNjLTkzZGUtMTVjMzU5M2Q0ZDhiIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.QOf1hOn0_jPmbU8pDcaM1GL1QqYR00E3-3JOtKpIfgY
+    refresh:  seg3qswc5wp3
+  [AUTH]  user2@mentishub.dev  →  90ebd8c1-3477-4b28-b2ce-9276de65932b
+    access:   eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5MGViZDhjMS0zNDc3LTRiMjgtYjJjZS05Mjc2ZGU2NTkzMmIiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzcyNzM4MjA0LCJpYXQiOjE3NzI3MzQ2MDQsImVtYWlsIjoidXNlcjJAbWVudGlzaHViLmRldiIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiJXZW5kZWxsIFRvd25lIn0sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoicGFzc3dvcmQiLCJ0aW1lc3RhbXAiOjE3NzI3MzQ2MDR9XSwic2Vzc2lvbl9pZCI6ImQ3OGNhZTYwLWI4OWMtNGEzZC1iNjk2LTI5NWZlMGJkODcyMyIsImlzX2Fub255bW91cyI6ZmFsc2V9.21ORThkgHqVDG09wPYHjgsoYfm-lJIgsINTKWJ_aYbk
+    refresh:  bhbsfddhufr4
+  [AUTH]  user3@mentishub.dev  →  5b833c7e-f84b-4573-a5a5-ccdf1e5de034
+    access:   eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1YjgzM2M3ZS1mODRiLTQ1NzMtYTVhNS1jY2RmMWU1ZGUwMzQiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzcyNzM4MjA0LCJpYXQiOjE3NzI3MzQ2MDQsImVtYWlsIjoidXNlcjNAbWVudGlzaHViLmRldiIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiJNcnMuIENhc3NhbmRyYSBQb2xsaWNoIn0sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoicGFzc3dvcmQiLCJ0aW1lc3RhbXAiOjE3NzI3MzQ2MDR9XSwic2Vzc2lvbl9pZCI6IjI5ZDEyMDBlLTE5ZjQtNDc2NC05MzYyLTZjMDUzYjg3OGQ1NiIsImlzX2Fub255bW91cyI6ZmFsc2V9.Z6tffiUN0k1lhMk6SA4FYEXQ-b1-Q9S3_SUxz6FOVyA
+    refresh:  ahzxzjoxzitv
+  [AUTH]  user4@mentishub.dev  →  9b4e70fa-8a7e-4819-89f6-41770bbb60ec
+    access:   eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5YjRlNzBmYS04YTdlLTQ4MTktODlmNi00MTc3MGJiYjYwZWMiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzcyNzM4MjA0LCJpYXQiOjE3NzI3MzQ2MDQsImVtYWlsIjoidXNlcjRAbWVudGlzaHViLmRldiIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiJMdXogQ3Jpc3QifSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc3MjczNDYwNH1dLCJzZXNzaW9uX2lkIjoiOGU0Yzk1ZjEtYzRjOC00ZThjLWFhM2ItYjAzZGRhODY0ZGVhIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.VgJsvRDVPoEDJ6jFaxAe6xW3ozPFqAGoglroMcdLGo0
+    refresh:  k2t7vqggrevv
+  [AUTH]  user5@mentishub.dev  →  d4976eb4-13ed-4f09-9705-69adc6ce4fdb
+    access:   eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkNDk3NmViNC0xM2VkLTRmMDktOTcwNS02OWFkYzZjZTRmZGIiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzcyNzM4MjA0LCJpYXQiOjE3NzI3MzQ2MDQsImVtYWlsIjoidXNlcjVAbWVudGlzaHViLmRldiIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiJTZXJnaW8gQWJib3R0LUFybXN0cm9uZyJ9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzcyNzM0NjA0fV0sInNlc3Npb25faWQiOiI3N2U5MDI0OS03MjY0LTQ4YjItYjg2Yi0zY2JkNzViNmQ4ZGYiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.jViopognFfVmdG_WLjBVqT1lRY3UyugUVz-ggyV9Dgc
+    refresh:  rkoavfvaak4h
+  [USER]  user1@mentishub.dev  →  e52399fa-babf-4014-8acd-fbab757bfac2  (onboarded)
+  [USER]  user2@mentishub.dev  →  90ebd8c1-3477-4b28-b2ce-9276de65932b  (onboarded)
+  [USER]  user3@mentishub.dev  →  5b833c7e-f84b-4573-a5a5-ccdf1e5de034  (onboarded)
+  [USER]  user4@mentishub.dev  →  9b4e70fa-8a7e-4819-89f6-41770bbb60ec  (pending)
+  [USER]  user5@mentishub.dev  →  d4976eb4-13ed-4f09-9705-69adc6ce4fdb  (pending)
+  password: password123
+
+
+Seeding default FABs...
+  [FAB:DEFAULT]   fl-app@0.1.0  →  153ba6c8-e90d-4391-a077-471b11b8633c
+
+Seeding organizations...
+
+[ORG]  "Cormier, Cummings and Rosenbaum"  →  07cba478-5cf9-4add-9a32-439bc3b6186c  (owner only)
+  [FAB:ORG]      fl-app@0.1.0  →  50b02fe8-199a-490e-9be6-8bc16dc706de
+  [PROJECT]  "sandy-institute"  →  66882e4a-2c4a-42ce-b357-df7dc306af17
+    [FAB:PROJECT]  fl-app@0.1.0  →  054b2b48-ae97-485e-9b05-fb8aa4e7cdb1
+    [NODE:INIT]      node-722eeCTM  →  796d174e-de2b-45ec-b707-72cef28757b3
+    [NODE:READY]     node-k402l5wd  →  cfb08c4a-71ba-4411-8f10-2f3c86784d27
+    [NODE:READY]     node-PsqzJ3CC  →  f6d09ee9-10b0-41a3-9d0e-ab3ca470c612
+    [NODE:OFFLINE]   node-AkW5Sz3S  →  5065f31b-433f-49ad-b9b0-3f888750f52f
+    [NODE:ERROR]     node-IaWXY3JB  →  1574a87d-50e0-4889-962c-75f3987611ba
+    [RUN:PENDING]    1ff740b7-362e-44b7-8c8d-429be76fc400
+      [NODE:CREATED]  754995ab-e9d1-49bf-b57e-09fe4dffe73e  psk: ovezlk7j2fe37nl6bh7e377hhy.eAlNlic1IpZKjJRszL2jpA
+      [NODE:CREATED]  2ff64089-dd6b-4c0a-9b8f-933cff36822d  psk: f73ebco5nngavg4psm6p6nucfu.O8r2t4gsxKvpWHanqbyqfQ
+      [NODE:CREATED]  9bcfe81c-5b8f-46eb-9caf-de93bab4b5f7  psk: tph6qhc3r5doxhfp32j3vnfv64.ZXvIHMyNqioyw5GFtdv6_Q
+    [RUN:DEPLOYING]  b799d2d9-5fda-4811-89e9-001625972b5c
+    [RUN:READY]      acc5b1ff-9861-4603-9f68-98afdb20a936
+    [RUN:RUNNING]    a4210df2-f8aa-4b5f-b1d3-44ad511e5dc6  rounds: 5  nodes: 2
+    [RUN:COMPLETED]  b1f263ab-b20d-44d5-abab-7cf8029c9010  rounds: 10
+    [RUN:FAILED]     eb33fa12-6f29-4c9f-b035-238b9263fdd8  rounds: 1
+    [RUN:CANCELLED]  070d9ae0-177d-4151-9efd-0268188cfa89
+  [PROJECT]  "proud-version"  →  46c87b9a-02a5-46fb-8153-c7a5db58e520
+    [FAB:PROJECT]  fl-app@0.1.0  →  f9c9d8d4-269f-4a23-ae0f-77d2a1906cae
+    [NODE:INIT]      node-WzUn2RKy  →  fa29b3bc-6184-4893-b363-cec7e9b4db75
+    [NODE:READY]     node-qC6AcBGT  →  0afb0c6f-3843-4d8d-8b4c-9ebcb0ee420d
+    [NODE:READY]     node-oAsA39sL  →  f0639596-73ef-4a0a-9f8c-29127fbdba4c
+    [NODE:OFFLINE]   node-8z4FrisY  →  3aef82eb-8ad8-4927-abe5-5ffbd13ca643
+    [NODE:ERROR]     node-faBgQSzk  →  82c38080-962d-4c5c-b1f4-844b0f79536c
+    [RUN:PENDING]    1ff51d15-1b3f-448c-b6e9-ec3a26ef0db0
+      [NODE:CREATED]  9b33e34b-8216-409d-a08b-150682038fc5  psk: tmz6gs4cczaj3ielcudiea4pyu.vMgjiN1gkCgRth2SEB5wXA
+      [NODE:CREATED]  a852f000-7731-4d91-baaa-ef35860bf0ec  psk: vbjpaadxgfgzdovk542ymc7q5q.8nysi8unHgzVlXPzbUYaqA
+      [NODE:CREATED]  71921b98-345c-4c36-b28a-ae07b9f9c1a3  psk: ogjbxgbulrgdnmukvyd3t6obum.bGmn8oE8jadFnVlRBihDTg
+    [RUN:DEPLOYING]  9899fe4e-f808-4779-866b-f853714fb535
+    [RUN:READY]      f4717aae-f58a-4849-a2af-df148824b6c8
+    [RUN:RUNNING]    1c40ebea-a4ee-4418-b19e-1162d0325737  rounds: 5  nodes: 2
+    [RUN:COMPLETED]  d7e58a4d-04f8-4501-baeb-612e3a36729a  rounds: 10
+    [RUN:FAILED]     44d73c46-3b2e-4649-9067-d3a6285134ce  rounds: 4
+    [RUN:CANCELLED]  d0d58368-922f-4dc3-8147-d154a4ef408c
+
+[ORG]  "Cremin, Dibbert and Schmidt"  →  d11b8eb3-9df4-48d6-af2e-f96cbb2fad03  (3 members)
+  [FAB:ORG]      fl-app@0.1.0  →  451163a7-206c-44fb-bb7b-f60e30e3f4ce
+  [PROJECT]  "impish-coast"  →  453b89e6-83a1-404e-8376-aad13bb86669
+    [NODE:INIT]      node-ryh4t94F  →  ba7b84ac-b9d1-4562-9c96-ea264ff619a9
+    [NODE:READY]     node-RuBxWCuu  →  99fe4437-e464-4c16-87f7-6f53b8c8f879
+    [NODE:READY]     node-Kyyz1jOq  →  d7f258bc-8c39-44aa-932d-0908c7b82f5d
+    [NODE:READY]     node-6dSFOX6g  →  ea6fb351-13c8-4cab-82ba-0c031012e8d3
+    [NODE:OFFLINE]   node-3mv4F13k  →  5184e133-18b7-4be8-8e2b-71a743207646
+    [NODE:ERROR]     node-pedVuHRd  →  fd65d723-a3e4-4b7c-b281-d0a3b8f2c7a7
+    [RUN:PENDING]    1284f646-af4e-4dc9-9b48-e191fc05790f
+      [NODE:CREATED]  20989a8f-6376-4873-a149-1eef0282ffc2  psk: ecmjvd3dozehhikjd3xqfax7yi.xUTppiQcb3MDb4LvSYuOYg
+      [NODE:CREATED]  552378df-3296-49a5-8ab9-3025097be13d  psk: kurxrxzssze2lcvzgasqs67bhu.UoLVNwIqg8RJPAlEQzIhLQ
+      [NODE:CREATED]  54721a5f-5696-47a1-b7ce-2307c61ac20a  psk: krzbux2wszd2dn6oemd4mgwcbi.qanqlXyOImEnl8RZScAxsg
+      [NODE:CREATED]  4b70c5fc-386b-47de-8581-9784fddab28b  psk: jnyml7bynnd55bmbs6cp3wvsrm.l_b0HsUKXhJ1f7WszYk4bw
+      [NODE:CREATED]  45b6f822-1262-4aab-851e-6636084cc1cf  psk: iw3pqiqsmjfkxbi6my3aqtgbz4.oODuU1mC4bjn9MAloQn7PA
+      [NODE:CREATED]  9e695c1c-5208-4fb0-86a6-e72f92607d8f  psk: tzuvyhcsbbh3bbvg44xzeyd5r4.zhBPAotHzX9hpU6UsQUDgA
+    [RUN:DEPLOYING]  1f2695b8-9fa8-4fe5-8fdd-af7af4e19343
+    [RUN:READY]      a926d94f-79ce-46bc-9cf4-242cac651906
+    [RUN:RUNNING]    d4b1db16-841d-4196-b055-c21289f65e70  rounds: 5  nodes: 3
+    [RUN:COMPLETED]  4b5539ce-43c4-4396-9f13-5bd0fb189902  rounds: 10
+    [RUN:FAILED]     97f47cac-2aa1-4ee6-85ed-e2f997903ec0  rounds: 3
+    [RUN:CANCELLED]  b47faedc-4437-46ee-a50a-7e1c2b406bfa
+  [PROJECT]  "icy-taro"  →  b939e668-d497-4fec-94cd-7ba71106ad52
+    [NODE:INIT]      node-INoKH492  →  65d83106-3250-40bb-9b38-151d48225fe0
+    [NODE:READY]     node-yUFtM3rx  →  421abc06-a3c0-4d34-a17d-51a253e3a04d
+    [NODE:READY]     node-r7jCEAHH  →  0ab1388a-20fa-4a33-81af-81813e261b19
+    [NODE:READY]     node-ejml7OGD  →  4f2b2b65-7958-4d23-a9e6-4f1cdd9c2f98
+    [NODE:READY]     node-C2pwgAjK  →  21a7eb57-3c87-4dbb-ae34-c8aec52f23cf
+    [NODE:OFFLINE]   node-pKwJD9Em  →  c2589ea6-8c5f-4c85-9f43-3272f213c5ab
+    [NODE:ERROR]     node-L7NwU4Jk  →  f06721eb-35c7-4910-9f9f-ed3726f9bf0a
+    [RUN:PENDING]    0fd8be42-d019-425d-98ba-ffd0a6e94a49
+      [NODE:CREATED]  db5887d2-a4df-4b23-8d9d-30592808973b  psk: 3nmipuve35fshdm5gbmsqcexhm.P4AQqG_ZYW14M_hv-mRyJg
+      [NODE:CREATED]  9e707c62-0855-48cd-8c2c-1ebf32aea6ec  psk: tzyhyyqikvem3dbmd27tflvg5q.50SvtrBS14Tpgoo093Do4A
+      [NODE:CREATED]  dc5d0d8c-29f1-40b4-ae4d-6261320fe8cf  psk: 3roq3dbj6faljlsnmjqted7iz4.3AW8_lp7gg1348t8IVfstQ
+      [NODE:CREATED]  65fe2db9-9916-4b4c-a5c5-b51cb890f1a9  psk: mx7c3omzczfuzjofwuolrehrve.RNteEqjVLLHFHPXa9uBAig
+      [NODE:CREATED]  027aac9e-8e55-4723-b7ac-0b6d2752f2a4  psk: aj5kzhuokvdshn5mbnwsouxsuq.L2c5UYEHxN688GM-96jArA
+    [RUN:DEPLOYING]  5c01e5e1-0a5e-4440-a64d-556fd05d4c2f
+    [RUN:READY]      27e3a6bb-9a7c-41d7-a3eb-174c64163c9f
+    [RUN:RUNNING]    8873c71d-7e7f-44c4-a13b-df6dd6e405df  rounds: 5  nodes: 4
+    [RUN:COMPLETED]  dd8b6062-461e-42b6-bfb1-0eb630977ed1  rounds: 10
+    [RUN:FAILED]     8e40a563-f208-4ebb-9731-d7b9f9e31060  rounds: 2
+    [RUN:CANCELLED]  7e4d9657-ef3a-4cd5-add8-7bce50e9ec9a
+  [PROJECT]  "humble-adult"  →  7eeb6b97-4ec0-4b5d-81c3-c45a743c3cd1
+    [NODE:INIT]      node-qAvPRIXJ  →  037271dd-efed-490b-adad-1686acbe584d
+    [NODE:READY]     node-NoxXuX5H  →  39bf1a56-6274-40f2-9be1-b056474b7026
+    [NODE:READY]     node-84e1xxQh  →  892eb9cb-5a91-4a9e-ba86-3c3180f99ffe
+    [NODE:OFFLINE]   node-V8E0dVHf  →  a342d902-b929-4bf6-af34-0857fab28b3c
+    [NODE:ERROR]     node-Q9LlPEMA  →  dfa8b321-d733-48ac-ad49-c6159a54bfa7
+    [RUN:PENDING]    e1a2afce-1a05-465a-868b-1d0796addae7
+      [NODE:CREATED]  27146cf7-f488-460b-8b34-101d9bf44ec4  psk: e4kgz57urbdaxczucaozx5coyq.cBFIvYTho_95hFiB6mdhEw
+      [NODE:CREATED]  d24d36a8-6d4a-490a-bdeb-77c938947a2a  psk: 2jgtnkdnjjeqvpplo7etrfd2fi.wTc3m5SQFYx69ZousGkQpw
+      [NODE:CREATED]  4e93b70f-8b65-4978-b09b-66a9445a47a4  psk: j2j3od4lmvexrme3m2uuiwshuq.UriELRAcNM_EstJFBTh_4Q
+      [NODE:CREATED]  c836f6c3-e83d-4e03-b4dc-51de85a1a64b  psk: za3pnq7ihvhahng4khpilingjm.KQMy1cd5QKxk_He9fT416w
+      [NODE:CREATED]  4d0b9946-a4ca-4db1-b813-c39b64c01c89  psk: jufzsrvezjg3doatyonwjqa4re.EF8u1IKOaJFD3xMXzE0gaQ
+      [NODE:CREATED]  4c6baaa7-bff4-4f2a-a12f-2c96342b7a8a  psk: jrv2vj576rhsvijpfsldik32ri.ZD0p60Y10lnQV30_I9YZkA
+    [RUN:DEPLOYING]  405c88e8-31a9-4fed-acea-e4dc0475465f
+    [RUN:READY]      d93c9e41-f8a5-4f91-ae99-a9261a962ff5
+    [RUN:RUNNING]    fce41cba-cd74-4b94-ad21-bc5e3eea3252  rounds: 5  nodes: 2
+    [RUN:COMPLETED]  3acf2aa0-c6f7-4cb0-9d99-9d598da4173e  rounds: 10
+    [RUN:FAILED]     df63e729-558f-486b-8cc5-d5d0ee22a3aa  rounds: 3
+    [RUN:CANCELLED]  7bc8d38b-c492-47ce-a342-6e5e445c321d
+
+[ORG]  "Streich, Welch and Thompson"  →  8994612f-d3fa-4481-a318-4654c7a38526  (3 members)
+  [PROJECT]  "specific-completion"  →  18ad448b-4ca1-49b1-a415-6cbbb9e0cc7e
+    [NODE:INIT]      node-m9UuChtd  →  d8db4153-6d41-44d3-a0b8-f362f18acfcc
+    [NODE:READY]     node-gG3Pw8tz  →  b2554756-4283-41d6-a376-baadbdf76a7b
+    [NODE:READY]     node-RBou1PWY  →  7682c8be-12a0-4741-b02c-93b8f217e829
+    [NODE:READY]     node-WqNNb4QJ  →  b9d929fc-afaa-4fcd-bc2c-554b933c7317
+    [NODE:OFFLINE]   node-WEfngovE  →  9aa758f9-3d67-4a3b-8005-dffd5d65de61
+    [NODE:ERROR]     node-T7AnlSbQ  →  408bff3d-e9e6-42d2-aee3-f900595f4890
+    [RUN:PENDING]    aa230fcc-91ca-41f5-8e5a-45dd907ae501
+      [NODE:CREATED]  90327866-b32e-4d5d-8f3b-2d8347e7bc7d  psk: sazhqzvtfzgv3dz3fwbupz54pu.FS9VArfj4Cc4eH-m341hsg
+      [NODE:CREATED]  ec15a87d-2b75-40a7-ad60-3a3816953fb8  psk: 5qk2q7jlovakpllahi4bnfj7xa.fWDiQdqh42WF3lFDriQj_Q
+      [NODE:CREATED]  6c0539dc-15f0-4695-923f-8f142f5b5160  psk: nqcttxav6bdjler7r4kc6w2rma.1WIdHJ4NJ4z_wQR-N6bnOQ
+    [RUN:DEPLOYING]  6cc27997-f2e6-4199-a5ea-09744ac348ed
+    [RUN:READY]      820c3009-32dc-4400-a431-f3e8c56a6b88
+    [RUN:RUNNING]    77ba941a-5198-42c9-bce9-85b6e8a84d50  rounds: 5  nodes: 3
+    [RUN:COMPLETED]  fe10a5eb-a802-48b7-80fd-a68b1976d250  rounds: 10
+    [RUN:FAILED]     5d4ac257-8b34-4c6c-ac86-a40aae301a65  rounds: 4
+    [RUN:CANCELLED]  dffc4868-b307-407b-85a7-d4e25f2afad2
+  [PROJECT]  "lazy-lobster"  →  baf03170-f4ba-4271-a2df-c2dafdd853c2
+    [NODE:INIT]      node-SKxbHiTc  →  43c51611-4ef6-4167-b478-eeeb9633385f
+    [NODE:READY]     node-kBPKP4Jt  →  dae75d04-f35d-4cab-a3d0-482642579d0a
+    [NODE:READY]     node-c1yUMXZj  →  21a897a6-dec1-42ae-9839-06fa89411ef4
+    [NODE:READY]     node-B45TXcQb  →  5e315840-55a7-43c9-8705-61eec12ae915
+    [NODE:READY]     node-8Ota20iJ  →  3283137b-e32e-4ad8-8bbd-35e595dfec81
+    [NODE:OFFLINE]   node-K09JWXKo  →  e815c554-7f29-45ae-a7f3-2145b7ede559
+    [NODE:ERROR]     node-PvzpFmy4  →  3e724060-173e-4816-85ec-7d76e546bd7e
+    [RUN:PENDING]    4837a7b0-bc1d-48ea-8c57-a3fa80dfe239
+      [NODE:CREATED]  5dbef9c5-22da-4c67-b818-5a1e6d98f6f0  psk: lw7ptrjc3jggpoaylipg3ghw6a.mNDUagLy2wGr3MmfS8cHCQ
+      [NODE:CREATED]  47bcf3bb-87f6-4473-a020-522e4fe6fa51  psk: i66pho4h6zchhibakixe7zx2ke.JF1t32b-G2uVr9J1e9h49w
+      [NODE:CREATED]  d0bd9cf7-c4b5-472b-ba38-92fe65000267  psk: 2c6zz56ewvdsxorysl7gkaacm4.RW_MGvs-3iudMREvSWypcA
+      [NODE:CREATED]  3ba813b4-5cc4-4688-a9c9-a3e3c9b2cc34  psk: houbhnc4yrdirkojupr4tmwmgq._DlxVmafiLXQXA1Nqif3nA
+    [RUN:DEPLOYING]  a0c81d90-a8f0-431a-84a9-85326f703791
+    [RUN:READY]      3abea127-4e5f-4f39-bbb8-30c947e9b241
+    [RUN:RUNNING]    7655203f-1961-473e-a064-a1b8183f5bb3  rounds: 5  nodes: 4
+    [RUN:COMPLETED]  4ba68aa2-8b18-472b-adbf-07390dad1919  rounds: 10
+    [RUN:FAILED]     0df7a40d-2de4-4003-bb17-236a8e28fb2e  rounds: 4
+    [RUN:CANCELLED]  4e9814b9-f005-4932-897a-5dde8883cb47
+
+[ORG]  "Lynch - Thiel"  →  c5eacea7-8c84-4a6f-b701-e55199d532f1  (3 members)
+  [PROJECT]  "ignorant-icebreaker"  →  9dc48b4e-e04a-4508-ab36-2c5cae2f5936
+    [NODE:INIT]      node-EtiORjpU  →  55b34f5f-2621-4d12-a444-af28ee5c21ef
+    [NODE:READY]     node-ZlidfOOf  →  14ebc80b-dbfa-47a5-a2f6-8546e420bd49
+    [NODE:READY]     node-Vt7UouXe  →  fab531b5-b6c5-43be-bcf6-2c763811698c
+    [NODE:READY]     node-4CYWUQVN  →  ecff5ade-2931-446f-98a9-1c1651cffa10
+    [NODE:READY]     node-TnK5Z7n8  →  33b8c372-2f87-41d5-a092-0a5652416916
+    [NODE:OFFLINE]   node-9K1rEJAq  →  7cd8a03c-0591-47df-a9ed-b7435029d257
+    [NODE:ERROR]     node-64CQUqiL  →  27b1750f-4a80-462f-a2c6-c0de1d336089
+    [RUN:PENDING]    8f356aaf-a47b-42d8-b0ae-db8379dc0ff7
+      [NODE:CREATED]  d82c2061-6156-4b5a-a666-51343a9d0c1e  psk: 3awcaylbkzfvvjtgke2dvhimdy.6CMEYUNvFFaOctuit3GPsw
+      [NODE:CREATED]  e092d462-e048-4dc9-93ca-2e81d1755cda  psk: 4cjniyxajbg4te6kf2a5c5k43i.kGXjxaz10M96-KHOkrJZMQ
+      [NODE:CREATED]  8397b129-967a-4051-b34e-00fe92e70853  psk: qol3ckmwpjafdm2oad7jfzyikm.Ejkz6bQzvR1Jib7sFkmyZA
+      [NODE:CREATED]  0fb28a04-3738-4798-92d1-263067f6fee6  psk: b6ziubbxhbdzrewreyygp5x64y.UcjcjkBUuZSDnuM7H5ZmQQ
+      [NODE:CREATED]  ca656a81-94c0-417d-ae2a-495e6d97a5b4  psk: zjswvamuybax3lrkjfpg3f5fwq.BcY-D0r836UOA5d7Dfe50Q
+      [NODE:CREATED]  ae40b51e-71ef-4d80-ada8-b92403ded0c9  psk: vzalkhtr55gyblnixesahxwqze.9pKfVZGT6Wjgsvbnq1rEKA
+    [RUN:DEPLOYING]  d8460690-bbca-4d03-8033-455a6e25ec22
+    [RUN:READY]      b7d6f37b-371a-4b2a-8c11-693cafab328b
+    [RUN:RUNNING]    9a8ef2b5-b443-434c-8913-c6503746163f  rounds: 5  nodes: 4
+    [RUN:COMPLETED]  ecdcb2fa-bedd-40e3-bb32-8bbf9bf64287  rounds: 10
+    [RUN:FAILED]     5b878b86-4e11-4f75-adae-3082c12ff336  rounds: 1
+    [RUN:CANCELLED]  15c59fea-d221-493a-9569-2f97b1071d9d
+  [PROJECT]  "salty-parade"  →  2996184f-a272-4b45-b86f-0dc57f8ebc6d
+    [NODE:INIT]      node-zuuYEqey  →  724cc1ce-1e90-48f6-9044-1ef585a8f7a8
+    [NODE:READY]     node-AKCnFenu  →  919e44e2-b609-4e42-b829-f4af80f5757f
+    [NODE:READY]     node-UXC9wS8J  →  61db15f2-006f-43f7-b8ca-caf8810569f1
+    [NODE:READY]     node-74wVaUyZ  →  3e7d6abd-78bd-4c27-abff-138d90a4fbe2
+    [NODE:OFFLINE]   node-ZucXUmBx  →  822bc1b7-a9a6-46fd-99cd-74d00672e06e
+    [NODE:ERROR]     node-Yysny3xV  →  23ed43d7-4381-4161-88ab-dbf81049a395
+    [RUN:PENDING]    605ce5cb-b080-4310-b906-936182b1a576
+      [NODE:CREATED]  a9c8eb6d-71a0-4ba4-a6a3-e5e92eee9c9a  psk: vheow3lrubf2jjvd4xus53u4ti.GXnAcmxX9Sh94fceLWRIkw
+      [NODE:CREATED]  d048a03e-6c2b-47d4-a16d-c78343ec7230  psk: 2bekaptmfnd5jilny6buh3dsga.EfPqTsmjc4N76cMawa_eAg
+      [NODE:CREATED]  d81f6499-96b2-4c1e-bf52-dcb30212cead  psk: 3apwjgmwwjgb5p2s3szqeewovu.5eECYiT1XteVxWiBY3M9nQ
+    [RUN:DEPLOYING]  f29c8ccb-1291-4c7c-b4cc-2128055a425b
+    [RUN:READY]      5456e8d4-51bc-414c-9dac-6124afd6eaec
+    [RUN:RUNNING]    9d8e89f7-7161-459a-adaa-10e0c99fe2c3  rounds: 5  nodes: 3
+    [RUN:COMPLETED]  114f0628-6d0e-4be2-a107-641f14983dbe  rounds: 10
+    [RUN:FAILED]     10e676cc-8f8a-4150-afbb-73f150748cbe  rounds: 3
+    [RUN:CANCELLED]  bd32a2a4-4105-4262-b760-876b7358916d
+
+[ORG]  "Connelly, Wilderman and Ebert"  →  56612bfe-5ae7-4775-b3b0-0eb3e43b951d  (1 members)
+  [PROJECT]  "radiant-shoulder"  →  835050a4-681b-428c-a7fc-719970bdcdb0
+    [NODE:INIT]      node-l3YSG0Wk  →  5a5120f9-0d11-4b3c-9765-2a26a15d8fa5
+    [NODE:READY]     node-YOPYwDLP  →  8e9fc2d3-3407-4cde-83c6-155eb4b9a59e
+    [NODE:READY]     node-Tw9o0WOC  →  135b021c-6275-48bc-ad5e-645c3dae0aa9
+    [NODE:READY]     node-w4Bl2jrc  →  a3fef3cf-e348-418a-8652-b26926c8b942
+    [NODE:READY]     node-6MlBl8US  →  f574ffd3-d4c5-43be-b167-96e5a6c70977
+    [NODE:OFFLINE]   node-Dr9Vh6U1  →  944da50a-a7be-4955-9469-821134cad042
+    [NODE:ERROR]     node-TV0eab86  →  1f30c92e-c580-4df2-b76e-080b115d14f4
+    [RUN:PENDING]    9d339a96-9361-46e0-aaa5-9fed1a23c164
+      [NODE:CREATED]  fa378cd5-5e3f-4125-bc8e-68fdae1fec6b  psk: 7i3yzvk6h5aslpeond624h7mnm.XDTLBToET0UZv1gYKxy5gQ
+      [NODE:CREATED]  7b3b5ed6-083f-4ba4-a3dc-ac3cd666f9e4  psk: pm5v5vqih5f2ji64vq6nmzxz4q.QzAavInGqCwP2IMdIJNVQg
+      [NODE:CREATED]  e8ed956c-0ed9-4363-ad15-b51fc332a274  psk: 5dwzk3ao3fbwhlivwup4gmvcoq.7Jpd9ohhPukZ2yJTGYAeBQ
+      [NODE:CREATED]  03643a8a-044a-435a-a814-a9c9d4a54111  psk: ansdvcqejjbvvkauvhe5jjkbce.q5jtKsMhPMMrosV81ooDzw
+      [NODE:CREATED]  5ea50462-a48a-4921-9177-c2fa70ca0e43  psk: l2sqiyverjesdelxyl5hbsqoim.80qZEIKhEkNad13ImU4NmQ
+      [NODE:CREATED]  3157da38-4b89-4c22-bfd7-0998ee6fdca3  psk: gfl5uoclrfgcfp6xbgmo4364um.uWF6100I7bI9PEbUrzz6RA
+    [RUN:DEPLOYING]  75f9bf32-292e-4082-bb10-e98d161170a1
+    [RUN:READY]      a23c7373-ed64-4562-88a9-72631f64f4e9
+    [RUN:RUNNING]    86447cfa-a798-49ba-917e-48ef5e6e8be6  rounds: 5  nodes: 4
+    [RUN:COMPLETED]  638a9d63-5cee-4271-8fb6-158a1f7b1f65  rounds: 10
+    [RUN:FAILED]     4d0f0ec2-8c50-41ea-9e9b-2b2beecffeb6  rounds: 3
+    [RUN:CANCELLED]  aa290461-1fa5-499a-9e77-10a8ca44bf96
+  [PROJECT]  "favorable-anticodon"  →  e6a61144-8cbe-472d-bdac-b9b6e3d566d7
+    [NODE:INIT]      node-B6v3y10P  →  1dda3e6d-31af-48cc-9b7b-bfa145b77506
+    [NODE:READY]     node-kHJDQ4CO  →  e4624836-c091-42b6-8f70-b96256d49cc2
+    [NODE:READY]     node-5SpUzDqR  →  f47f62d1-d07b-45ec-a849-e650546f25eb
+    [NODE:OFFLINE]   node-NBelzbFv  →  ad7bc240-c64a-49cf-bd60-b9129b4f1f66
+    [NODE:ERROR]     node-fxLqEe1a  →  b5711e6c-5f94-4635-823d-78b39e2b1b9f
+    [RUN:PENDING]    2062412e-a293-40bf-af92-fdaaadf47548
+      [NODE:CREATED]  b5554d46-81c7-4ce9-b002-cbee2bcb0dc9  psk: wvku2ruby5gotmaczpxcxsynze.he56nqV8-m11d12vs9xArQ
+      [NODE:CREATED]  cdf9a90c-3169-4a75-8435-b4bdec18b2d9  psk: zx42sdbrnffhlbbvws66ygfs3e.L3YzI4CeTaGml1jrO-FLzw
+      [NODE:CREATED]  efea544f-db9c-4809-90b9-b5a9593e9084  psk: 57vfit63treatefzwwuvspuqqq.LqTmvnhcJtfpO87OuSwlhg
+      [NODE:CREATED]  4b6821ea-9be9-44a0-a7ec-4cc08bf1ef58  psk: jnucd2u35fckbj7mjtaix4ppla.HIdqv9bQJXFjWiljhWf-SQ
+      [NODE:CREATED]  332b1ee0-f4b9-433a-942d-a5c422ea07c7  psk: gmvr5yhuxfbtvfbnuxccf2qhy4.FyLcj5_P7nlq_xcJ5VoAOw
+    [RUN:DEPLOYING]  32ed07b1-9645-4a06-9e1f-deba8e417c6d
+    [RUN:READY]      3750155b-3fce-429f-a0c4-fd70875de8f6
+    [RUN:RUNNING]    6a6bdb3a-78a3-483c-b3f2-6eff2b853379  rounds: 5  nodes: 2
+    [RUN:COMPLETED]  6f689780-705d-4924-a13a-cd20158a5355  rounds: 10
+    [RUN:FAILED]     c92acbaf-3c88-4af7-865a-859ed81c5e2b  rounds: 2
+    [RUN:CANCELLED]  417ea500-1126-474a-aa98-40e7ad33f369
+
+Seeding cross-org collaborators...
+  [COLLAB]  "icy-taro"  ←  org: 07cba478-5cf9-4add-9a32-439bc3b6186c  (accepted)
+  [COLLAB]  "radiant-shoulder"  ←  org: d11b8eb3-9df4-48d6-af2e-f96cbb2fad03  (accepted)
+  2 cross-org collaborators
+
+Seed complete.

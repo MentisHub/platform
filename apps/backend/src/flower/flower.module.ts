@@ -1,14 +1,15 @@
-import { Module } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module';
+import { Module, forwardRef } from '@nestjs/common';
+import { NodesModule } from '../nodes/nodes.module';
+import { TrainingModule } from '../training/training.module';
+import { EvaluateEventHandler } from './events/handlers/evaluate-event.handler';
+import { FitEventHandler } from './events/handlers/fit-event.handler';
+import { NodeLifecycleHandler } from './events/handlers/node-lifecycle.handler';
+import { RoundEventHandler } from './events/handlers/round-event.handler';
+import { RunEventHandler } from './events/handlers/run-event.handler';
+import { FlowerEventStreamService } from './services/event-stream.service';
 import { FlowerService } from './services/flower.service';
-import { FlowerSyncService } from './services/sync.service';
-import { TrainingService } from 'src/training/services/training.service';
-import { NodesService } from 'src/nodes/services/nodes.service';
-import { RoundParticipantService } from 'src/training/services/round-participant.service';
-import { RoundService } from 'src/training/services/round.service';
 
 @Module({
-  imports: [PrismaModule],
   providers: [FlowerService],
   exports: [FlowerService],
 })
@@ -16,11 +17,17 @@ export class FlowerModule {}
 
 @Module({
   imports: [
-    RoundService,
-    RoundParticipantService,
-    NodesService,
-    TrainingService,
+    forwardRef(() => FlowerModule),
+    forwardRef(() => TrainingModule),
+    forwardRef(() => NodesModule),
   ],
-  providers: [FlowerSyncService],
+  providers: [
+    FlowerEventStreamService,
+    RunEventHandler,
+    RoundEventHandler,
+    FitEventHandler,
+    EvaluateEventHandler,
+    NodeLifecycleHandler,
+  ],
 })
 export class FlowerSyncModule {}

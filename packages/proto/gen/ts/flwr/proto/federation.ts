@@ -16,16 +16,30 @@ export interface Account {
   name: string;
 }
 
+export interface Member {
+  account: Account | undefined;
+  role: string;
+}
+
 export interface Federation {
   name: string;
-  /** Deprecated in v1.26.0 */
-  memberAids: string[];
   nodes: NodeInfo[];
   runs: Run[];
   /** Added in v1.26.0 */
   description: string;
-  /** Added in v1.26.0 */
-  accounts: Account[];
+  /** Added in v1.27.0 */
+  members: Member[];
+  /** Added in v1.27.0 */
+  archived: boolean;
+}
+
+export interface Invitation {
+  federationName: string;
+  inviter: Account | undefined;
+  invitee: Account | undefined;
+  status: string;
+  createdAt: string;
+  statusChangedAt: string;
 }
 
 function createBaseAccount(): Account {
@@ -104,8 +118,86 @@ export const Account: MessageFns<Account> = {
   },
 };
 
+function createBaseMember(): Member {
+  return { account: undefined, role: "" };
+}
+
+export const Member: MessageFns<Member> = {
+  encode(message: Member, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.account !== undefined) {
+      Account.encode(message.account, writer.uint32(10).fork()).join();
+    }
+    if (message.role !== "") {
+      writer.uint32(18).string(message.role);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Member {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMember();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.account = Account.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.role = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Member {
+    return {
+      account: isSet(object.account) ? Account.fromJSON(object.account) : undefined,
+      role: isSet(object.role) ? globalThis.String(object.role) : "",
+    };
+  },
+
+  toJSON(message: Member): unknown {
+    const obj: any = {};
+    if (message.account !== undefined) {
+      obj.account = Account.toJSON(message.account);
+    }
+    if (message.role !== "") {
+      obj.role = message.role;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Member>, I>>(base?: I): Member {
+    return Member.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Member>, I>>(object: I): Member {
+    const message = createBaseMember();
+    message.account = (object.account !== undefined && object.account !== null)
+      ? Account.fromPartial(object.account)
+      : undefined;
+    message.role = object.role ?? "";
+    return message;
+  },
+};
+
 function createBaseFederation(): Federation {
-  return { name: "", memberAids: [], nodes: [], runs: [], description: "", accounts: [] };
+  return { name: "", nodes: [], runs: [], description: "", members: [], archived: false };
 }
 
 export const Federation: MessageFns<Federation> = {
@@ -113,20 +205,20 @@ export const Federation: MessageFns<Federation> = {
     if (message.name !== "") {
       writer.uint32(10).string(message.name);
     }
-    for (const v of message.memberAids) {
-      writer.uint32(18).string(v!);
-    }
     for (const v of message.nodes) {
-      NodeInfo.encode(v!, writer.uint32(26).fork()).join();
+      NodeInfo.encode(v!, writer.uint32(18).fork()).join();
     }
     for (const v of message.runs) {
-      Run.encode(v!, writer.uint32(34).fork()).join();
+      Run.encode(v!, writer.uint32(26).fork()).join();
     }
     if (message.description !== "") {
-      writer.uint32(42).string(message.description);
+      writer.uint32(34).string(message.description);
     }
-    for (const v of message.accounts) {
-      Account.encode(v!, writer.uint32(50).fork()).join();
+    for (const v of message.members) {
+      Member.encode(v!, writer.uint32(42).fork()).join();
+    }
+    if (message.archived !== false) {
+      writer.uint32(48).bool(message.archived);
     }
     return writer;
   },
@@ -151,7 +243,7 @@ export const Federation: MessageFns<Federation> = {
             break;
           }
 
-          message.memberAids.push(reader.string());
+          message.nodes.push(NodeInfo.decode(reader, reader.uint32()));
           continue;
         }
         case 3: {
@@ -159,7 +251,7 @@ export const Federation: MessageFns<Federation> = {
             break;
           }
 
-          message.nodes.push(NodeInfo.decode(reader, reader.uint32()));
+          message.runs.push(Run.decode(reader, reader.uint32()));
           continue;
         }
         case 4: {
@@ -167,7 +259,7 @@ export const Federation: MessageFns<Federation> = {
             break;
           }
 
-          message.runs.push(Run.decode(reader, reader.uint32()));
+          message.description = reader.string();
           continue;
         }
         case 5: {
@@ -175,15 +267,15 @@ export const Federation: MessageFns<Federation> = {
             break;
           }
 
-          message.description = reader.string();
+          message.members.push(Member.decode(reader, reader.uint32()));
           continue;
         }
         case 6: {
-          if (tag !== 50) {
+          if (tag !== 48) {
             break;
           }
 
-          message.accounts.push(Account.decode(reader, reader.uint32()));
+          message.archived = reader.bool();
           continue;
         }
       }
@@ -198,13 +290,11 @@ export const Federation: MessageFns<Federation> = {
   fromJSON(object: any): Federation {
     return {
       name: isSet(object.name) ? globalThis.String(object.name) : "",
-      memberAids: globalThis.Array.isArray(object?.memberAids)
-        ? object.memberAids.map((e: any) => globalThis.String(e))
-        : [],
       nodes: globalThis.Array.isArray(object?.nodes) ? object.nodes.map((e: any) => NodeInfo.fromJSON(e)) : [],
       runs: globalThis.Array.isArray(object?.runs) ? object.runs.map((e: any) => Run.fromJSON(e)) : [],
       description: isSet(object.description) ? globalThis.String(object.description) : "",
-      accounts: globalThis.Array.isArray(object?.accounts) ? object.accounts.map((e: any) => Account.fromJSON(e)) : [],
+      members: globalThis.Array.isArray(object?.members) ? object.members.map((e: any) => Member.fromJSON(e)) : [],
+      archived: isSet(object.archived) ? globalThis.Boolean(object.archived) : false,
     };
   },
 
@@ -212,9 +302,6 @@ export const Federation: MessageFns<Federation> = {
     const obj: any = {};
     if (message.name !== "") {
       obj.name = message.name;
-    }
-    if (message.memberAids?.length) {
-      obj.memberAids = message.memberAids;
     }
     if (message.nodes?.length) {
       obj.nodes = message.nodes.map((e) => NodeInfo.toJSON(e));
@@ -225,8 +312,11 @@ export const Federation: MessageFns<Federation> = {
     if (message.description !== "") {
       obj.description = message.description;
     }
-    if (message.accounts?.length) {
-      obj.accounts = message.accounts.map((e) => Account.toJSON(e));
+    if (message.members?.length) {
+      obj.members = message.members.map((e) => Member.toJSON(e));
+    }
+    if (message.archived !== false) {
+      obj.archived = message.archived;
     }
     return obj;
   },
@@ -237,11 +327,155 @@ export const Federation: MessageFns<Federation> = {
   fromPartial<I extends Exact<DeepPartial<Federation>, I>>(object: I): Federation {
     const message = createBaseFederation();
     message.name = object.name ?? "";
-    message.memberAids = object.memberAids?.map((e) => e) || [];
     message.nodes = object.nodes?.map((e) => NodeInfo.fromPartial(e)) || [];
     message.runs = object.runs?.map((e) => Run.fromPartial(e)) || [];
     message.description = object.description ?? "";
-    message.accounts = object.accounts?.map((e) => Account.fromPartial(e)) || [];
+    message.members = object.members?.map((e) => Member.fromPartial(e)) || [];
+    message.archived = object.archived ?? false;
+    return message;
+  },
+};
+
+function createBaseInvitation(): Invitation {
+  return { federationName: "", inviter: undefined, invitee: undefined, status: "", createdAt: "", statusChangedAt: "" };
+}
+
+export const Invitation: MessageFns<Invitation> = {
+  encode(message: Invitation, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.federationName !== "") {
+      writer.uint32(10).string(message.federationName);
+    }
+    if (message.inviter !== undefined) {
+      Account.encode(message.inviter, writer.uint32(18).fork()).join();
+    }
+    if (message.invitee !== undefined) {
+      Account.encode(message.invitee, writer.uint32(26).fork()).join();
+    }
+    if (message.status !== "") {
+      writer.uint32(34).string(message.status);
+    }
+    if (message.createdAt !== "") {
+      writer.uint32(42).string(message.createdAt);
+    }
+    if (message.statusChangedAt !== "") {
+      writer.uint32(50).string(message.statusChangedAt);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Invitation {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseInvitation();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.federationName = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.inviter = Account.decode(reader, reader.uint32());
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.invitee = Account.decode(reader, reader.uint32());
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.status = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.createdAt = reader.string();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.statusChangedAt = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Invitation {
+    return {
+      federationName: isSet(object.federationName) ? globalThis.String(object.federationName) : "",
+      inviter: isSet(object.inviter) ? Account.fromJSON(object.inviter) : undefined,
+      invitee: isSet(object.invitee) ? Account.fromJSON(object.invitee) : undefined,
+      status: isSet(object.status) ? globalThis.String(object.status) : "",
+      createdAt: isSet(object.createdAt) ? globalThis.String(object.createdAt) : "",
+      statusChangedAt: isSet(object.statusChangedAt) ? globalThis.String(object.statusChangedAt) : "",
+    };
+  },
+
+  toJSON(message: Invitation): unknown {
+    const obj: any = {};
+    if (message.federationName !== "") {
+      obj.federationName = message.federationName;
+    }
+    if (message.inviter !== undefined) {
+      obj.inviter = Account.toJSON(message.inviter);
+    }
+    if (message.invitee !== undefined) {
+      obj.invitee = Account.toJSON(message.invitee);
+    }
+    if (message.status !== "") {
+      obj.status = message.status;
+    }
+    if (message.createdAt !== "") {
+      obj.createdAt = message.createdAt;
+    }
+    if (message.statusChangedAt !== "") {
+      obj.statusChangedAt = message.statusChangedAt;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Invitation>, I>>(base?: I): Invitation {
+    return Invitation.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Invitation>, I>>(object: I): Invitation {
+    const message = createBaseInvitation();
+    message.federationName = object.federationName ?? "";
+    message.inviter = (object.inviter !== undefined && object.inviter !== null)
+      ? Account.fromPartial(object.inviter)
+      : undefined;
+    message.invitee = (object.invitee !== undefined && object.invitee !== null)
+      ? Account.fromPartial(object.invitee)
+      : undefined;
+    message.status = object.status ?? "";
+    message.createdAt = object.createdAt ?? "";
+    message.statusChangedAt = object.statusChangedAt ?? "";
     return message;
   },
 };

@@ -15,21 +15,21 @@ export async function seedUsers(
   prisma: PrismaClient,
   count: number = 5,
 ): Promise<User[]> {
-  const usersData: UserSeedData[] = Array.from({ length: count }).map(() => ({
-    id: faker.string.uuid(),
-    name: faker.person.fullName(),
-    email: faker.internet.email().toLowerCase(),
-    password: DEFAULT_PASSWORD,
-  }));
+  console.log('Seeding users...');
+
+  const usersData: UserSeedData[] = Array.from({ length: count }).map(
+    (_, i) => ({
+      id: faker.string.uuid(),
+      name: faker.person.fullName(),
+      email: `user${i + 1}@mentishub.dev`,
+      password: DEFAULT_PASSWORD,
+    }),
+  );
 
   await seedAuthUsers(usersData);
 
   const users = await prisma.user.findMany({
-    where: {
-      id: {
-        in: usersData.map((u) => u.id),
-      },
-    },
+    where: { id: { in: usersData.map((u) => u.id) } },
   });
 
   const onboardedCount = Math.ceil(count * 0.6);
@@ -42,6 +42,12 @@ export async function seedUsers(
     ),
   );
 
-  console.log(`  Created ${users.length} users (${onboardedCount} onboarded)`);
+  usersData.forEach((u, i) =>
+    console.log(
+      `  [USER]  ${u.email}  →  ${u.id}  (${i < onboardedCount ? 'onboarded' : 'pending'})`,
+    ),
+  );
+  console.log(`  password: ${DEFAULT_PASSWORD}\n`);
+
   return users;
 }

@@ -2,13 +2,15 @@ import { credentials, Metadata } from '@grpc/grpc-js';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ControlClient } from '@platform/proto';
+import { Federation } from '@platform/proto/dist/gen/ts/flwr/proto/federation';
 import * as fs from 'fs';
 import { StartRunOptions } from '../flower.interface';
 
 @Injectable()
 export class FlowerService implements OnModuleInit {
-  private readonly logger = new Logger(FlowerService.name);
-  private controlClient!: ControlClient;
+  private readonly logger: Logger = new Logger(FlowerService.name);
+
+  private controlClient: ControlClient;
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -30,7 +32,13 @@ export class FlowerService implements OnModuleInit {
 
     this.controlClient = new ControlClient(`${grpcHost}:9093`, sslCredentials);
 
-    this.logger.log(`Flower gRPC clients initialized for ${grpcHost}`);
+    this.logger.log(
+      {
+        action: 'grpc.init',
+        endpoint: `${grpcHost}:9093`,
+      },
+      'Flower gRPC client initialized',
+    );
   }
 
   async registerNode(publicKeyBytes: Buffer): Promise<string> {
@@ -40,17 +48,16 @@ export class FlowerService implements OnModuleInit {
         new Metadata(),
         (error, response) => {
           if (error) {
-            this.logger.error('Failed to register SuperNode', error);
             reject(error);
             return;
           }
 
           if (!response || response.nodeId === undefined) {
-            reject(new Error('No nodeId returned from registerNode'));
+            const err = new Error('No nodeId returned from registerNode');
+            reject(err);
             return;
           }
 
-          this.logger.log(`SuperNode registered with ID ${response.nodeId}`);
           resolve(response.nodeId);
         },
       );
@@ -61,12 +68,10 @@ export class FlowerService implements OnModuleInit {
     return new Promise((resolve, reject) => {
       this.controlClient.unregisterNode({ nodeId }, new Metadata(), (error) => {
         if (error) {
-          this.logger.error('Failed to unregister node', error);
           reject(error);
-        } else {
-          this.logger.log(`SuperNode ${nodeId} unregistered successfully`);
-          resolve();
+          return;
         }
+        resolve();
       });
     });
   }
@@ -74,7 +79,7 @@ export class FlowerService implements OnModuleInit {
   async createFederation(
     projectId: string,
     description?: string,
-  ): Promise<string> {
+  ): Promise<Federation | undefined> {
     return new Promise((resolve, reject) => {
       this.controlClient.createFederation(
         { name: projectId, description: description || '' },
@@ -84,7 +89,8 @@ export class FlowerService implements OnModuleInit {
             reject(error);
             return;
           }
-          resolve(response.federation!.name);
+
+          resolve(response.federation);
         },
       );
     });
@@ -93,7 +99,7 @@ export class FlowerService implements OnModuleInit {
   async ensureFederationExists(
     projectId: string,
     description?: string,
-  ): Promise<string> {
+  ): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
       this.controlClient.showFederation(
         { federationName: projectId },
@@ -108,11 +114,13 @@ export class FlowerService implements OnModuleInit {
                   reject(createError);
                   return;
                 }
-                resolve(response.federation!.name);
+
+                resolve(response.federation?.name);
               },
             );
             return;
           }
+
           resolve(projectId);
         },
       );
@@ -135,6 +143,7 @@ export class FlowerService implements OnModuleInit {
             reject(error);
             return;
           }
+
           resolve();
         },
       );
@@ -174,6 +183,7 @@ export class FlowerService implements OnModuleInit {
       federation: options.federation || '@none/default',
       appSpec: '',
       federationOptions: undefined,
+      installDeps: true,
     };
 
     return new Promise((resolve, reject) => {
@@ -187,7 +197,8 @@ export class FlowerService implements OnModuleInit {
           }
 
           if (!response || response.runId === undefined) {
-            reject(new Error('No runId returned'));
+            const err = new Error('No runId returned from startRun');
+            reject(err);
             return;
           }
 
@@ -197,41 +208,30 @@ export class FlowerService implements OnModuleInit {
     });
   }
 
-  async stopRun(runId: string): Promise<boolean> {
+  async stopRun(runId: string): Promise<void> {
     return new Promise((resolve, reject) => {
       this.controlClient.stopRun(
         { runId: String(runId) },
         new Metadata(),
-        (error, response) => {
+        (error) => {
           if (error) {
             reject(error);
-          } else {
-            resolve(response.success);
+            return;
           }
+
+          resolve();
         },
       );
     });
   }
 
   streamEvents(afterTimestamp: number = 0) {
-    const request = {
-      afterTimestamp,
-    };
-
-    const metadata = new Metadata();
-    const stream = this.controlClient.streamEvents(request, metadata);
-
-    stream.on('error', (error: Error & { code?: number }) => {
-      if (error.code === 2) {
-        this.logger.debug(`No active runs to stream events`);
-      } else {
-        this.logger.error(`StreamEvents error:`, error);
-      }
-    });
-
-    stream.on('end', () => {
-      this.logger.debug(`StreamEvents ended`);
-    });
+    const stream = this.controlClient.streamEvents(
+      {
+        afterTimestamp,
+      },
+      new Metadata(),
+    );
 
     return stream;
   }

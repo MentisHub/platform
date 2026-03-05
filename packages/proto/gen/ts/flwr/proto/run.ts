@@ -28,6 +28,7 @@ export interface Run {
   bytesSent: string;
   bytesRecv: string;
   clientappRuntime: number;
+  installDeps: boolean;
 }
 
 export interface Run_OverrideConfigEntry {
@@ -89,6 +90,7 @@ function createBaseRun(): Run {
     bytesSent: "0",
     bytesRecv: "0",
     clientappRuntime: 0,
+    installDeps: false,
   };
 }
 
@@ -138,6 +140,9 @@ export const Run: MessageFns<Run> = {
     }
     if (message.clientappRuntime !== 0) {
       writer.uint32(121).double(message.clientappRuntime);
+    }
+    if (message.installDeps !== false) {
+      writer.uint32(128).bool(message.installDeps);
     }
     return writer;
   },
@@ -272,6 +277,14 @@ export const Run: MessageFns<Run> = {
           message.clientappRuntime = reader.double();
           continue;
         }
+        case 16: {
+          if (tag !== 128) {
+            break;
+          }
+
+          message.installDeps = reader.bool();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -306,6 +319,7 @@ export const Run: MessageFns<Run> = {
       bytesSent: isSet(object.bytesSent) ? globalThis.String(object.bytesSent) : "0",
       bytesRecv: isSet(object.bytesRecv) ? globalThis.String(object.bytesRecv) : "0",
       clientappRuntime: isSet(object.clientappRuntime) ? globalThis.Number(object.clientappRuntime) : 0,
+      installDeps: isSet(object.installDeps) ? globalThis.Boolean(object.installDeps) : false,
     };
   },
 
@@ -362,6 +376,9 @@ export const Run: MessageFns<Run> = {
     if (message.clientappRuntime !== 0) {
       obj.clientappRuntime = message.clientappRuntime;
     }
+    if (message.installDeps !== false) {
+      obj.installDeps = message.installDeps;
+    }
     return obj;
   },
 
@@ -395,6 +412,7 @@ export const Run: MessageFns<Run> = {
     message.bytesSent = object.bytesSent ?? "0";
     message.bytesRecv = object.bytesRecv ?? "0";
     message.clientappRuntime = object.clientappRuntime ?? 0;
+    message.installDeps = object.installDeps ?? false;
     return message;
   },
 };

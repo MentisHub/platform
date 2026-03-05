@@ -11,7 +11,6 @@ import { ErrorCode } from '@platform/contracts';
 import { Node, Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import * as fs from 'fs';
-import { AuthenticationService } from 'src/authentication/auth.service';
 import { DockerService } from '../../docker/docker.service';
 import { FlowerService } from '../../flower/services/flower.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -22,19 +21,14 @@ import {
   uuidToBase32,
   validatePSK,
 } from '../../utils';
-import {
-  CreateNodeDto,
-  HeartbeatResponseDto,
-  ListNodesQueryDto,
-  UpdateNodeDto,
-} from '../nodes.dto';
-import { NodeCertificateBundle } from '../nodes.interface';
-import { NodeRefreshTokenService } from './refresh-token.service';
+import { ListNodesQueryDto } from '../nodes.dto';
+import { CreateNodeInput, NodeCertificateBundle } from '../nodes.interface';
+import { CertificateService } from './certificate.service';
 import { NodeSignatureService } from './signature.service';
 
 @Injectable()
 export class NodesService {
-  private readonly logger = new Logger(NodesService.name);
+  private readonly logger: Logger = new Logger(NodesService.name);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -43,21 +37,16 @@ export class NodesService {
     private readonly projectsService: ProjectsService,
     private readonly configService: ConfigService,
     private readonly dockerService: DockerService,
-    private readonly authService: AuthenticationService,
-    private readonly refreshTokenService: NodeRefreshTokenService,
+    private readonly certificateService: CertificateService,
     private readonly signatureService: NodeSignatureService,
   ) {}
 
-  async create(
-    organizationId: string,
-    userId: string,
-    input: CreateNodeDto,
-  ): Promise<{ node: Node; psk: string }> {
+  async create(input: CreateNodeInput): Promise<{ node: Node; psk: string }> {
     if (input.projectId) {
       const project = await this.projectsService.getProjectById(
         input.projectId,
       );
-      if (project.organizationId !== organizationId) {
+      if (project.organizationId !== input.organizationId) {
         throw new NotFoundException({
           code: ErrorCode.PROJECT_NOT_FOUND,
           message: 'Project not found',
@@ -71,9 +60,9 @@ export class NodesService {
         name: input.name || `node-${randomBytes(4).toString('hex')}`,
         metadata: input.metadata,
         pskHash: hash,
-        organizationId,
+        organizationId: input.organizationId,
         projectId: input.projectId,
-        createdById: userId,
+        createdById: input.userId,
       },
     });
 
@@ -150,12 +139,15 @@ export class NodesService {
     });
   }
 
-  async update(nodeId: string, input: UpdateNodeDto): Promise<Node> {
+  async update(
+    nodeId: string,
+    data: Prisma.NodeUncheckedUpdateInput,
+  ): Promise<Node> {
     const node = await this.findById(nodeId);
 
-    if (input.projectId) {
+    if (data.projectId) {
       const project = await this.projectsService.getProjectById(
-        input.projectId,
+        data.projectId as string,
       );
       if (project.organizationId !== node.organizationId) {
         throw new NotFoundException({
@@ -167,11 +159,7 @@ export class NodesService {
 
     return this.prisma.node.update({
       where: { id: node.id },
-      data: {
-        name: input.name,
-        metadata: input.metadata,
-        projectId: input.projectId,
-      },
+      data,
     });
   }
 
@@ -200,12 +188,16 @@ export class NodesService {
       try {
         await this.dockerService.stopSuperExecContainer(containerName);
       } catch (error) {
-        this.logger.warn({
-          message: 'Failed to stop Docker container',
-          nodeId: node.id,
-          containerName,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
+        this.logger.warn(
+          {
+            action: 'container.stop',
+            nodeId: node.id,
+            containerName,
+            err: error instanceof Error ? error : new Error(String(error)),
+            issue: 'stop_failed_on_node_removal',
+          },
+          'Failed to stop Docker container during node removal',
+        );
       }
     }
 
@@ -215,57 +207,36 @@ export class NodesService {
           node.flowerNodeId,
         ]);
       } catch (error) {
-        this.logger.warn({
-          message: 'Failed to remove node from federation',
-          nodeId: node.id,
-          flowerNodeId: node.flowerNodeId,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
+        this.logger.warn(
+          {
+            action: 'federation.remove_nodes',
+            nodeId: node.id,
+            flowerNodeId: node.flowerNodeId,
+            projectId: node.project.id,
+            err: error instanceof Error ? error : new Error(String(error)),
+            issue: 'removal_failed_on_node_deletion',
+          },
+          'Failed to remove node from federation during node deletion',
+        );
       }
 
       try {
         await this.flowerService.unregisterNode(node.flowerNodeId);
       } catch (error) {
-        this.logger.warn({
-          message: 'Failed to unregister node from Flower',
-          nodeId: node.id,
-          flowerNodeId: node.flowerNodeId,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
+        this.logger.warn(
+          {
+            action: 'node.unregister',
+            nodeId: node.id,
+            flowerNodeId: node.flowerNodeId,
+            err: error instanceof Error ? error : new Error(String(error)),
+            issue: 'unregister_failed_on_node_deletion',
+          },
+          'Failed to unregister node from Flower during node deletion',
+        );
       }
     }
 
     await this.prisma.node.delete({ where: { id: node.id } });
-  }
-
-  async updateNodeStatus(
-    nodeId: string,
-    newStatus:
-      | 'CREATED'
-      | 'INITIALIZING'
-      | 'READY'
-      | 'ACTIVE'
-      | 'ERROR'
-      | 'OFFLINE',
-  ): Promise<Node> {
-    const node = await this.prisma.node.findUnique({
-      where: { id: nodeId },
-      select: { id: true, status: true, name: true },
-    });
-
-    if (!node) {
-      throw new NotFoundException({
-        code: ErrorCode.NODE_NOT_FOUND,
-        message: 'Node not found',
-      });
-    }
-
-    const updatedNode = await this.prisma.node.update({
-      where: { id: nodeId },
-      data: { status: newStatus },
-    });
-
-    return updatedNode;
   }
 
   async activate(
@@ -334,27 +305,37 @@ export class NodesService {
         await this.flowerService.addNodesToFederation(node.project.id, [
           flowerNodeId,
         ]);
+
+        this.logger.log(
+          {
+            action: 'node.registered',
+            nodeId: node.id,
+            nodeName: node.name,
+            flowerNodeId,
+            projectId: node.project.id,
+          },
+          'Node registered and added to federation',
+        );
       } catch (error) {
-        this.logger.error({
-          message: 'Failed to register node with Flower',
-          nodeId: node.id,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
+        this.logger.error(
+          {
+            action: 'node.register',
+            nodeId: node.id,
+            nodeName: node.name,
+            projectId: node.project?.id,
+            err: error instanceof Error ? error : new Error(String(error)),
+          },
+          'Failed to register node with Flower during activation',
+        );
+        throw error;
       }
     }
 
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
-
-    const accessToken = await this.authService.generateToken(
-      {
-        sub: node.id,
-      },
-      '15m',
-      'RS256',
+    const pemPublicKey = Buffer.from(ecPublicKey, 'base64').toString('utf8');
+    const clientCert = await this.certificateService.issueClientCert(
+      node.id,
+      pemPublicKey,
     );
-
-    const refreshToken = await this.refreshTokenService.create(node.id, 30);
 
     await this.prisma.node.update({
       where: { id: node.id },
@@ -367,77 +348,23 @@ export class NodesService {
       },
     });
 
-    const caPath = this.configService.getOrThrow<string>('BACKEND_CA_PATH');
-    let rootCa: string;
-    try {
-      rootCa = fs.readFileSync(caPath, 'utf8');
-    } catch (error) {
-      this.logger.error(`Failed to read Root CA from ${caPath}`, error);
-      rootCa = '';
-    }
+    const rootCa = fs.readFileSync(
+      this.configService.getOrThrow<string>('BACKEND_CA_PATH'),
+      'utf8',
+    );
 
     return {
       rootCa,
+      clientCert,
       nodeId: flowerNodeId,
-      accessToken,
-      refreshToken,
-      expiresAt,
     };
   }
 
-  async refresh(refreshToken: string): Promise<{
-    accessToken: string;
-    refreshToken: string;
-    expiresAt: Date;
-  }> {
-    const nodeId = await this.refreshTokenService.validate(refreshToken);
-
-    if (!nodeId) {
-      throw new UnauthorizedException({
-        code: ErrorCode.TOKEN_INVALID,
-        message: 'Invalid or expired refresh token',
-      });
-    }
-
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
-
-    const accessToken = await this.authService.generateToken(
-      { sub: nodeId },
-      '15m',
-      'RS256',
-    );
-
-    const newRefreshToken = await this.refreshTokenService.rotate(refreshToken);
-
-    if (!newRefreshToken) {
-      throw new UnauthorizedException({
-        code: ErrorCode.TOKEN_INVALID,
-        message: 'Failed to rotate refresh token',
-      });
-    }
-
-    await this.prisma.node.update({
-      where: { id: nodeId },
-      data: { lastActiveAt: new Date() },
-    });
-
-    return {
-      accessToken,
-      refreshToken: newRefreshToken,
-      expiresAt,
-    };
-  }
-
-  async recover(
+  async rotate(
     nodeId: string,
     challenge: string,
     signature: string,
-  ): Promise<{
-    accessToken: string;
-    refreshToken: string;
-    expiresAt: Date;
-  }> {
+  ): Promise<NodeCertificateBundle> {
     const node = await this.prisma.node.findUnique({
       where: { id: nodeId },
       select: { id: true, ecPublicKey: true, activatedAt: true },
@@ -477,110 +404,25 @@ export class NodesService {
       });
     }
 
-    await this.refreshTokenService.revokeAllForNode(node.id);
-
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
-
-    const accessToken = await this.authService.generateToken(
-      { sub: node.id },
-      '15m',
-      'RS256',
+    const pemPublicKey = Buffer.from(node.ecPublicKey, 'base64').toString(
+      'utf8',
+    );
+    const clientCert = await this.certificateService.issueClientCert(
+      node.id,
+      pemPublicKey,
     );
 
-    const refreshToken = await this.refreshTokenService.create(node.id, 30);
+    const rootCa = fs.readFileSync(
+      this.configService.getOrThrow<string>('BACKEND_CA_PATH'),
+      'utf8',
+    );
 
     await this.prisma.node.update({
       where: { id: node.id },
       data: { lastActiveAt: new Date() },
     });
 
-    return {
-      accessToken,
-      refreshToken,
-      expiresAt,
-    };
-  }
-
-  async markNodeReady(nodeId: string): Promise<void> {
-    const node = await this.prisma.node.findUnique({
-      where: { id: nodeId },
-      select: { id: true, status: true },
-    });
-
-    if (!node) {
-      throw new NotFoundException({
-        code: ErrorCode.NODE_NOT_FOUND,
-        message: 'Node not found',
-      });
-    }
-
-    if (node.status !== 'INITIALIZING') {
-      this.logger.warn({
-        message:
-          'Attempted to mark node as ready but status is not INITIALIZING',
-        nodeId,
-        currentStatus: node.status,
-      });
-      return;
-    }
-
-    await this.prisma.node.update({
-      where: { id: nodeId },
-      data: {
-        status: 'READY',
-        lastActiveAt: new Date(),
-      },
-    });
-
-    this.logger.log({
-      message: 'Node marked as ready',
-      nodeId,
-    });
-  }
-
-  async heartbeat(nodeId: string): Promise<HeartbeatResponseDto> {
-    const node = await this.prisma.node.findUnique({
-      where: { id: nodeId },
-      include: {
-        trainingRuns: {
-          where: {
-            status: 'RUNNING',
-          },
-          include: {
-            fab: true,
-          },
-          take: 1,
-        },
-      },
-    });
-
-    if (!node) {
-      throw new NotFoundException('Node not found');
-    }
-
-    await this.prisma.node.update({
-      where: { id: nodeId },
-      data: { lastActiveAt: new Date() },
-    });
-
-    let training: { runId: string; fabName: string } | undefined;
-
-    const activeTraining = node.trainingRuns[0];
-    if (activeTraining && activeTraining.fab) {
-      const { publisherName, name, version, fabHash } = activeTraining.fab;
-      const fabName = `${publisherName}.${name}.${version}.${fabHash}.fab`;
-      const runIdBase32 = uuidToBase32(activeTraining.id);
-      training = {
-        runId: runIdBase32,
-        fabName,
-      };
-    }
-
-    return {
-      status: node.status,
-      training,
-    };
+    return { rootCa, clientCert, nodeId: node.id };
   }
 
   async findByFlowerNodeId(flowerNodeId: string): Promise<Node | null> {

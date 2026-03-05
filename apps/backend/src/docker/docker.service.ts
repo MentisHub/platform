@@ -4,52 +4,35 @@ import Docker from 'dockerode';
 
 @Injectable()
 export class DockerService implements OnModuleInit {
-  private readonly logger = new Logger(DockerService.name);
-  private docker!: Docker;
+  private readonly logger: Logger = new Logger(DockerService.name);
+  private docker: Docker;
 
-  constructor(private readonly config: ConfigService) {}
+  private readonly backendInternalUrl: string;
+  private readonly otelInternalUrl: string;
+  private readonly superlinkHostname: string;
 
-  onModuleInit() {
-    const dockerSocket = this.config.getOrThrow<string>('DOCKER_SOCKET');
-    this.docker = new Docker({ socketPath: dockerSocket });
-    this.logger.log(`Docker initialized on ${dockerSocket}`);
+  constructor(private readonly configService: ConfigService) {
+    this.backendInternalUrl = configService.getOrThrow<string>(
+      'BACKEND_INTERNAL_URL',
+    );
+    this.otelInternalUrl =
+      configService.getOrThrow<string>('OTEL_INTERNAL_URL');
+    this.superlinkHostname =
+      configService.getOrThrow<string>('SUPERLINK_HOST') + ':9091';
   }
 
-  async execInContainer(
-    containerName: string,
-    cmd: string[],
-  ): Promise<{ stdout: string; stderr: string }> {
-    const container = this.docker.getContainer(containerName);
-
-    const exec = await container.exec({
-      Cmd: cmd,
-      AttachStdout: true,
-      AttachStderr: true,
-    });
-
-    const stream = await exec.start({ Detach: false });
-
-    return new Promise((resolve, reject) => {
-      let stdout = '';
-      let stderr = '';
-
-      stream.on('data', (chunk: Buffer) => {
-        const type = chunk.readUInt8(0);
-        const payload = chunk.subarray(8).toString();
-
-        if (type === 1) stdout += payload;
-        if (type === 2) stderr += payload;
-      });
-
-      stream.on('end', () => resolve({ stdout, stderr }));
-      stream.on('error', reject);
-    });
+  onModuleInit() {
+    const dockerSocket = this.configService.getOrThrow<string>('DOCKER_SOCKET');
+    this.docker = new Docker({ socketPath: dockerSocket });
+    this.logger.log(
+      { action: 'init', socketPath: dockerSocket },
+      'Docker initialized',
+    );
   }
 
   async startSuperExecContainer(
     trainingRunId: string,
     nodePsk: string,
-    superlinkHost: string,
   ): Promise<string> {
     const containerName = `serverapp-${trainingRunId.slice(0, 8)}`;
 
@@ -58,9 +41,6 @@ export class DockerService implements OnModuleInit {
       const info = await existingContainer.inspect();
 
       if (info.State.Running) {
-        this.logger.debug(
-          `SuperExec container ${containerName} already running`,
-        );
         return containerName;
       }
 
@@ -74,15 +54,15 @@ export class DockerService implements OnModuleInit {
       Image: 'mentishub/fl-serverapp:latest',
       Env: [
         `NODE_PSK=${nodePsk}`,
-        `BACKEND_URL=http://platform-backend:3000`,
-        `OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4318`,
+        `BACKEND_URL=${this.backendInternalUrl}`,
+        `OTEL_EXPORTER_OTLP_ENDPOINT=${this.otelInternalUrl}`,
       ],
       Cmd: [
         'flower-superexec',
         '--plugin-type',
         'serverapp',
         '--appio-api-address',
-        `${superlinkHost}:9091`,
+        `${this.superlinkHostname}`,
         '--insecure',
       ],
       HostConfig: {
@@ -101,24 +81,25 @@ export class DockerService implements OnModuleInit {
 
     await container.start();
 
-    this.logger.debug(`SuperExec container ${containerName} started`);
+    this.logger.debug(
+      {
+        action: 'container.started',
+        containerName,
+        trainingRunId,
+      },
+      'SuperExec container started',
+    );
     return containerName;
   }
 
   async stopSuperExecContainer(containerName: string): Promise<void> {
-    this.logger.log(`Stopping SuperExec container: ${containerName}`);
+    const container = this.docker.getContainer(containerName);
+    await container.stop({ t: 10 });
+    await container.remove({ force: true });
 
-    try {
-      const container = this.docker.getContainer(containerName);
-      await container.stop({ t: 10 });
-      await container.remove({ force: true });
-      this.logger.log(
-        `SuperExec container ${containerName} stopped and removed`,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `Failed to stop SuperExec container ${containerName}: ${error}`,
-      );
-    }
+    this.logger.debug(
+      { action: 'container.removed', containerName },
+      'SuperExec container stopped and removed',
+    );
   }
 }

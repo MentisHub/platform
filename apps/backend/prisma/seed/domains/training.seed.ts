@@ -1,281 +1,333 @@
 import { faker } from '@faker-js/faker';
 import {
-  Artifact,
   Fab,
   Node,
-  NodeStatus,
+  Prisma,
   PrismaClient,
+  Project,
   Round,
+  RoundStatus,
   TrainingRun,
   TrainingStatus,
 } from '@prisma/client';
-import { OrganizationWithMembers } from './organizations.seed.js';
-import { ProjectWithOrg } from './projects.seed.js';
 
-export interface TrainingData {
-  trainingRuns: TrainingRun[];
-  runParticipants: { runId: string; nodeId: string }[];
-  rounds: Round[];
-  roundParticipants: { roundId: string; nodeId: string }[];
-  artifacts: Artifact[];
-}
-
-export async function seedTraining(
+async function createRoundsForRun(
   prisma: PrismaClient,
-  orgsWithMembers: OrganizationWithMembers[],
-  projects: ProjectWithOrg[],
-  nodes: Node[],
-  fabs: Fab[],
-): Promise<TrainingData> {
-  const trainingRuns = await Promise.all(
-    projects.flatMap(({ project, organizationId }) => {
-      const runCount = faker.number.int({ min: 1, max: 3 });
-      const org = orgsWithMembers.find(
-        (o) => o.organization.id === organizationId,
-      )!;
-      const allOrgUsers = [org.organization.ownerId, ...org.memberIds];
-      const projectFabs = fabs.filter((f) => f.projectId === project.id);
+  run: TrainingRun,
+  projectNodes: Node[],
+  roundCount: number,
+  isTerminated: boolean,
+): Promise<Round[]> {
+  const rounds: Round[] = [];
 
-      return Array.from({ length: runCount }).map(() => {
-        const statusDistribution: TrainingStatus[] = [
-          TrainingStatus.PENDING, // 20% waiting for deployment
-          TrainingStatus.PENDING,
-          TrainingStatus.READY, // 30% ready to start
-          TrainingStatus.READY,
-          TrainingStatus.READY,
-          TrainingStatus.RUNNING, // 30% actively running
-          TrainingStatus.RUNNING,
-          TrainingStatus.RUNNING,
-          TrainingStatus.FAILED, // 10% failed
-          TrainingStatus.CANCELLED, // 10% cancelled
-        ];
+  for (let i = 0; i < roundCount; i++) {
+    const isLastRound = i === roundCount - 1;
+    const roundCompleted = isTerminated || !isLastRound;
 
-        const status = faker.helpers.arrayElement(statusDistribution);
+    const roundStartedAt = faker.date.between({
+      from: run.startedAt ?? run.createdAt,
+      to: run.completedAt ?? new Date(),
+    });
 
-        const createdAt = faker.date.recent({ days: 30 });
-        let startedAt: Date | null = null;
-        let completedAt: Date | null = null;
+    const roundCompletedAt = roundCompleted
+      ? faker.date.between({
+          from: roundStartedAt,
+          to: run.completedAt ?? new Date(),
+        })
+      : null;
 
-        if (
-          status === TrainingStatus.RUNNING ||
-          status === TrainingStatus.FAILED ||
-          status === TrainingStatus.CANCELLED
-        ) {
-          startedAt = faker.date.between({
-            from: createdAt,
-            to: new Date(),
-          });
+    const successfulParticipants =
+      roundCompleted && projectNodes.length > 0
+        ? faker.number.int({ min: 1, max: projectNodes.length })
+        : null;
 
-          if (
-            status === TrainingStatus.FAILED ||
-            status === TrainingStatus.CANCELLED
-          ) {
-            completedAt = faker.date.between({
-              from: startedAt,
-              to: new Date(),
-            });
-          }
-        }
-
-        return prisma.trainingRun.create({
-          data: {
-            status,
-            projectId: project.id,
-            fabId:
-              projectFabs.length > 0
-                ? faker.helpers.arrayElement(projectFabs).id
-                : null,
-            flowerRunId:
-              status === TrainingStatus.RUNNING
-                ? String(faker.number.int({ min: 1, max: 10000 }))
-                : null,
-            createdAt,
-            startedAt,
-            completedAt,
-            createdById: faker.helpers.arrayElement(allOrgUsers),
-            configuration: {
-              num_rounds: faker.number.int({ min: 5, max: 20 }),
-              fraction_fit: faker.number.float({
-                min: 0.5,
-                max: 1.0,
-                fractionDigits: 2,
+    const round = await prisma.round.create({
+      data: {
+        number: i + 1,
+        runId: run.id,
+        status: roundCompleted ? RoundStatus.COMPLETED : RoundStatus.FITTING,
+        startedAt: roundStartedAt,
+        completedAt: roundCompletedAt,
+        totalParticipants: roundCompleted ? projectNodes.length : null,
+        successfulParticipants,
+        metrics: roundCompleted
+          ? {
+              loss: faker.number.float({
+                min: 0.1,
+                max: 2.0,
+                fractionDigits: 4,
               }),
-              fraction_evaluate: faker.number.float({
+              accuracy: faker.number.float({
                 min: 0.5,
-                max: 1.0,
-                fractionDigits: 2,
+                max: 0.99,
+                fractionDigits: 4,
               }),
-            },
-          },
-        });
-      });
-    }),
-  );
+              num_examples: faker.number.int({ min: 100, max: 10000 }),
+            }
+          : Prisma.DbNull,
+      },
+    });
 
-  const statusCounts = trainingRuns.reduce(
-    (acc, run) => {
-      acc[run.status] = (acc[run.status] || 0) + 1;
-      return acc;
-    },
-    {} as Record<TrainingStatus, number>,
-  );
+    rounds.push(round);
 
-  console.log(`  Created ${trainingRuns.length} training runs:`);
-  console.log(
-    `  - PENDING: ${statusCounts.PENDING || 0}, READY: ${statusCounts.READY || 0}, RUNNING: ${statusCounts.RUNNING || 0}`,
-  );
-  console.log(
-    `  - FAILED: ${statusCounts.FAILED || 0}, CANCELLED: ${statusCounts.CANCELLED || 0}`,
-  );
-
-  const runParticipants: { runId: string; nodeId: string }[] = [];
-
-  for (const run of trainingRuns) {
-    const project = projects.find((p) => p.project.id === run.projectId)!;
-
-    const eligibleNodes = nodes.filter(
-      (n) =>
-        n.organizationId === project.organizationId &&
-        (n.status === NodeStatus.READY || n.status === NodeStatus.ACTIVE) &&
-        n.projectId === run.projectId,
-    );
-
-    if (eligibleNodes.length > 0) {
+    if (roundCompleted && projectNodes.length > 0) {
       const participantCount = faker.number.int({
-        min: Math.min(2, eligibleNodes.length),
-        max: Math.min(eligibleNodes.length, 5),
+        min: 1,
+        max: projectNodes.length,
       });
       const selectedNodes = faker.helpers.arrayElements(
-        eligibleNodes,
+        projectNodes,
         participantCount,
       );
 
-      for (const node of selectedNodes) {
-        runParticipants.push({ runId: run.id, nodeId: node.id });
-      }
-    }
-  }
-
-  await Promise.all(
-    runParticipants.map((rp) =>
-      prisma.runParticipant.create({
-        data: {
-          runId: rp.runId,
-          nodeId: rp.nodeId,
-          joinedAt: faker.date.recent({ days: 7 }),
-        },
-      }),
-    ),
-  );
-
-  console.log(`  Created ${runParticipants.length} run participants`);
-
-  // Create rounds only for RUNNING, FAILED, or CANCELLED training runs
-  const completedOrActiveRuns = trainingRuns.filter(
-    (r) =>
-      r.status === TrainingStatus.RUNNING ||
-      r.status === TrainingStatus.FAILED ||
-      r.status === TrainingStatus.CANCELLED,
-  );
-
-  const rounds = await Promise.all(
-    completedOrActiveRuns.flatMap((run) => {
-      const roundCount = faker.number.int({ min: 3, max: 10 });
-      return Array.from({ length: roundCount }).map((_, index) => {
-        const roundStartedAt = run.startedAt
-          ? faker.date.between({
-              from: run.startedAt,
-              to: run.completedAt || new Date(),
-            })
-          : faker.date.recent({ days: 7 });
-
-        const isCompleted =
-          run.status !== TrainingStatus.RUNNING ||
-          index < roundCount - 1 ||
-          faker.datatype.boolean(0.8);
-
-        return prisma.round.create({
-          data: {
-            number: index + 1,
-            runId: run.id,
-            startedAt: roundStartedAt,
-            completedAt: isCompleted
-              ? faker.date.between({
-                  from: roundStartedAt,
-                  to: run.completedAt || new Date(),
-                })
-              : null,
-          },
-        });
-      });
-    }),
-  );
-
-  console.log(`  Created ${rounds.length} rounds`);
-
-  // Create round participants
-  const roundParticipants: { roundId: string; nodeId: string }[] = [];
-
-  for (const round of rounds) {
-    const runParts = runParticipants.filter((rp) => rp.runId === round.runId);
-
-    for (const rp of runParts) {
-      roundParticipants.push({ roundId: round.id, nodeId: rp.nodeId });
-    }
-  }
-
-  await Promise.all(
-    roundParticipants.map((rp) => {
-      return prisma.roundParticipant.create({
-        data: {
-          roundId: rp.roundId,
-          nodeId: rp.nodeId,
-        },
-      });
-    }),
-  );
-
-  console.log(`  Created ${roundParticipants.length} round participants`);
-
-  // Create artifacts for RUNNING, FAILED, or CANCELLED runs
-  const runsWithArtifacts = trainingRuns.filter(
-    (r) =>
-      r.status === TrainingStatus.RUNNING ||
-      r.status === TrainingStatus.FAILED ||
-      r.status === TrainingStatus.CANCELLED,
-  );
-
-  const artifacts = await Promise.all(
-    runsWithArtifacts.flatMap((run) => {
-      const project = projects.find((p) => p.project.id === run.projectId)!;
-      const runRounds = rounds.filter((r) => r.runId === run.id);
-      const artifactCount = faker.number.int({
-        min: 1,
-        max: Math.min(runRounds.length, 5),
-      });
-
-      return Array.from({ length: artifactCount }).map((_, index) =>
-        prisma.artifact.create({
-          data: {
-            bucketKey: `orgs/${project.organizationId}/projects/${project.project.id}/runs/${run.id}/model-round-${index + 1}.pt`,
-            sizeBytes: BigInt(
-              faker.number.int({ min: 10_000_000, max: 5_000_000_000 }),
-            ),
-            roundNumber: index + 1,
-            runId: run.id,
-          },
+      await Promise.all(
+        selectedNodes.map((node, idx) => {
+          const failed = idx >= (successfulParticipants ?? participantCount);
+          return prisma.roundParticipant.create({
+            data: {
+              roundId: round.id,
+              nodeId: node.id,
+              startedAt: roundStartedAt,
+              completedAt: failed ? null : roundCompletedAt,
+              failureReason: failed
+                ? faker.helpers.arrayElement([
+                    'Connection timeout',
+                    'Out of memory',
+                    'Gradient explosion',
+                    'Dataset loading failed',
+                  ])
+                : null,
+              metrics: failed
+                ? Prisma.DbNull
+                : {
+                    train_loss: faker.number.float({
+                      min: 0.1,
+                      max: 2.0,
+                      fractionDigits: 4,
+                    }),
+                    train_accuracy: faker.number.float({
+                      min: 0.5,
+                      max: 0.99,
+                      fractionDigits: 4,
+                    }),
+                    num_examples: faker.number.int({ min: 100, max: 5000 }),
+                  },
+            },
+          });
         }),
       );
-    }),
-  );
+    }
+  }
 
-  console.log(`  Created ${artifacts.length} artifacts`);
+  return rounds;
+}
 
-  return {
-    trainingRuns,
-    runParticipants,
-    rounds,
-    roundParticipants,
-    artifacts,
-  };
+export async function createRunsForProject(
+  prisma: PrismaClient,
+  project: Project,
+  createdBy: string,
+  readyNodes: Node[],
+  createdNodes: Node[],
+  createdNodePsks: Record<string, string>,
+  fab: Fab | null,
+): Promise<{ runs: TrainingRun[]; rounds: Round[] }> {
+  const runs: TrainingRun[] = [];
+  const rounds: Round[] = [];
+
+  // PENDING
+  {
+    const run = await prisma.trainingRun.create({
+      data: {
+        status: TrainingStatus.PENDING,
+        projectId: project.id,
+        fabId: fab?.id ?? null,
+        createdBy,
+        configuration: {
+          num_rounds: 10,
+          fraction_fit: 0.8,
+          fraction_evaluate: 0.5,
+        },
+      },
+    });
+    runs.push(run);
+    console.log(`    [RUN:PENDING]    ${run.id}`);
+    createdNodes.forEach((n) =>
+      console.log(
+        `      [NODE:CREATED]  ${n.id}  psk: ${createdNodePsks[n.id]}`,
+      ),
+    );
+  }
+
+  // DEPLOYING
+  {
+    const run = await prisma.trainingRun.create({
+      data: {
+        status: TrainingStatus.DEPLOYING,
+        projectId: project.id,
+        fabId: fab?.id ?? null,
+        createdBy,
+      },
+    });
+    runs.push(run);
+    console.log(`    [RUN:DEPLOYING]  ${run.id}`);
+  }
+
+  // READY
+  {
+    const run = await prisma.trainingRun.create({
+      data: {
+        status: TrainingStatus.READY,
+        projectId: project.id,
+        fabId: fab?.id ?? null,
+        createdBy,
+        configuration: {
+          num_rounds: 5,
+          fraction_fit: 1.0,
+          fraction_evaluate: 1.0,
+        },
+      },
+    });
+    runs.push(run);
+    console.log(`    [RUN:READY]      ${run.id}`);
+  }
+
+  // RUNNING (only if there are ready nodes)
+  if (readyNodes.length > 0) {
+    const createdAt = faker.date.recent({ days: 7 });
+    const startedAt = faker.date.between({ from: createdAt, to: new Date() });
+
+    const run = await prisma.trainingRun.create({
+      data: {
+        status: TrainingStatus.RUNNING,
+        projectId: project.id,
+        fabId: fab?.id ?? null,
+        createdBy,
+        flowerRunId: faker.string.uuid(),
+        createdAt,
+        startedAt,
+        configuration: {
+          num_rounds: 10,
+          fraction_fit: 0.8,
+          fraction_evaluate: 0.5,
+        },
+      },
+    });
+
+    const runRounds = await createRoundsForRun(
+      prisma,
+      run,
+      readyNodes,
+      5,
+      false,
+    );
+    runs.push(run);
+    rounds.push(...runRounds);
+    console.log(
+      `    [RUN:RUNNING]    ${run.id}  rounds: ${runRounds.length}  nodes: ${readyNodes.length}`,
+    );
+  }
+
+  // COMPLETED
+  {
+    const createdAt = faker.date.recent({ days: 30 });
+    const startedAt = faker.date.between({ from: createdAt, to: new Date() });
+    const completedAt = faker.date.between({ from: startedAt, to: new Date() });
+
+    const run = await prisma.trainingRun.create({
+      data: {
+        status: TrainingStatus.COMPLETED,
+        projectId: project.id,
+        fabId: fab?.id ?? null,
+        createdBy,
+        flowerRunId: faker.string.uuid(),
+        createdAt,
+        startedAt,
+        completedAt,
+        metrics: {
+          final_loss: faker.number.float({
+            min: 0.05,
+            max: 0.5,
+            fractionDigits: 4,
+          }),
+          final_accuracy: faker.number.float({
+            min: 0.8,
+            max: 0.99,
+            fractionDigits: 4,
+          }),
+          total_rounds: 10,
+        },
+        configuration: {
+          num_rounds: 10,
+          fraction_fit: 0.8,
+          fraction_evaluate: 0.5,
+        },
+      },
+    });
+
+    const runRounds = await createRoundsForRun(
+      prisma,
+      run,
+      readyNodes,
+      10,
+      true,
+    );
+    runs.push(run);
+    rounds.push(...runRounds);
+    console.log(`    [RUN:COMPLETED]  ${run.id}  rounds: ${runRounds.length}`);
+  }
+
+  // FAILED
+  {
+    const createdAt = faker.date.recent({ days: 14 });
+    const startedAt = faker.date.between({ from: createdAt, to: new Date() });
+    const completedAt = faker.date.between({ from: startedAt, to: new Date() });
+
+    const run = await prisma.trainingRun.create({
+      data: {
+        status: TrainingStatus.FAILED,
+        projectId: project.id,
+        fabId: fab?.id ?? null,
+        createdBy,
+        flowerRunId: faker.string.uuid(),
+        createdAt,
+        startedAt,
+        completedAt,
+      },
+    });
+
+    const failedRoundCount = faker.number.int({ min: 1, max: 4 });
+    const runRounds = await createRoundsForRun(
+      prisma,
+      run,
+      readyNodes,
+      failedRoundCount,
+      true,
+    );
+    runs.push(run);
+    rounds.push(...runRounds);
+    console.log(`    [RUN:FAILED]     ${run.id}  rounds: ${runRounds.length}`);
+  }
+
+  // CANCELLED
+  {
+    const createdAt = faker.date.recent({ days: 20 });
+    const startedAt = faker.date.between({ from: createdAt, to: new Date() });
+    const completedAt = faker.date.between({ from: startedAt, to: new Date() });
+
+    const run = await prisma.trainingRun.create({
+      data: {
+        status: TrainingStatus.CANCELLED,
+        projectId: project.id,
+        fabId: fab?.id ?? null,
+        createdBy,
+        createdAt,
+        startedAt,
+        completedAt,
+      },
+    });
+    runs.push(run);
+    console.log(`    [RUN:CANCELLED]  ${run.id}`);
+  }
+
+  return { runs, rounds };
 }

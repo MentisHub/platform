@@ -5,7 +5,7 @@ export const nodeStatusSchema = z.enum([
   'CREATED',      // Node just created, waiting for bootstrap (certificate issuance)
   'INITIALIZING', // Node activated, downloading FAB and installing dependencies
   'READY',        // Node has valid certificate and is ready to participate in training
-  'ACTIVE',       // Node is currently participating in an active training run
+  'TRAINING',     // Node is currently participating in an active training run
   'ERROR',        // Node encountered an error (e.g., certificate issues, connection problems)
   'OFFLINE',      // Node is disconnected or unreachable
 ]).describe('Current operational status of the node');
@@ -56,37 +56,17 @@ export const bootstrapRequestSchema = z.object({
 
 export const bootstrapResponseSchema = z.object({
   rootCa: z.string().describe('Root Certificate Authority certificate (PEM format)'),
-  accessToken: z.string().describe('Short-lived access token (15 minutes)'),
-  refreshToken: z.string().describe('Long-lived refresh token (30 days)'),
-  expiresAt: z.string().datetime().describe('Access token expiration timestamp'),
+  clientCert: z.string().describe('Node client certificate signed by the CA (PEM format, 7-day TTL)'),
+  nodeId: z.string().optional().describe('Flower federation node ID'),
 });
 
-export const refreshTokenRequestSchema = z.object({
-  refreshToken: z.string().describe('Current refresh token'),
-});
-
-export const refreshTokenResponseSchema = z.object({
-  accessToken: z.string().describe('New short-lived access token (15 minutes)'),
-  refreshToken: z.string().describe('New long-lived refresh token (30 days)'),
-  expiresAt: z.string().datetime().describe('Access token expiration timestamp'),
-});
-
-export const recoverRequestSchema = z.object({
-  nodeId: z.string().uuid().describe('Node ID'),
+export const rotateRequestSchema = z.object({
+  nodeId: z.string().uuid().describe('Node UUID'),
   challenge: z.string().describe('Challenge string to be signed'),
-  signature: z.string().describe('Base64-encoded signature of the challenge'),
+  signature: z.string().describe('Base64-encoded SSH signature of the challenge'),
 });
 
-export const recoverResponseSchema = z.object({
-  accessToken: z.string().describe('New short-lived access token (15 minutes)'),
-  refreshToken: z.string().describe('New long-lived refresh token (30 days)'),
-  expiresAt: z.string().datetime().describe('Access token expiration timestamp'),
-});
-
-export const heartbeatResponseSchema = z.object({
-  status: nodeStatusSchema.describe('Current node status'),
-  training: z.object({
-    runId: z.string().describe('Training run ID (as base32 for federation name)'),
-    fabName: z.string().describe('Full FAB name: publisher.name.version.hash.fab'),
-  }).optional().describe('Active training information if available'),
+export const rotateResponseSchema = z.object({
+  rootCa: z.string().describe('Root Certificate Authority certificate (PEM format)'),
+  clientCert: z.string().describe('New node client certificate signed by the CA (PEM format, 7-day TTL)'),
 });

@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Logger,
   Param,
   Post,
   Query,
@@ -37,8 +36,6 @@ import { FabsService } from '../fabs.service';
 @ApiBearerAuth()
 @Controller('organizations/:organizationId/fabs')
 export class FabsController {
-  private readonly logger = new Logger(FabsController.name);
-
   constructor(private readonly fabsService: FabsService) {}
 
   @Post()
@@ -86,12 +83,16 @@ export class FabsController {
     @Body() dto: UploadFabDto,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<FabResponseDto> {
-    const fab = await this.fabsService.uploadFab(
+    const fab = await this.fabsService.uploadFab({
       organizationId,
-      user.sub,
-      dto,
-      file,
-    );
+      userId: user.sub,
+      description: dto.description,
+      isPublic: dto.isPublic,
+      projectId: dto.projectId,
+      fileBuffer: file.buffer,
+      originalname: file.originalname,
+      size: file.size,
+    });
 
     return FabResponseDto.fromEntity(fab);
   }

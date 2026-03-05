@@ -10,8 +10,6 @@ interface SeedUser {
 export async function seedAuthUsers(users: SeedUser[]): Promise<void> {
   const supabaseAdmin = createSupabaseAdmin();
 
-  console.log(`Creating ${users.length} auth users...`);
-
   for (const user of users) {
     const createResponse = await supabaseAdmin.auth.admin.createUser({
       id: user.id,
@@ -23,11 +21,11 @@ export async function seedAuthUsers(users: SeedUser[]): Promise<void> {
 
     if (createResponse.error) {
       if (createResponse.error.message.includes('already been registered')) {
-        console.log(`Auth user ${user.email} already exists, skipping...`);
+        console.log(`  [AUTH]  ${user.email}  (already exists, skipping)`);
         continue;
       } else {
         console.error(
-          `Failed to create auth user ${user.email}:`,
+          `  [AUTH:ERROR]  ${user.email}:`,
           createResponse.error.message,
         );
         throw createResponse.error;
@@ -41,19 +39,16 @@ export async function seedAuthUsers(users: SeedUser[]): Promise<void> {
 
     if (loginResponse.error) {
       console.error(
-        `Failed to login user ${user.email}:`,
+        `  [AUTH:ERROR]  ${user.email}:`,
         loginResponse.error.message,
       );
     } else if (loginResponse.data.session) {
-      console.log(`
-        Created ${user.email} (ID: ${user.id})
-          Access token: ${loginResponse.data.session.access_token}
-          Refresh token: ${loginResponse.data.session.refresh_token}
-      `);
+      const { access_token, refresh_token } = loginResponse.data.session;
+      console.log(`  [AUTH]  ${user.email}  →  ${user.id}`);
+      console.log(`    access:   ${access_token}`);
+      console.log(`    refresh:  ${refresh_token}`);
     }
   }
-
-  console.log(`Created ${users.length} auth users`);
 }
 
 export async function deleteAuthUsers(): Promise<void> {
@@ -61,26 +56,27 @@ export async function deleteAuthUsers(): Promise<void> {
   const listResponse = await supabase.auth.admin.listUsers();
 
   if (listResponse.error) {
-    console.error('Failed to list auth users:', listResponse.error.message);
+    console.error(
+      '  [AUTH:ERROR]  Failed to list users:',
+      listResponse.error.message,
+    );
     throw listResponse.error;
   }
 
   const users = listResponse.data.users;
 
-  if (users.length > 0) {
-    for (const user of users) {
-      const deleteResponse = await supabase.auth.admin.deleteUser(user.id);
+  if (users.length === 0) return;
 
-      if (deleteResponse.error) {
-        console.error(
-          `Failed to delete auth user ${user.email}:`,
-          deleteResponse.error.message,
-        );
-      }
+  for (const user of users) {
+    const deleteResponse = await supabase.auth.admin.deleteUser(user.id);
+
+    if (deleteResponse.error) {
+      console.error(
+        `  [AUTH:ERROR]  Failed to delete ${user.email}:`,
+        deleteResponse.error.message,
+      );
     }
-
-    console.log(`Deleted ${users.length} auth users`);
-  } else {
-    console.log('No auth users to delete');
   }
+
+  console.log(`  Deleted ${users.length} auth users`);
 }

@@ -56,12 +56,3 @@ export const listFabsQuerySchema = paginationQuerySchema.extend({
   sortBy: z.enum(['name', 'createdAt', 'version']).default('createdAt').describe('Field to sort results by'),
   order: sortOrderSchema,
 });
-
-export const fabPackageResponseSchema = z.object({
-  fabHash: z.string().describe('SHA-256 hash of the FAB file content'),
-  version: z.string().describe('Semantic version of the FAB'),
-  name: z.string().describe('Human-readable name of the FAB'),
-  publisherName: z.string().describe('Publisher name or organization identifier'),
-  content: z.string().describe('Base64-encoded FAB file content'),
-  federationName: z.string().describe('Name of the federation this FAB belongs to'),
-});

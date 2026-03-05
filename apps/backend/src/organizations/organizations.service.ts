@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
   CreateOrganizationInput,
   ListOrganizationsQuery,
@@ -10,18 +10,32 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class OrganizationsService {
+  private readonly logger: Logger = new Logger(OrganizationsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
     ownerId: string,
     input: CreateOrganizationInput,
   ): Promise<Organization> {
-    return this.prisma.organization.create({
+    const organization = await this.prisma.organization.create({
       data: {
         name: input.name,
         ownerId,
       },
     });
+
+    this.logger.log(
+      {
+        action: 'organization.created',
+        organizationId: organization.id,
+        organizationName: organization.name,
+        ownerId,
+      },
+      'Organization created',
+    );
+
+    return organization;
   }
 
   async findAll(userId: string, input: ListOrganizationsQuery) {
@@ -95,10 +109,19 @@ export class OrganizationsService {
   }
 
   async remove(id: string): Promise<void> {
-    await this.findOne(id);
+    const organization = await this.findOne(id);
 
     await this.prisma.organization.delete({
       where: { id },
     });
+
+    this.logger.log(
+      {
+        action: 'organization.deleted',
+        organizationId: id,
+        organizationName: organization.name,
+      },
+      'Organization deleted',
+    );
   }
 }

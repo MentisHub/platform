@@ -1,12 +1,14 @@
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
 import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { initTracing } from 'src/config/tracing';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
 
   const appConfigService = app.get(ConfigService);
 
@@ -30,7 +32,18 @@ async function bootstrap() {
   await app.listen(3000);
 }
 
-bootstrap().catch((error) => {
-  console.error('Failed to start application:', error);
+bootstrap().catch((error: Error) => {
+  console.error(
+    JSON.stringify({
+      level: 'fatal',
+      msg: 'Failed to start application',
+      err: {
+        type: error.name,
+        message: error.message,
+        stack: error.stack,
+      },
+      time: Date.now(),
+    }),
+  );
   process.exit(1);
 });

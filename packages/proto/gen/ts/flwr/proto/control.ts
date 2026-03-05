@@ -22,7 +22,7 @@ import {
 } from "@grpc/grpc-js";
 import { Event } from "./event.js";
 import { Fab } from "./fab.js";
-import { Federation } from "./federation.js";
+import { Federation, Invitation } from "./federation.js";
 import { NodeInfo } from "./node.js";
 import { ConfigRecord } from "./recorddict.js";
 import { Run } from "./run.js";
@@ -36,6 +36,7 @@ export interface StartRunRequest {
   federationOptions: ConfigRecord | undefined;
   appSpec: string;
   federation: string;
+  installDeps: boolean;
 }
 
 export interface StartRunRequest_OverrideConfigEntry {
@@ -68,6 +69,7 @@ export interface StreamEventsResponse {
 
 export interface ListRunsRequest {
   runId?: string | undefined;
+  limit?: string | undefined;
 }
 
 export interface ListRunsResponse {
@@ -156,7 +158,7 @@ export interface ShowFederationResponse {
 }
 
 export interface CreateFederationRequest {
-  name: string;
+  federationName: string;
   description: string;
 }
 
@@ -173,7 +175,7 @@ export interface ArchiveFederationResponse {
 
 export interface AddNodeToFederationRequest {
   federationName: string;
-  nodeIds: string[];
+  nodeId: string;
 }
 
 export interface AddNodeToFederationResponse {
@@ -181,14 +183,59 @@ export interface AddNodeToFederationResponse {
 
 export interface RemoveNodeFromFederationRequest {
   federationName: string;
-  nodeIds: string[];
+  nodeId: string;
 }
 
 export interface RemoveNodeFromFederationResponse {
 }
 
+export interface CreateInvitationRequest {
+  inviteeAccountName: string;
+  federationName: string;
+}
+
+export interface CreateInvitationResponse {
+}
+
+export interface ListInvitationsRequest {
+}
+
+export interface ListInvitationsResponse {
+  createdInvitations: Invitation[];
+  receivedInvitations: Invitation[];
+}
+
+export interface AcceptInvitationRequest {
+  federationName: string;
+}
+
+export interface AcceptInvitationResponse {
+}
+
+export interface RejectInvitationRequest {
+  federationName: string;
+}
+
+export interface RejectInvitationResponse {
+}
+
+export interface RevokeInvitationRequest {
+  inviteeAccountName: string;
+  federationName: string;
+}
+
+export interface RevokeInvitationResponse {
+}
+
 function createBaseStartRunRequest(): StartRunRequest {
-  return { fab: undefined, overrideConfig: {}, federationOptions: undefined, appSpec: "", federation: "" };
+  return {
+    fab: undefined,
+    overrideConfig: {},
+    federationOptions: undefined,
+    appSpec: "",
+    federation: "",
+    installDeps: false,
+  };
 }
 
 export const StartRunRequest: MessageFns<StartRunRequest> = {
@@ -207,6 +254,9 @@ export const StartRunRequest: MessageFns<StartRunRequest> = {
     }
     if (message.federation !== "") {
       writer.uint32(42).string(message.federation);
+    }
+    if (message.installDeps !== false) {
+      writer.uint32(48).bool(message.installDeps);
     }
     return writer;
   },
@@ -261,6 +311,14 @@ export const StartRunRequest: MessageFns<StartRunRequest> = {
           message.federation = reader.string();
           continue;
         }
+        case 6: {
+          if (tag !== 48) {
+            break;
+          }
+
+          message.installDeps = reader.bool();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -285,6 +343,7 @@ export const StartRunRequest: MessageFns<StartRunRequest> = {
       federationOptions: isSet(object.federationOptions) ? ConfigRecord.fromJSON(object.federationOptions) : undefined,
       appSpec: isSet(object.appSpec) ? globalThis.String(object.appSpec) : "",
       federation: isSet(object.federation) ? globalThis.String(object.federation) : "",
+      installDeps: isSet(object.installDeps) ? globalThis.Boolean(object.installDeps) : false,
     };
   },
 
@@ -311,6 +370,9 @@ export const StartRunRequest: MessageFns<StartRunRequest> = {
     if (message.federation !== "") {
       obj.federation = message.federation;
     }
+    if (message.installDeps !== false) {
+      obj.installDeps = message.installDeps;
+    }
     return obj;
   },
 
@@ -334,6 +396,7 @@ export const StartRunRequest: MessageFns<StartRunRequest> = {
       : undefined;
     message.appSpec = object.appSpec ?? "";
     message.federation = object.federation ?? "";
+    message.installDeps = object.installDeps ?? false;
     return message;
   },
 };
@@ -765,13 +828,16 @@ export const StreamEventsResponse: MessageFns<StreamEventsResponse> = {
 };
 
 function createBaseListRunsRequest(): ListRunsRequest {
-  return { runId: undefined };
+  return { runId: undefined, limit: undefined };
 }
 
 export const ListRunsRequest: MessageFns<ListRunsRequest> = {
   encode(message: ListRunsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.runId !== undefined) {
       writer.uint32(8).uint64(message.runId);
+    }
+    if (message.limit !== undefined) {
+      writer.uint32(16).uint64(message.limit);
     }
     return writer;
   },
@@ -791,6 +857,14 @@ export const ListRunsRequest: MessageFns<ListRunsRequest> = {
           message.runId = reader.uint64().toString();
           continue;
         }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.limit = reader.uint64().toString();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -801,13 +875,19 @@ export const ListRunsRequest: MessageFns<ListRunsRequest> = {
   },
 
   fromJSON(object: any): ListRunsRequest {
-    return { runId: isSet(object.runId) ? globalThis.String(object.runId) : undefined };
+    return {
+      runId: isSet(object.runId) ? globalThis.String(object.runId) : undefined,
+      limit: isSet(object.limit) ? globalThis.String(object.limit) : undefined,
+    };
   },
 
   toJSON(message: ListRunsRequest): unknown {
     const obj: any = {};
     if (message.runId !== undefined) {
       obj.runId = message.runId;
+    }
+    if (message.limit !== undefined) {
+      obj.limit = message.limit;
     }
     return obj;
   },
@@ -818,6 +898,7 @@ export const ListRunsRequest: MessageFns<ListRunsRequest> = {
   fromPartial<I extends Exact<DeepPartial<ListRunsRequest>, I>>(object: I): ListRunsRequest {
     const message = createBaseListRunsRequest();
     message.runId = object.runId ?? undefined;
+    message.limit = object.limit ?? undefined;
     return message;
   },
 };
@@ -2116,13 +2197,13 @@ export const ShowFederationResponse: MessageFns<ShowFederationResponse> = {
 };
 
 function createBaseCreateFederationRequest(): CreateFederationRequest {
-  return { name: "", description: "" };
+  return { federationName: "", description: "" };
 }
 
 export const CreateFederationRequest: MessageFns<CreateFederationRequest> = {
   encode(message: CreateFederationRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.name !== "") {
-      writer.uint32(10).string(message.name);
+    if (message.federationName !== "") {
+      writer.uint32(10).string(message.federationName);
     }
     if (message.description !== "") {
       writer.uint32(18).string(message.description);
@@ -2142,7 +2223,7 @@ export const CreateFederationRequest: MessageFns<CreateFederationRequest> = {
             break;
           }
 
-          message.name = reader.string();
+          message.federationName = reader.string();
           continue;
         }
         case 2: {
@@ -2164,15 +2245,15 @@ export const CreateFederationRequest: MessageFns<CreateFederationRequest> = {
 
   fromJSON(object: any): CreateFederationRequest {
     return {
-      name: isSet(object.name) ? globalThis.String(object.name) : "",
+      federationName: isSet(object.federationName) ? globalThis.String(object.federationName) : "",
       description: isSet(object.description) ? globalThis.String(object.description) : "",
     };
   },
 
   toJSON(message: CreateFederationRequest): unknown {
     const obj: any = {};
-    if (message.name !== "") {
-      obj.name = message.name;
+    if (message.federationName !== "") {
+      obj.federationName = message.federationName;
     }
     if (message.description !== "") {
       obj.description = message.description;
@@ -2185,7 +2266,7 @@ export const CreateFederationRequest: MessageFns<CreateFederationRequest> = {
   },
   fromPartial<I extends Exact<DeepPartial<CreateFederationRequest>, I>>(object: I): CreateFederationRequest {
     const message = createBaseCreateFederationRequest();
-    message.name = object.name ?? "";
+    message.federationName = object.federationName ?? "";
     message.description = object.description ?? "";
     return message;
   },
@@ -2353,7 +2434,7 @@ export const ArchiveFederationResponse: MessageFns<ArchiveFederationResponse> = 
 };
 
 function createBaseAddNodeToFederationRequest(): AddNodeToFederationRequest {
-  return { federationName: "", nodeIds: [] };
+  return { federationName: "", nodeId: "0" };
 }
 
 export const AddNodeToFederationRequest: MessageFns<AddNodeToFederationRequest> = {
@@ -2361,11 +2442,9 @@ export const AddNodeToFederationRequest: MessageFns<AddNodeToFederationRequest> 
     if (message.federationName !== "") {
       writer.uint32(10).string(message.federationName);
     }
-    writer.uint32(18).fork();
-    for (const v of message.nodeIds) {
-      writer.uint64(v);
+    if (message.nodeId !== "0") {
+      writer.uint32(16).uint64(message.nodeId);
     }
-    writer.join();
     return writer;
   },
 
@@ -2385,22 +2464,12 @@ export const AddNodeToFederationRequest: MessageFns<AddNodeToFederationRequest> 
           continue;
         }
         case 2: {
-          if (tag === 16) {
-            message.nodeIds.push(reader.uint64().toString());
-
-            continue;
+          if (tag !== 16) {
+            break;
           }
 
-          if (tag === 18) {
-            const end2 = reader.uint32() + reader.pos;
-            while (reader.pos < end2) {
-              message.nodeIds.push(reader.uint64().toString());
-            }
-
-            continue;
-          }
-
-          break;
+          message.nodeId = reader.uint64().toString();
+          continue;
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -2414,7 +2483,7 @@ export const AddNodeToFederationRequest: MessageFns<AddNodeToFederationRequest> 
   fromJSON(object: any): AddNodeToFederationRequest {
     return {
       federationName: isSet(object.federationName) ? globalThis.String(object.federationName) : "",
-      nodeIds: globalThis.Array.isArray(object?.nodeIds) ? object.nodeIds.map((e: any) => globalThis.String(e)) : [],
+      nodeId: isSet(object.nodeId) ? globalThis.String(object.nodeId) : "0",
     };
   },
 
@@ -2423,8 +2492,8 @@ export const AddNodeToFederationRequest: MessageFns<AddNodeToFederationRequest> 
     if (message.federationName !== "") {
       obj.federationName = message.federationName;
     }
-    if (message.nodeIds?.length) {
-      obj.nodeIds = message.nodeIds;
+    if (message.nodeId !== "0") {
+      obj.nodeId = message.nodeId;
     }
     return obj;
   },
@@ -2435,7 +2504,7 @@ export const AddNodeToFederationRequest: MessageFns<AddNodeToFederationRequest> 
   fromPartial<I extends Exact<DeepPartial<AddNodeToFederationRequest>, I>>(object: I): AddNodeToFederationRequest {
     const message = createBaseAddNodeToFederationRequest();
     message.federationName = object.federationName ?? "";
-    message.nodeIds = object.nodeIds?.map((e) => e) || [];
+    message.nodeId = object.nodeId ?? "0";
     return message;
   },
 };
@@ -2484,7 +2553,7 @@ export const AddNodeToFederationResponse: MessageFns<AddNodeToFederationResponse
 };
 
 function createBaseRemoveNodeFromFederationRequest(): RemoveNodeFromFederationRequest {
-  return { federationName: "", nodeIds: [] };
+  return { federationName: "", nodeId: "0" };
 }
 
 export const RemoveNodeFromFederationRequest: MessageFns<RemoveNodeFromFederationRequest> = {
@@ -2492,11 +2561,9 @@ export const RemoveNodeFromFederationRequest: MessageFns<RemoveNodeFromFederatio
     if (message.federationName !== "") {
       writer.uint32(10).string(message.federationName);
     }
-    writer.uint32(18).fork();
-    for (const v of message.nodeIds) {
-      writer.uint64(v);
+    if (message.nodeId !== "0") {
+      writer.uint32(16).uint64(message.nodeId);
     }
-    writer.join();
     return writer;
   },
 
@@ -2516,22 +2583,12 @@ export const RemoveNodeFromFederationRequest: MessageFns<RemoveNodeFromFederatio
           continue;
         }
         case 2: {
-          if (tag === 16) {
-            message.nodeIds.push(reader.uint64().toString());
-
-            continue;
+          if (tag !== 16) {
+            break;
           }
 
-          if (tag === 18) {
-            const end2 = reader.uint32() + reader.pos;
-            while (reader.pos < end2) {
-              message.nodeIds.push(reader.uint64().toString());
-            }
-
-            continue;
-          }
-
-          break;
+          message.nodeId = reader.uint64().toString();
+          continue;
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -2545,7 +2602,7 @@ export const RemoveNodeFromFederationRequest: MessageFns<RemoveNodeFromFederatio
   fromJSON(object: any): RemoveNodeFromFederationRequest {
     return {
       federationName: isSet(object.federationName) ? globalThis.String(object.federationName) : "",
-      nodeIds: globalThis.Array.isArray(object?.nodeIds) ? object.nodeIds.map((e: any) => globalThis.String(e)) : [],
+      nodeId: isSet(object.nodeId) ? globalThis.String(object.nodeId) : "0",
     };
   },
 
@@ -2554,8 +2611,8 @@ export const RemoveNodeFromFederationRequest: MessageFns<RemoveNodeFromFederatio
     if (message.federationName !== "") {
       obj.federationName = message.federationName;
     }
-    if (message.nodeIds?.length) {
-      obj.nodeIds = message.nodeIds;
+    if (message.nodeId !== "0") {
+      obj.nodeId = message.nodeId;
     }
     return obj;
   },
@@ -2568,7 +2625,7 @@ export const RemoveNodeFromFederationRequest: MessageFns<RemoveNodeFromFederatio
   ): RemoveNodeFromFederationRequest {
     const message = createBaseRemoveNodeFromFederationRequest();
     message.federationName = object.federationName ?? "";
-    message.nodeIds = object.nodeIds?.map((e) => e) || [];
+    message.nodeId = object.nodeId ?? "0";
     return message;
   },
 };
@@ -2616,6 +2673,569 @@ export const RemoveNodeFromFederationResponse: MessageFns<RemoveNodeFromFederati
     _: I,
   ): RemoveNodeFromFederationResponse {
     const message = createBaseRemoveNodeFromFederationResponse();
+    return message;
+  },
+};
+
+function createBaseCreateInvitationRequest(): CreateInvitationRequest {
+  return { inviteeAccountName: "", federationName: "" };
+}
+
+export const CreateInvitationRequest: MessageFns<CreateInvitationRequest> = {
+  encode(message: CreateInvitationRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.inviteeAccountName !== "") {
+      writer.uint32(10).string(message.inviteeAccountName);
+    }
+    if (message.federationName !== "") {
+      writer.uint32(18).string(message.federationName);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateInvitationRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCreateInvitationRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.inviteeAccountName = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.federationName = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CreateInvitationRequest {
+    return {
+      inviteeAccountName: isSet(object.inviteeAccountName) ? globalThis.String(object.inviteeAccountName) : "",
+      federationName: isSet(object.federationName) ? globalThis.String(object.federationName) : "",
+    };
+  },
+
+  toJSON(message: CreateInvitationRequest): unknown {
+    const obj: any = {};
+    if (message.inviteeAccountName !== "") {
+      obj.inviteeAccountName = message.inviteeAccountName;
+    }
+    if (message.federationName !== "") {
+      obj.federationName = message.federationName;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CreateInvitationRequest>, I>>(base?: I): CreateInvitationRequest {
+    return CreateInvitationRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CreateInvitationRequest>, I>>(object: I): CreateInvitationRequest {
+    const message = createBaseCreateInvitationRequest();
+    message.inviteeAccountName = object.inviteeAccountName ?? "";
+    message.federationName = object.federationName ?? "";
+    return message;
+  },
+};
+
+function createBaseCreateInvitationResponse(): CreateInvitationResponse {
+  return {};
+}
+
+export const CreateInvitationResponse: MessageFns<CreateInvitationResponse> = {
+  encode(_: CreateInvitationResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateInvitationResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCreateInvitationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): CreateInvitationResponse {
+    return {};
+  },
+
+  toJSON(_: CreateInvitationResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CreateInvitationResponse>, I>>(base?: I): CreateInvitationResponse {
+    return CreateInvitationResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CreateInvitationResponse>, I>>(_: I): CreateInvitationResponse {
+    const message = createBaseCreateInvitationResponse();
+    return message;
+  },
+};
+
+function createBaseListInvitationsRequest(): ListInvitationsRequest {
+  return {};
+}
+
+export const ListInvitationsRequest: MessageFns<ListInvitationsRequest> = {
+  encode(_: ListInvitationsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ListInvitationsRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseListInvitationsRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): ListInvitationsRequest {
+    return {};
+  },
+
+  toJSON(_: ListInvitationsRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ListInvitationsRequest>, I>>(base?: I): ListInvitationsRequest {
+    return ListInvitationsRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ListInvitationsRequest>, I>>(_: I): ListInvitationsRequest {
+    const message = createBaseListInvitationsRequest();
+    return message;
+  },
+};
+
+function createBaseListInvitationsResponse(): ListInvitationsResponse {
+  return { createdInvitations: [], receivedInvitations: [] };
+}
+
+export const ListInvitationsResponse: MessageFns<ListInvitationsResponse> = {
+  encode(message: ListInvitationsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.createdInvitations) {
+      Invitation.encode(v!, writer.uint32(10).fork()).join();
+    }
+    for (const v of message.receivedInvitations) {
+      Invitation.encode(v!, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ListInvitationsResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseListInvitationsResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.createdInvitations.push(Invitation.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.receivedInvitations.push(Invitation.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ListInvitationsResponse {
+    return {
+      createdInvitations: globalThis.Array.isArray(object?.createdInvitations)
+        ? object.createdInvitations.map((e: any) => Invitation.fromJSON(e))
+        : [],
+      receivedInvitations: globalThis.Array.isArray(object?.receivedInvitations)
+        ? object.receivedInvitations.map((e: any) => Invitation.fromJSON(e))
+        : [],
+    };
+  },
+
+  toJSON(message: ListInvitationsResponse): unknown {
+    const obj: any = {};
+    if (message.createdInvitations?.length) {
+      obj.createdInvitations = message.createdInvitations.map((e) => Invitation.toJSON(e));
+    }
+    if (message.receivedInvitations?.length) {
+      obj.receivedInvitations = message.receivedInvitations.map((e) => Invitation.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ListInvitationsResponse>, I>>(base?: I): ListInvitationsResponse {
+    return ListInvitationsResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ListInvitationsResponse>, I>>(object: I): ListInvitationsResponse {
+    const message = createBaseListInvitationsResponse();
+    message.createdInvitations = object.createdInvitations?.map((e) => Invitation.fromPartial(e)) || [];
+    message.receivedInvitations = object.receivedInvitations?.map((e) => Invitation.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseAcceptInvitationRequest(): AcceptInvitationRequest {
+  return { federationName: "" };
+}
+
+export const AcceptInvitationRequest: MessageFns<AcceptInvitationRequest> = {
+  encode(message: AcceptInvitationRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.federationName !== "") {
+      writer.uint32(10).string(message.federationName);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AcceptInvitationRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAcceptInvitationRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.federationName = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AcceptInvitationRequest {
+    return { federationName: isSet(object.federationName) ? globalThis.String(object.federationName) : "" };
+  },
+
+  toJSON(message: AcceptInvitationRequest): unknown {
+    const obj: any = {};
+    if (message.federationName !== "") {
+      obj.federationName = message.federationName;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AcceptInvitationRequest>, I>>(base?: I): AcceptInvitationRequest {
+    return AcceptInvitationRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AcceptInvitationRequest>, I>>(object: I): AcceptInvitationRequest {
+    const message = createBaseAcceptInvitationRequest();
+    message.federationName = object.federationName ?? "";
+    return message;
+  },
+};
+
+function createBaseAcceptInvitationResponse(): AcceptInvitationResponse {
+  return {};
+}
+
+export const AcceptInvitationResponse: MessageFns<AcceptInvitationResponse> = {
+  encode(_: AcceptInvitationResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AcceptInvitationResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAcceptInvitationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): AcceptInvitationResponse {
+    return {};
+  },
+
+  toJSON(_: AcceptInvitationResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AcceptInvitationResponse>, I>>(base?: I): AcceptInvitationResponse {
+    return AcceptInvitationResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AcceptInvitationResponse>, I>>(_: I): AcceptInvitationResponse {
+    const message = createBaseAcceptInvitationResponse();
+    return message;
+  },
+};
+
+function createBaseRejectInvitationRequest(): RejectInvitationRequest {
+  return { federationName: "" };
+}
+
+export const RejectInvitationRequest: MessageFns<RejectInvitationRequest> = {
+  encode(message: RejectInvitationRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.federationName !== "") {
+      writer.uint32(10).string(message.federationName);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RejectInvitationRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRejectInvitationRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.federationName = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RejectInvitationRequest {
+    return { federationName: isSet(object.federationName) ? globalThis.String(object.federationName) : "" };
+  },
+
+  toJSON(message: RejectInvitationRequest): unknown {
+    const obj: any = {};
+    if (message.federationName !== "") {
+      obj.federationName = message.federationName;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RejectInvitationRequest>, I>>(base?: I): RejectInvitationRequest {
+    return RejectInvitationRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RejectInvitationRequest>, I>>(object: I): RejectInvitationRequest {
+    const message = createBaseRejectInvitationRequest();
+    message.federationName = object.federationName ?? "";
+    return message;
+  },
+};
+
+function createBaseRejectInvitationResponse(): RejectInvitationResponse {
+  return {};
+}
+
+export const RejectInvitationResponse: MessageFns<RejectInvitationResponse> = {
+  encode(_: RejectInvitationResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RejectInvitationResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRejectInvitationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): RejectInvitationResponse {
+    return {};
+  },
+
+  toJSON(_: RejectInvitationResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RejectInvitationResponse>, I>>(base?: I): RejectInvitationResponse {
+    return RejectInvitationResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RejectInvitationResponse>, I>>(_: I): RejectInvitationResponse {
+    const message = createBaseRejectInvitationResponse();
+    return message;
+  },
+};
+
+function createBaseRevokeInvitationRequest(): RevokeInvitationRequest {
+  return { inviteeAccountName: "", federationName: "" };
+}
+
+export const RevokeInvitationRequest: MessageFns<RevokeInvitationRequest> = {
+  encode(message: RevokeInvitationRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.inviteeAccountName !== "") {
+      writer.uint32(10).string(message.inviteeAccountName);
+    }
+    if (message.federationName !== "") {
+      writer.uint32(18).string(message.federationName);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RevokeInvitationRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRevokeInvitationRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.inviteeAccountName = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.federationName = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RevokeInvitationRequest {
+    return {
+      inviteeAccountName: isSet(object.inviteeAccountName) ? globalThis.String(object.inviteeAccountName) : "",
+      federationName: isSet(object.federationName) ? globalThis.String(object.federationName) : "",
+    };
+  },
+
+  toJSON(message: RevokeInvitationRequest): unknown {
+    const obj: any = {};
+    if (message.inviteeAccountName !== "") {
+      obj.inviteeAccountName = message.inviteeAccountName;
+    }
+    if (message.federationName !== "") {
+      obj.federationName = message.federationName;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RevokeInvitationRequest>, I>>(base?: I): RevokeInvitationRequest {
+    return RevokeInvitationRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RevokeInvitationRequest>, I>>(object: I): RevokeInvitationRequest {
+    const message = createBaseRevokeInvitationRequest();
+    message.inviteeAccountName = object.inviteeAccountName ?? "";
+    message.federationName = object.federationName ?? "";
+    return message;
+  },
+};
+
+function createBaseRevokeInvitationResponse(): RevokeInvitationResponse {
+  return {};
+}
+
+export const RevokeInvitationResponse: MessageFns<RevokeInvitationResponse> = {
+  encode(_: RevokeInvitationResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RevokeInvitationResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRevokeInvitationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): RevokeInvitationResponse {
+    return {};
+  },
+
+  toJSON(_: RevokeInvitationResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RevokeInvitationResponse>, I>>(base?: I): RevokeInvitationResponse {
+    return RevokeInvitationResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RevokeInvitationResponse>, I>>(_: I): RevokeInvitationResponse {
+    const message = createBaseRevokeInvitationResponse();
     return message;
   },
 };
@@ -2814,6 +3434,66 @@ export const ControlService = {
     responseDeserialize: (value: Buffer): RemoveNodeFromFederationResponse =>
       RemoveNodeFromFederationResponse.decode(value),
   },
+  /** Create Invitation */
+  createInvitation: {
+    path: "/flwr.proto.Control/CreateInvitation",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: CreateInvitationRequest): Buffer =>
+      Buffer.from(CreateInvitationRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): CreateInvitationRequest => CreateInvitationRequest.decode(value),
+    responseSerialize: (value: CreateInvitationResponse): Buffer =>
+      Buffer.from(CreateInvitationResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): CreateInvitationResponse => CreateInvitationResponse.decode(value),
+  },
+  /** List Invitations */
+  listInvitations: {
+    path: "/flwr.proto.Control/ListInvitations",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: ListInvitationsRequest): Buffer =>
+      Buffer.from(ListInvitationsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ListInvitationsRequest => ListInvitationsRequest.decode(value),
+    responseSerialize: (value: ListInvitationsResponse): Buffer =>
+      Buffer.from(ListInvitationsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ListInvitationsResponse => ListInvitationsResponse.decode(value),
+  },
+  /** Accept Invitation */
+  acceptInvitation: {
+    path: "/flwr.proto.Control/AcceptInvitation",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: AcceptInvitationRequest): Buffer =>
+      Buffer.from(AcceptInvitationRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AcceptInvitationRequest => AcceptInvitationRequest.decode(value),
+    responseSerialize: (value: AcceptInvitationResponse): Buffer =>
+      Buffer.from(AcceptInvitationResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AcceptInvitationResponse => AcceptInvitationResponse.decode(value),
+  },
+  /** Reject Invitation */
+  rejectInvitation: {
+    path: "/flwr.proto.Control/RejectInvitation",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: RejectInvitationRequest): Buffer =>
+      Buffer.from(RejectInvitationRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RejectInvitationRequest => RejectInvitationRequest.decode(value),
+    responseSerialize: (value: RejectInvitationResponse): Buffer =>
+      Buffer.from(RejectInvitationResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RejectInvitationResponse => RejectInvitationResponse.decode(value),
+  },
+  /** Revoke Invitation */
+  revokeInvitation: {
+    path: "/flwr.proto.Control/RevokeInvitation",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: RevokeInvitationRequest): Buffer =>
+      Buffer.from(RevokeInvitationRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RevokeInvitationRequest => RevokeInvitationRequest.decode(value),
+    responseSerialize: (value: RevokeInvitationResponse): Buffer =>
+      Buffer.from(RevokeInvitationResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RevokeInvitationResponse => RevokeInvitationResponse.decode(value),
+  },
 } as const;
 
 export interface ControlServer extends UntypedServiceImplementation {
@@ -2851,6 +3531,16 @@ export interface ControlServer extends UntypedServiceImplementation {
   addNodeToFederation: handleUnaryCall<AddNodeToFederationRequest, AddNodeToFederationResponse>;
   /** Remove SuperNode from Federation */
   removeNodeFromFederation: handleUnaryCall<RemoveNodeFromFederationRequest, RemoveNodeFromFederationResponse>;
+  /** Create Invitation */
+  createInvitation: handleUnaryCall<CreateInvitationRequest, CreateInvitationResponse>;
+  /** List Invitations */
+  listInvitations: handleUnaryCall<ListInvitationsRequest, ListInvitationsResponse>;
+  /** Accept Invitation */
+  acceptInvitation: handleUnaryCall<AcceptInvitationRequest, AcceptInvitationResponse>;
+  /** Reject Invitation */
+  rejectInvitation: handleUnaryCall<RejectInvitationRequest, RejectInvitationResponse>;
+  /** Revoke Invitation */
+  revokeInvitation: handleUnaryCall<RevokeInvitationRequest, RevokeInvitationResponse>;
 }
 
 export interface ControlClient extends Client {
@@ -3110,6 +3800,86 @@ export interface ControlClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: RemoveNodeFromFederationResponse) => void,
+  ): ClientUnaryCall;
+  /** Create Invitation */
+  createInvitation(
+    request: CreateInvitationRequest,
+    callback: (error: ServiceError | null, response: CreateInvitationResponse) => void,
+  ): ClientUnaryCall;
+  createInvitation(
+    request: CreateInvitationRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: CreateInvitationResponse) => void,
+  ): ClientUnaryCall;
+  createInvitation(
+    request: CreateInvitationRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: CreateInvitationResponse) => void,
+  ): ClientUnaryCall;
+  /** List Invitations */
+  listInvitations(
+    request: ListInvitationsRequest,
+    callback: (error: ServiceError | null, response: ListInvitationsResponse) => void,
+  ): ClientUnaryCall;
+  listInvitations(
+    request: ListInvitationsRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: ListInvitationsResponse) => void,
+  ): ClientUnaryCall;
+  listInvitations(
+    request: ListInvitationsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: ListInvitationsResponse) => void,
+  ): ClientUnaryCall;
+  /** Accept Invitation */
+  acceptInvitation(
+    request: AcceptInvitationRequest,
+    callback: (error: ServiceError | null, response: AcceptInvitationResponse) => void,
+  ): ClientUnaryCall;
+  acceptInvitation(
+    request: AcceptInvitationRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: AcceptInvitationResponse) => void,
+  ): ClientUnaryCall;
+  acceptInvitation(
+    request: AcceptInvitationRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: AcceptInvitationResponse) => void,
+  ): ClientUnaryCall;
+  /** Reject Invitation */
+  rejectInvitation(
+    request: RejectInvitationRequest,
+    callback: (error: ServiceError | null, response: RejectInvitationResponse) => void,
+  ): ClientUnaryCall;
+  rejectInvitation(
+    request: RejectInvitationRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RejectInvitationResponse) => void,
+  ): ClientUnaryCall;
+  rejectInvitation(
+    request: RejectInvitationRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RejectInvitationResponse) => void,
+  ): ClientUnaryCall;
+  /** Revoke Invitation */
+  revokeInvitation(
+    request: RevokeInvitationRequest,
+    callback: (error: ServiceError | null, response: RevokeInvitationResponse) => void,
+  ): ClientUnaryCall;
+  revokeInvitation(
+    request: RevokeInvitationRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RevokeInvitationResponse) => void,
+  ): ClientUnaryCall;
+  revokeInvitation(
+    request: RevokeInvitationRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RevokeInvitationResponse) => void,
   ): ClientUnaryCall;
 }
 

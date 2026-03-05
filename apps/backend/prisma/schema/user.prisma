@@ -1,16 +1,15 @@
 model User {
-  id                   String               @id @db.Uuid
-  email                String               @unique @db.VarChar(255)
-  name                 String               @db.VarChar(255)
-  isOnboardingComplete Boolean              @default(false) @map("is_onboarding_complete")
-  createdAt            DateTime             @default(now()) @map("created_at")
-  updatedAt            DateTime             @updatedAt @map("updated_at")
-  memberships          OrganizationMember[]
-  ownedOrganizations   Organization[]       @relation("OrganizationOwner")
-  projectMembers       ProjectMember[]
-  nodes                Node[]
-  uploadedFabs         Fab[]
-  createdTrainingRuns  TrainingRun[]
+  id                   String  @id @db.Uuid
+  email                String  @unique @db.VarChar(254)
+  name                 String  @db.VarChar(100)
+  isOnboardingComplete Boolean @default(false) @map("is_onboarding_complete")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberships        OrganizationMember[]
+  ownedOrganizations Organization[]       @relation("OrganizationOwner")
+  projectMembers     ProjectMember[]
 
   @@map("users")
   @@schema("platform")

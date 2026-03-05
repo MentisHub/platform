@@ -1,7 +1,19 @@
-import type { Fab, TrainingRun, Organization } from '@prisma/client';
+export interface UploadFabInput {
+  organizationId: string;
+  userId: string;
+  description?: string;
+  isPublic?: boolean;
+  projectId?: string;
+  fileBuffer: Buffer;
+  originalname: string;
+  size: number;
+}
 
-export interface FabPackage {
-  trainingRun: TrainingRun;
-  fab: Fab & { organization?: Pick<Organization, 'name'> | null };
-  content: Buffer;
+export interface UploadDefaultFabInput {
+  userId: string;
+  description?: string;
+  isPublic?: boolean;
+  fileBuffer: Buffer;
+  originalname: string;
+  size: number;
 }

@@ -1,37 +1,50 @@
 import {
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
 import { ErrorCode } from '@platform/contracts';
-import type { Project } from '@prisma/client';
+import { Prisma, type Project } from '@prisma/client';
 import { FlowerService } from '../flower/services/flower.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateProjectDto, UpdateProjectDto } from './projects.dto';
+import { UpdateProjectDto } from './projects.dto';
+import { CreateProjectInput } from './projects.interface';
 
 @Injectable()
 export class ProjectsService {
+  private readonly logger: Logger = new Logger(ProjectsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => FlowerService))
     private readonly flowerService: FlowerService,
   ) {}
 
-  async create(
-    organizationId: string,
-    userId: string,
-    createProjectDto: CreateProjectDto,
-  ): Promise<Project> {
+  async create(input: CreateProjectInput): Promise<Project> {
     const project = await this.prisma.project.create({
       data: {
-        name: createProjectDto.name,
-        organizationId,
-        trainingConfig: createProjectDto.trainingConfig ?? undefined,
+        name: input.name,
+        organizationId: input.organizationId,
+        trainingConfig: input.trainingConfig ?? Prisma.JsonNull,
       },
     });
 
-    await this.flowerService.createFederation(project.id, project.name);
+    try {
+      await this.flowerService.createFederation(project.id, project.name);
+    } catch (error) {
+      this.logger.error(
+        {
+          action: 'project.create',
+          projectId: project.id,
+          projectName: project.name,
+          err: error instanceof Error ? error : new Error(String(error)),
+          issue: 'federation_creation_failed',
+        },
+        'Failed to create federation for project',
+      );
+    }
 
     return project;
   }
@@ -49,7 +62,7 @@ export class ProjectsService {
   ): Promise<Project> {
     const project = await this.getProjectById(projectId);
 
-    return this.prisma.project.update({
+    const updated = await this.prisma.project.update({
       where: { id: project.id },
       data: {
         ...(updateProjectDto.name !== undefined && {
@@ -60,6 +73,8 @@ export class ProjectsService {
         }),
       },
     });
+
+    return updated;
   }
 
   async remove(projectId: string): Promise<void> {

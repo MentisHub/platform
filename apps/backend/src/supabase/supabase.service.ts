@@ -4,7 +4,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 @Injectable()
 export class SupabaseService implements OnModuleInit {
-  private readonly logger = new Logger(SupabaseService.name);
+  private readonly logger: Logger = new Logger(SupabaseService.name);
   private client!: SupabaseClient<any, any, 'public', any, any>;
 
   constructor(private readonly config: ConfigService) {}
@@ -19,7 +19,13 @@ export class SupabaseService implements OnModuleInit {
       },
     });
 
-    this.logger.log('Supabase client initialized');
+    this.logger.log(
+      {
+        action: 'supabase.init',
+        url: supabaseUrl,
+      },
+      'Supabase client initialized',
+    );
   }
 
   getClient(): SupabaseClient<any, any, 'public', any, any> {
@@ -76,6 +82,18 @@ export class SupabaseService implements OnModuleInit {
 
     if (error && error.message !== 'Bucket already exists') {
       throw new Error(`Failed to create bucket: ${error.message}`);
+    }
+
+    if (!error) {
+      this.logger.log(
+        {
+          action: 'bucket.created',
+          bucketName: name,
+          isPublic: options?.public ?? false,
+          fileSizeLimit: options?.fileSizeLimit,
+        },
+        'Supabase bucket created',
+      );
     }
   }
 }

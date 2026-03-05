@@ -3,14 +3,11 @@ import {
   bootstrapResponseSchema,
   createNodeResponseSchema,
   createNodeSchema,
-  heartbeatResponseSchema,
   listNodesQuerySchema,
   nodeResponseSchema,
   paginatedNodesResponseSchema,
-  recoverRequestSchema,
-  recoverResponseSchema,
-  refreshTokenRequestSchema,
-  refreshTokenResponseSchema,
+  rotateRequestSchema,
+  rotateResponseSchema,
   updateNodeSchema,
 } from '@platform/contracts';
 import { Node } from '@prisma/client';
@@ -60,49 +57,19 @@ export class BootstrapResponseDto extends createZodDto(
   static fromEntity(bundle: NodeCertificateBundle): BootstrapResponseDto {
     return bootstrapResponseSchema.parse({
       rootCa: bundle.rootCa,
-      accessToken: bundle.accessToken,
-      refreshToken: bundle.refreshToken,
-      expiresAt: bundle.expiresAt.toISOString(),
+      clientCert: bundle.clientCert,
+      nodeId: bundle.nodeId,
     });
   }
 }
 
-export class RefreshTokenRequestDto extends createZodDto(
-  refreshTokenRequestSchema,
-) {}
+export class RotateRequestDto extends createZodDto(rotateRequestSchema) {}
 
-export class RefreshTokenResponseDto extends createZodDto(
-  refreshTokenResponseSchema,
-) {
-  static fromData(data: {
-    accessToken: string;
-    refreshToken: string;
-    expiresAt: Date;
-  }): RefreshTokenResponseDto {
-    return refreshTokenResponseSchema.parse({
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      expiresAt: data.expiresAt.toISOString(),
+export class RotateResponseDto extends createZodDto(rotateResponseSchema) {
+  static fromEntity(bundle: NodeCertificateBundle): RotateResponseDto {
+    return rotateResponseSchema.parse({
+      rootCa: bundle.rootCa,
+      clientCert: bundle.clientCert,
     });
   }
 }
-
-export class RecoverRequestDto extends createZodDto(recoverRequestSchema) {}
-
-export class RecoverResponseDto extends createZodDto(recoverResponseSchema) {
-  static fromData(data: {
-    accessToken: string;
-    refreshToken: string;
-    expiresAt: Date;
-  }): RecoverResponseDto {
-    return recoverResponseSchema.parse({
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      expiresAt: data.expiresAt.toISOString(),
-    });
-  }
-}
-
-export class HeartbeatResponseDto extends createZodDto(
-  heartbeatResponseSchema,
-) {}

@@ -22,13 +22,14 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_PRIVATE_KEY_PATH: /usr/src/app/certs/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /usr/src/app/certs/jwt_public.pem
-      BASE_URL: http://platform-backend:3000
-      OTEL_EXPORTER_URL: https://otel-collector:4317
+      BACKEND_INTERNAL_URL: http://platform-backend:3000
+      OTEL_INTERNAL_URL: https://otel-collector:4317
+      SUPERLINK_HOST: superlink
       BACKEND_CERT_PATH: /usr/src/app/certs/server.crt
       BACKEND_KEY_PATH: /usr/src/app/certs/server.key
       BACKEND_CA_PATH: /usr/src/app/certs/ca.crt
+      BACKEND_CA_KEY_PATH: /usr/src/app/certs/ca.key
       DOCKER_SOCKET: /var/run/docker.sock
-      SUPERLINK_HOST: superlink
     networks:
       - mentishub-network
     depends_on:

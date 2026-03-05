@@ -5,14 +5,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ErrorCode } from '@platform/contracts';
 import { Request } from 'express';
 import { AuthenticationService } from './auth.service';
 import { IS_PUBLIC_KEY } from './decorators/public.decorator';
-import {
-  NodePayloadData,
-  TokenType,
-  UserPayloadData,
-} from './interfaces/payload.interface';
+import { TokenType, UserPayloadData } from './interfaces/payload.interface';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -33,7 +30,7 @@ export class AuthGuard implements CanActivate {
 
     if (!token) {
       throw new UnauthorizedException({
-        statusCode: 401,
+        code: ErrorCode.TOKEN_NOT_PROVIDED,
         message: 'No access token provided',
       });
     }
@@ -45,11 +42,10 @@ export class AuthGuard implements CanActivate {
       );
       request.auth = { kind: TokenType.BEARER, payload };
     } else {
-      const payload = await this.authService.validateToken(
-        token.token,
-        NodePayloadData,
-      );
-      request.auth = { kind: TokenType.NODE, payload };
+      throw new UnauthorizedException({
+        code: ErrorCode.TOKEN_INVALID,
+        message: 'Token is invalid',
+      });
     }
 
     return true;

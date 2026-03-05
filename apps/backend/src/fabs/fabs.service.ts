@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ErrorCode } from '@platform/contracts';
@@ -8,8 +9,7 @@ import type { Fab } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
 import { SupabaseService } from '../supabase/supabase.service';
-import type { UploadDefaultFabDto, UploadFabDto } from './fabs.dto';
-import { FabPackage } from './fabs.interface';
+import type { UploadDefaultFabInput, UploadFabInput } from './fabs.interface';
 import {
   buildDefaultFabStoragePath,
   buildFabAccessFilter,
@@ -19,6 +19,7 @@ import {
 
 @Injectable()
 export class FabsService {
+  private readonly logger: Logger = new Logger(FabsService.name);
   private readonly storageBucket = 'fab';
 
   constructor(
@@ -27,15 +28,12 @@ export class FabsService {
     private readonly projectsService: ProjectsService,
   ) {}
 
-  async uploadFab(
-    organizationId: string,
-    userId: string,
-    dto: UploadFabDto,
-    file: Express.Multer.File,
-  ): Promise<Fab> {
-    if (dto.projectId) {
-      const project = await this.projectsService.getProjectById(dto.projectId);
-      if (project.organizationId !== organizationId) {
+  async uploadFab(input: UploadFabInput): Promise<Fab> {
+    if (input.projectId) {
+      const project = await this.projectsService.getProjectById(
+        input.projectId,
+      );
+      if (project.organizationId !== input.organizationId) {
         throw new NotFoundException({
           code: ErrorCode.PROJECT_NOT_FOUND,
           message: 'Project not found',
@@ -43,9 +41,12 @@ export class FabsService {
       }
     }
 
-    const metadata = extractFabMetadataFromFilename(file.originalname);
+    const metadata = extractFabMetadataFromFilename(input.originalname);
     const existingFab = await this.prisma.fab.findFirst({
-      where: { fabHash: metadata.fabHash },
+      where: {
+        fabHash: metadata.fabHash,
+        OR: [{ organizationId: input.organizationId }, { isDefault: true }],
+      },
     });
 
     if (existingFab) {
@@ -56,45 +57,59 @@ export class FabsService {
     }
 
     const storagePath = buildFabStoragePath(
-      organizationId,
+      input.organizationId,
       metadata.fabHash,
       metadata.version,
-      dto.projectId,
+      input.projectId,
     );
 
-    await this.supabase.uploadFile(
-      this.storageBucket,
-      storagePath,
-      file.buffer,
-    );
+    try {
+      await this.supabase.uploadFile(
+        this.storageBucket,
+        storagePath,
+        input.fileBuffer,
+      );
+    } catch (error) {
+      this.logger.error(
+        {
+          action: 'fab.upload',
+          organizationId: input.organizationId,
+          projectId: input.projectId,
+          storagePath,
+          fabHash: metadata.fabHash,
+          version: metadata.version,
+          err: error instanceof Error ? error : new Error(String(error)),
+          issue: 'storage_upload_failed',
+        },
+        'Failed to upload FAB to storage',
+      );
+      throw error;
+    }
 
-    return this.prisma.fab.create({
+    const fab = await this.prisma.fab.create({
       data: {
         name: metadata.name,
         publisherName: metadata.publisherName,
-        description: dto.description,
+        description: input.description,
         fabHash: metadata.fabHash,
         version: metadata.version,
         storagePath,
-        storageBucket: this.storageBucket,
-        sizeBytes: BigInt(file.size),
+        sizeBytes: BigInt(input.size),
         isDefault: false,
-        isPublic: dto.isPublic ?? false,
-        organizationId,
-        projectId: dto.projectId ?? null,
-        uploadedById: userId,
+        isPublic: input.isPublic ?? false,
+        organizationId: input.organizationId,
+        projectId: input.projectId ?? null,
+        uploadedBy: input.userId,
       },
     });
+
+    return fab;
   }
 
-  async uploadDefaultFab(
-    userId: string,
-    dto: UploadDefaultFabDto,
-    file: Express.Multer.File,
-  ): Promise<Fab> {
-    const metadata = extractFabMetadataFromFilename(file.originalname);
+  async uploadDefaultFab(input: UploadDefaultFabInput): Promise<Fab> {
+    const metadata = extractFabMetadataFromFilename(input.originalname);
     const existingFab = await this.prisma.fab.findFirst({
-      where: { fabHash: metadata.fabHash },
+      where: { fabHash: metadata.fabHash, AND: [{ isDefault: true }] },
     });
 
     if (existingFab) {
@@ -109,29 +124,59 @@ export class FabsService {
       metadata.version,
     );
 
-    await this.supabase.uploadFile(
-      this.storageBucket,
-      storagePath,
-      file.buffer,
-    );
+    try {
+      await this.supabase.uploadFile(
+        this.storageBucket,
+        storagePath,
+        input.fileBuffer,
+      );
+    } catch (error) {
+      this.logger.error(
+        {
+          action: 'fab.upload_default',
+          storagePath,
+          fabHash: metadata.fabHash,
+          version: metadata.version,
+          err: error instanceof Error ? error : new Error(String(error)),
+          issue: 'storage_upload_failed',
+        },
+        'Failed to upload default FAB to storage',
+      );
+      throw error;
+    }
 
-    return this.prisma.fab.create({
+    const fab = await this.prisma.fab.create({
       data: {
         name: metadata.name,
         publisherName: metadata.publisherName,
-        description: dto.description,
+        description: input.description,
         fabHash: metadata.fabHash,
         version: metadata.version,
         storagePath,
-        storageBucket: this.storageBucket,
-        sizeBytes: BigInt(file.size),
+        sizeBytes: BigInt(input.size),
         isDefault: true,
-        isPublic: dto.isPublic ?? true,
+        isPublic: input.isPublic ?? true,
         organizationId: null,
         projectId: null,
-        uploadedById: userId,
+        uploadedBy: input.userId,
       },
     });
+
+    this.logger.log(
+      {
+        action: 'fab.default_uploaded',
+        fabId: fab.id,
+        fabHash: fab.fabHash,
+        publisherName: fab.publisherName,
+        name: fab.name,
+        version: fab.version,
+        sizeBytes: Number(fab.sizeBytes),
+        userId: input.userId,
+      },
+      'Default FAB uploaded successfully',
+    );
+
+    return fab;
   }
 
   async listFabs(organizationId: string, projectId?: string): Promise<Fab[]> {
@@ -178,113 +223,46 @@ export class FabsService {
 
   async downloadFabById(fabId: string): Promise<Buffer> {
     const fab = await this.getFabById(fabId);
-    return this.supabase.downloadFile(this.storageBucket, fab.storagePath);
+    try {
+      return await this.supabase.downloadFile(
+        this.storageBucket,
+        fab.storagePath,
+      );
+    } catch (error) {
+      this.logger.error(
+        {
+          action: 'fab.download',
+          fabId,
+          storagePath: fab.storagePath,
+          err: error instanceof Error ? error : new Error(String(error)),
+          issue: 'storage_download_failed',
+        },
+        'Failed to download FAB from storage',
+      );
+      throw error;
+    }
   }
 
   async downloadFab(fabId: string, organizationId: string): Promise<Buffer> {
     const fab = await this.getFab(fabId, organizationId);
-    return this.supabase.downloadFile(this.storageBucket, fab.storagePath);
-  }
-
-  async getFabPackageByNode(nodeId: string): Promise<FabPackage> {
-    const node = await this.prisma.node.findUnique({
-      where: { id: nodeId },
-      include: {
-        project: {
-          include: {
-            trainingRuns: {
-              where: {
-                status: 'RUNNING',
-              },
-              include: {
-                fab: true,
-              },
-              take: 1,
-            },
-          },
+    try {
+      return await this.supabase.downloadFile(
+        this.storageBucket,
+        fab.storagePath,
+      );
+    } catch (error) {
+      this.logger.error(
+        {
+          action: 'fab.download',
+          fabId,
+          organizationId,
+          storagePath: fab.storagePath,
+          err: error instanceof Error ? error : new Error(String(error)),
+          issue: 'storage_download_failed',
         },
-      },
-    });
-
-    if (!node || !node.project) {
-      throw new BadRequestException({
-        code: ErrorCode.NODE_NOT_FOUND,
-        message: 'Node not found or not associated with a project',
-      });
+        'Failed to download FAB from storage',
+      );
+      throw error;
     }
-
-    const activeTraining = node.project.trainingRuns[0];
-
-    if (!activeTraining) {
-      throw new BadRequestException({
-        code: ErrorCode.TRAINING_NOT_FOUND,
-        message: 'No active training run found for this node',
-      });
-    }
-
-    const fab = activeTraining.fab || (await this.getDefaultFab());
-
-    const content = await this.supabase.downloadFile(
-      this.storageBucket,
-      fab.storagePath,
-    );
-
-    return { trainingRun: activeTraining, fab, content };
-  }
-
-  async getFabMetadataByNode(nodeId: string) {
-    const node = await this.prisma.node.findUnique({
-      where: { id: nodeId },
-      include: {
-        project: {
-          include: {
-            trainingRuns: {
-              where: {
-                status: 'RUNNING',
-              },
-              include: {
-                fab: true,
-              },
-              take: 1,
-            },
-          },
-        },
-      },
-    });
-
-    if (!node || !node.project) {
-      return this.getDefaultFab();
-    }
-
-    const activeTraining = node.project.trainingRuns[0];
-    const fab = activeTraining?.fab;
-
-    if (fab) {
-      return fab;
-    }
-
-    return this.getDefaultFab();
-  }
-
-  private async getDefaultFab() {
-    const defaultFab = await this.prisma.fab.findFirst({
-      where: { isDefault: true },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        organization: {
-          select: { name: true },
-        },
-      },
-    });
-
-    if (!defaultFab) {
-      throw new NotFoundException({
-        code: ErrorCode.FAB_NOT_FOUND,
-        message:
-          'No FAB associated with this node and no default FAB available',
-      });
-    }
-
-    return defaultFab;
   }
 }

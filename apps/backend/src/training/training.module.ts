@@ -18,19 +18,11 @@ import { ProjTrainingController } from './training.controller';
     DockerModule,
     forwardRef(() => FlowerModule),
     forwardRef(() => FabsModule),
-    ProjectsModule,
+    forwardRef(() => ProjectsModule),
     forwardRef(() => NodesModule),
   ],
   controllers: [ProjTrainingController],
-  providers: [
-    TrainingService,
-    RoundService,
-    RoundParticipantService,
-  ],
-  exports: [
-    TrainingService,
-    RoundService,
-    RoundParticipantService,
-  ],
+  providers: [TrainingService, RoundService, RoundParticipantService],
+  exports: [TrainingService, RoundService, RoundParticipantService],
 })
 export class TrainingModule {}

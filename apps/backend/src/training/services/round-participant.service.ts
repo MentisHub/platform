@@ -1,18 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import {
-  CreateRoundParticipantInput,
-  UpdateRoundParticipantInput,
-} from '../interfaces/round.interface';
 
 @Injectable()
 export class RoundParticipantService {
-  private readonly logger = new Logger(RoundParticipantService.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
-  async upsertParticipant(data: CreateRoundParticipantInput) {
+  async upsert(data: Prisma.RoundParticipantUncheckedCreateInput) {
     const createData = {
       ...data,
       metrics: data.metrics === null ? Prisma.JsonNull : data.metrics,
@@ -20,8 +14,8 @@ export class RoundParticipantService {
 
     const updateData = {
       completedAt: data.completedAt,
-      metrics: data.metrics === null ? Prisma.JsonNull : data.metrics,
       failureReason: data.failureReason,
+      metrics: data.metrics === null ? Prisma.JsonNull : data.metrics,
     };
 
     return this.prisma.roundParticipant.upsert({
@@ -36,22 +30,21 @@ export class RoundParticipantService {
     });
   }
 
-  async updateParticipant(
+  async update(
     roundId: string,
     nodeId: string,
-    data: UpdateRoundParticipantInput,
+    data: Prisma.RoundParticipantUncheckedUpdateInput,
   ) {
-    const updateData = {
+    const updateData: Prisma.RoundParticipantUncheckedUpdateInput = {
       ...data,
-      metrics: data.metrics === null ? Prisma.JsonNull : data.metrics,
+      ...(data.metrics !== undefined && {
+        metrics: data.metrics === null ? Prisma.JsonNull : data.metrics,
+      }),
     };
 
     return this.prisma.roundParticipant.update({
       where: {
-        roundId_nodeId: {
-          roundId,
-          nodeId,
-        },
+        roundId_nodeId: { roundId, nodeId },
       },
       data: updateData,
     });

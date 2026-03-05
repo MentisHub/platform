@@ -1,4 +1,5 @@
-import { Fab, PrismaClient } from '@prisma/client';
+import { Fab, Organization, PrismaClient, Project } from '@prisma/client';
+import { createHash } from 'crypto';
 import { readdir } from 'fs/promises';
 import { join } from 'path';
 import {
@@ -6,69 +7,162 @@ import {
   parseFABFilename,
 } from '../helpers/fab-upload.helper.js';
 import { uploadFABToStorage } from '../helpers/supabase.helper.js';
-import { OrganizationWithMembers } from './organizations.seed.js';
 
 const DEFAULT_FABS_DIR = join(
   process.cwd(),
   'prisma/seed/fixtures/fabs/default',
 );
 
-export async function seedFABs(
-  prisma: PrismaClient,
-  orgsWithMembers: OrganizationWithMembers[],
-): Promise<Fab[]> {
-  console.log(`Loading FABs from: ${DEFAULT_FABS_DIR}`);
+export interface FixtureFAB {
+  filePath: string;
+  name: string;
+  publisher: string;
+  version: string;
+  hash: string;
+  sizeBytes: bigint;
+}
 
+async function loadFixtureFABs(): Promise<FixtureFAB[]> {
   const files = await readdir(DEFAULT_FABS_DIR);
-  const fabFiles = files.filter((file) => file.endsWith('.fab'));
+  const fabFiles = files.filter((f) => f.endsWith('.fab'));
 
-  if (fabFiles.length === 0) {
-    console.warn('No FAB files found in fixtures/fabs/default directory');
-    return [];
+  const fixtures: FixtureFAB[] = [];
+
+  for (const fileName of fabFiles) {
+    const filePath = join(DEFAULT_FABS_DIR, fileName);
+    const metadata = await extractFABMetadata(filePath);
+    const parsed = parseFABFilename(metadata.fileName);
+    fixtures.push({
+      filePath,
+      name: parsed.name,
+      publisher: parsed.publisher,
+      version: parsed.version,
+      hash: parsed.hash,
+      sizeBytes: metadata.sizeBytes,
+    });
   }
 
-  console.log(`  Found ${fabFiles.length} FAB file(s)`);
+  return fixtures;
+}
 
-  const firstUser = orgsWithMembers[0].organization.ownerId;
-  const createdFabs: Fab[] = [];
+function scopedHash(originalHash: string, scope: string): string {
+  return createHash('sha256')
+    .update(`${originalHash}:${scope}`)
+    .digest('hex')
+    .slice(0, 8);
+}
 
-  for (const fabFileName of fabFiles) {
-    const fabPath = join(DEFAULT_FABS_DIR, fabFileName);
+export async function seedDefaultFabs(
+  prisma: PrismaClient,
+  uploaderId: string,
+): Promise<{ fabs: Fab[]; fixture: FixtureFAB | null }> {
+  const fixtures = await loadFixtureFABs();
 
+  if (fixtures.length === 0) {
+    console.warn('  No FAB files found in fixtures/fabs/default');
+    return { fabs: [], fixture: null };
+  }
+
+  const fabs: Fab[] = [];
+
+  for (const fixture of fixtures) {
     try {
-      const fabMetadata = await extractFABMetadata(fabPath);
-      const { name, version, hash, publisher } = parseFABFilename(
-        fabMetadata.fileName,
-      );
-
-      const storagePath = `default/${hash}-${version}.fab`;
-      await uploadFABToStorage(fabPath, storagePath);
+      const storagePath = `default/${fixture.hash}-${fixture.version}.fab`;
+      await uploadFABToStorage(fixture.filePath, storagePath);
 
       const fab = await prisma.fab.create({
         data: {
-          name,
-          publisherName: publisher,
-          description: `Default ${name} FAB for development and testing`,
-          version,
-          fabHash: hash,
+          name: fixture.name,
+          publisherName: fixture.publisher,
+          description: `Default system FAB — available to all organizations`,
+          version: fixture.version,
+          fabHash: fixture.hash,
           storagePath,
-          storageBucket: 'fab',
-          sizeBytes: fabMetadata.sizeBytes,
+          sizeBytes: fixture.sizeBytes,
           isDefault: true,
           isPublic: true,
-          organizationId: null,
-          projectId: null,
-          uploadedById: firstUser,
+          uploadedBy: uploaderId,
         },
       });
 
-      createdFabs.push(fab);
-      console.log(`  Created FAB record (id: ${fab.id})`);
+      fabs.push(fab);
+      console.log(
+        `  [FAB:DEFAULT]   ${fixture.name}@${fixture.version}  →  ${fab.id}`,
+      );
     } catch (error) {
-      console.error(`  Failed to process ${fabFileName}:`, error);
+      console.error(`  Failed to process ${fixture.name}:`, error);
     }
   }
 
-  console.log(`\n  Successfully seeded ${createdFabs.length} default FAB(s)`);
-  return createdFabs;
+  return { fabs, fixture: fixtures[0] ?? null };
+}
+
+export async function createOrgFab(
+  prisma: PrismaClient,
+  organization: Organization,
+  fixture: FixtureFAB,
+): Promise<Fab | null> {
+  const hash = scopedHash(fixture.hash, `org:${organization.id}`);
+  const storagePath = `organizations/${organization.id}/${hash}-${fixture.version}.fab`;
+
+  try {
+    await uploadFABToStorage(fixture.filePath, storagePath);
+
+    return await prisma.fab.create({
+      data: {
+        name: fixture.name,
+        publisherName: fixture.publisher,
+        description: `Org-scoped FAB for "${organization.name}" — accessible to all its projects`,
+        version: fixture.version,
+        fabHash: hash,
+        storagePath,
+        sizeBytes: fixture.sizeBytes,
+        isDefault: false,
+        isPublic: false,
+        organizationId: organization.id,
+        uploadedBy: organization.ownerId,
+      },
+    });
+  } catch (error) {
+    console.error(
+      `  Failed to seed org FAB for "${organization.name}":`,
+      error,
+    );
+    return null;
+  }
+}
+
+export async function createProjectFab(
+  prisma: PrismaClient,
+  project: Project,
+  organizationId: string,
+  orgOwner: string,
+  fixture: FixtureFAB,
+): Promise<Fab | null> {
+  const hash = scopedHash(fixture.hash, `project:${project.id}`);
+  const storagePath = `organizations/${organizationId}/projects/${project.id}/${hash}-${fixture.version}.fab`;
+
+  try {
+    await uploadFABToStorage(fixture.filePath, storagePath);
+
+    return await prisma.fab.create({
+      data: {
+        name: fixture.name,
+        publisherName: fixture.publisher,
+        description: `Project-scoped FAB for "${project.name}"`,
+        version: fixture.version,
+        fabHash: hash,
+        storagePath,
+        sizeBytes: fixture.sizeBytes,
+        isDefault: false,
+        isPublic: false,
+        organizationId,
+        projectId: project.id,
+        uploadedBy: orgOwner,
+      },
+    });
+  } catch (error) {
+    console.error(`  Failed to seed project FAB for "${project.name}":`, error);
+    return null;
+  }
 }

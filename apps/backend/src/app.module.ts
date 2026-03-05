@@ -7,6 +7,7 @@ import { AuthorizationModule } from './authorization/auth.module';
 import { FabsModule } from './fabs/fabs.module';
 import { FlowerModule, FlowerSyncModule } from './flower/flower.module';
 import { HealthController } from './health/health.controller';
+import { LoggingModule } from './logging/logging.module';
 import { NodesModule } from './nodes/nodes.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -18,6 +19,7 @@ import { TrainingModule } from './training/training.module';
       isGlobal: true,
       ignoreEnvFile: true,
     }),
+    LoggingModule,
     AuthenticationModule,
     AuthorizationModule,
     PrismaModule,

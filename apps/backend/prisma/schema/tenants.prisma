@@ -1,9 +1,11 @@
 model Organization {
-  id                   String                @id @default(uuid()) @db.Uuid
-  name                 String                @db.VarChar(255)
-  ownerId              String                @map("owner_id") @db.Uuid
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
+  id      String @id @default(uuid()) @db.Uuid
+  name    String @db.VarChar(100)
+  ownerId String @map("owner_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   nodes                Node[]
   fabs                 Fab[]
   members              OrganizationMember[]
@@ -17,12 +19,16 @@ model Organization {
 }
 
 model OrganizationMember {
-  organizationId String       @map("organization_id") @db.Uuid
-  userId         String       @map("user_id") @db.Uuid
-  role           OrgRole      @default(MEMBER)
-  joinedAt       DateTime     @default(now()) @map("joined_at")
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role OrgRole @default(MEMBER)
+
+  organizationId String  @map("organization_id") @db.Uuid
+  userId         String  @map("user_id") @db.Uuid
+  invitedBy      String? @map("invited_by_id") @db.Uuid
+
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([organizationId, userId])
   @@map("organization_members")
@@ -30,32 +36,38 @@ model OrganizationMember {
 }
 
 model Project {
-  id              String                @id @default(uuid()) @db.Uuid
-  name            String                @db.VarChar(255)
-  organizationId  String                @map("organization_id") @db.Uuid
-  trainingConfig  Json?                 @map("training_config")
-  federationName  String                @map("federation_name") @db.VarChar(255)
-  createdAt       DateTime              @default(now()) @map("created_at")
-  updatedAt       DateTime              @updatedAt @map("updated_at")
-  nodes           Node[]
-  collaborators   ProjectCollaborator[]
-  fabs            Fab[]
-  projectMembers  ProjectMember[]
-  organization    Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  trainingRuns    TrainingRun[]
+  id             String @id @default(uuid()) @db.Uuid
+  name           String @db.VarChar(100)
+  trainingConfig Json?  @map("training_config")
+
+  organizationId String  @map("organization_id") @db.Uuid
+  createdBy      String? @map("created_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  nodes          Node[]
+  collaborators  ProjectCollaborator[]
+  fabs           Fab[]
+  projectMembers ProjectMember[]
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  trainingRuns   TrainingRun[]
 
   @@map("projects")
   @@schema("platform")
 }
 
 model ProjectCollaborator {
-  projectId      String       @map("project_id") @db.Uuid
-  organizationId String       @map("organization_id") @db.Uuid
-  invitedBy      String?      @map("invited_by") @db.Uuid
-  invitedAt      DateTime     @default(now()) @map("invited_at")
-  acceptedAt     DateTime?    @map("accepted_at")
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String @map("project_id") @db.Uuid
+
+  organizationId String  @map("organization_id") @db.Uuid
+  invitedBy      String? @map("invited_by") @db.Uuid
+
+  invitedAt  DateTime  @default(now()) @map("invited_at")
+  acceptedAt DateTime? @map("accepted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@id([projectId, organizationId])
   @@map("project_collaborators")
@@ -63,13 +75,16 @@ model ProjectCollaborator {
 }
 
 model ProjectMember {
-  projectId String      @map("project_id") @db.Uuid
-  userId    String      @map("user_id") @db.Uuid
-  invitedBy String?     @map("invited_by") @db.Uuid
-  invitedAt DateTime    @default(now()) @map("invited_at")
-  role      ProjectRole @default(MEMBER)
-  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String @map("project_id") @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+
+  invitedBy String?  @map("invited_by") @db.Uuid
+  invitedAt DateTime @default(now()) @map("invited_at")
+
+  role    ProjectRole @default(MEMBER)
+  project Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([projectId, userId])
   @@index([userId])

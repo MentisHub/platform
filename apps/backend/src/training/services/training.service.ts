@@ -6,19 +6,27 @@ import {
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ErrorCode } from '@platform/contracts';
-import type { Prisma, TrainingRun } from '@prisma/client';
+import {
+  NodeStatus,
+  Prisma,
+  TrainingStatus,
+  type TrainingRun,
+} from '@prisma/client';
 import { NodesService } from 'src/nodes/services/nodes.service';
 import { DockerService } from '../../docker/docker.service';
 import { FabsService } from '../../fabs/fabs.service';
 import { FlowerService } from '../../flower/services/flower.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProjectsService } from '../../projects/projects.service';
+import {
+  CreateTrainingRunInput,
+  DeployServerAppInput,
+} from '../training.interface';
 
 @Injectable()
 export class TrainingService {
-  private readonly logger = new Logger(TrainingService.name);
+  private readonly logger: Logger = new Logger(TrainingService.name);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -28,36 +36,29 @@ export class TrainingService {
     private readonly fabsService: FabsService,
     private readonly projectsService: ProjectsService,
     private readonly dockerService: DockerService,
-    private readonly configService: ConfigService,
   ) {}
 
-  async createTrainingRun(
-    organizationId: string,
-    projectId: string,
-    userId: string,
-    fabId: string,
-  ): Promise<TrainingRun> {
-    await this.projectsService.getProjectById(projectId);
-    await this.fabsService.getFab(fabId, organizationId);
+  async createTrainingRun(input: CreateTrainingRunInput): Promise<TrainingRun> {
+    await this.projectsService.getProjectById(input.projectId);
+    await this.fabsService.getFab(input.fabId, input.organizationId);
 
-    return this.prisma.trainingRun.create({
+    const trainingRun = await this.prisma.trainingRun.create({
       data: {
-        projectId,
-        status: 'PENDING',
-        fabId,
-        createdById: userId,
+        projectId: input.projectId,
+        status: TrainingStatus.PENDING,
+        fabId: input.fabId,
+        createdBy: input.userId,
       },
     });
+
+    return trainingRun;
   }
 
-  async deployServerApp(
-    organizationId: string,
-    trainingRunId: string,
-    userId: string,
-  ): Promise<TrainingRun> {
+  async deployServerApp(input: DeployServerAppInput): Promise<TrainingRun> {
+    const { organizationId, trainingRunId, userId } = input;
     const trainingRun = await this.getTrainingRun(trainingRunId);
 
-    if (trainingRun.status !== 'PENDING') {
+    if (trainingRun.status !== TrainingStatus.PENDING) {
       throw new BadRequestException({
         code: ErrorCode.INVALID_TRAINING_STATUS,
         message: 'Training run must be in PENDING status to deploy ServerApp',
@@ -65,34 +66,37 @@ export class TrainingService {
     }
 
     await this.update(trainingRunId, {
-      status: 'DEPLOYING',
+      status: TrainingStatus.DEPLOYING,
     });
+
+    this.logger.log(
+      {
+        action: 'serverapp.deploy_started',
+        runId: trainingRunId,
+        projectId: trainingRun.projectId,
+      },
+      'Starting ServerApp deployment',
+    );
 
     let nodeId: string | null = null;
     let containerName: string | null = null;
 
     try {
-      const { node, psk } = await this.nodesService.create(
+      const { node, psk } = await this.nodesService.create({
         organizationId,
         userId,
-        {
-          name: `serverapp-${trainingRunId.slice(0, 8)}`,
-          projectId: trainingRun.projectId,
-        },
-      );
+        name: `serverapp-${trainingRunId.slice(0, 8)}`,
+        projectId: trainingRun.projectId,
+      });
       nodeId = node.id;
 
       await this.update(trainingRunId, {
         serverAppNode: { connect: { id: node.id } },
       });
 
-      const superlinkHost =
-        this.configService.getOrThrow<string>('SUPERLINK_HOST');
-
       containerName = await this.dockerService.startSuperExecContainer(
         trainingRunId,
         psk,
-        superlinkHost,
       );
 
       await this.nodesService.update(node.id, {
@@ -102,80 +106,119 @@ export class TrainingService {
       });
 
       const updatedTrainingRun = await this.update(trainingRunId, {
-        status: 'READY',
+        status: TrainingStatus.READY,
       });
 
-      this.logger.log({
-        message: 'ServerApp deployed successfully',
-        trainingRunId,
-        nodeId: node.id,
-        containerName,
-      });
+      this.logger.log(
+        {
+          action: 'serverapp.deployed',
+          runId: trainingRunId,
+          nodeId: node.id,
+          containerName,
+        },
+        'ServerApp deployed successfully',
+      );
 
       return updatedTrainingRun;
     } catch (error) {
-      this.logger.error({
-        message: 'ServerApp deployment failed, rolling back',
-        trainingRunId,
-        nodeId,
-        containerName,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      this.logger.error(
+        {
+          action: 'serverapp.deploy',
+          runId: trainingRunId,
+          nodeId,
+          containerName,
+          err: error instanceof Error ? error : new Error(String(error)),
+        },
+        'ServerApp deployment failed, initiating rollback',
+      );
 
       if (containerName) {
         try {
           await this.dockerService.stopSuperExecContainer(containerName);
-          this.logger.log({
-            message: 'Container stopped during rollback',
-            trainingRunId,
-            containerName,
-          });
+          this.logger.debug(
+            {
+              action: 'serverapp.rollback',
+              runId: trainingRunId,
+              containerName,
+              step: 'container_stopped',
+            },
+            'Container stopped during rollback',
+          );
         } catch (stopError) {
-          this.logger.error({
-            message: 'Failed to stop container during rollback',
-            containerName,
-            error:
-              stopError instanceof Error ? stopError.message : 'Unknown error',
-          });
+          this.logger.error(
+            {
+              action: 'serverapp.rollback',
+              runId: trainingRunId,
+              containerName,
+              step: 'container_stop_failed',
+              err:
+                stopError instanceof Error
+                  ? stopError
+                  : new Error(String(stopError)),
+              issue: 'rollback_container_stop_failed',
+            },
+            'Failed to stop container during rollback',
+          );
         }
       }
 
       if (nodeId) {
         try {
           await this.nodesService.remove(nodeId);
-          this.logger.log({
-            message: 'Node deleted during rollback',
-            trainingRunId,
-            nodeId,
-          });
+          this.logger.debug(
+            {
+              action: 'serverapp.rollback',
+              runId: trainingRunId,
+              nodeId,
+              step: 'node_deleted',
+            },
+            'Node deleted during rollback',
+          );
         } catch (deleteError) {
-          this.logger.error({
-            message: 'Failed to delete node during rollback',
-            nodeId,
-            error:
-              deleteError instanceof Error
-                ? deleteError.message
-                : 'Unknown error',
-          });
+          this.logger.error(
+            {
+              action: 'serverapp.rollback',
+              runId: trainingRunId,
+              nodeId,
+              step: 'node_delete_failed',
+              err:
+                deleteError instanceof Error
+                  ? deleteError
+                  : new Error(String(deleteError)),
+              issue: 'rollback_node_delete_failed',
+            },
+            'Failed to delete node during rollback',
+          );
         }
       }
 
       try {
         await this.update(trainingRunId, {
-          status: 'PENDING',
+          status: TrainingStatus.PENDING,
           serverAppNode: { disconnect: true },
         });
-        this.logger.log({
-          message: 'Training run status reset to PENDING during rollback',
-          trainingRunId,
-        });
+        this.logger.debug(
+          {
+            action: 'serverapp.rollback',
+            runId: trainingRunId,
+            step: 'status_reset',
+          },
+          'Training run status reset to PENDING during rollback',
+        );
       } catch (resetError) {
-        this.logger.error({
-          message: 'Failed to reset training run status during rollback',
-          trainingRunId,
-          error:
-            resetError instanceof Error ? resetError.message : 'Unknown error',
-        });
+        this.logger.error(
+          {
+            action: 'serverapp.rollback',
+            runId: trainingRunId,
+            step: 'status_reset_failed',
+            err:
+              resetError instanceof Error
+                ? resetError
+                : new Error(String(resetError)),
+            issue: 'rollback_status_reset_failed',
+          },
+          'Failed to reset training run status during rollback',
+        );
       }
 
       throw error;
@@ -185,7 +228,7 @@ export class TrainingService {
   async runTraining(trainingRunId: string): Promise<TrainingRun> {
     const trainingRun = await this.getTrainingRun(trainingRunId);
 
-    if (trainingRun.status !== 'READY') {
+    if (trainingRun.status !== TrainingStatus.READY) {
       throw new BadRequestException({
         code: ErrorCode.INVALID_TRAINING_STATUS,
         message: `Training must be in READY status to run. Current status: ${trainingRun.status}`,
@@ -204,7 +247,7 @@ export class TrainingService {
     );
 
     const initializingNodes = projectNodes.filter(
-      (node) => node.status === 'INITIALIZING',
+      (node) => node.status === NodeStatus.INITIALIZING,
     );
 
     if (initializingNodes.length > 0) {
@@ -214,16 +257,20 @@ export class TrainingService {
       });
     }
 
-    const activeNodes = projectNodes.filter((node) => node.status === 'ACTIVE');
+    const trainingNodes = projectNodes.filter(
+      (node) => node.status === NodeStatus.TRAINING,
+    );
 
-    if (activeNodes.length > 0) {
+    if (trainingNodes.length > 0) {
       throw new BadRequestException({
         code: ErrorCode.NODES_ALREADY_ACTIVE,
-        message: `${activeNodes.length} node(s) already participating in active training. Complete or stop current training first.`,
+        message: `${trainingNodes.length} node(s) already participating in active training. Complete or stop current training first.`,
       });
     }
 
-    const readyNodes = projectNodes.filter((node) => node.status === 'READY');
+    const readyNodes = projectNodes.filter(
+      (node) => node.status === NodeStatus.READY,
+    );
 
     if (readyNodes.length === 0) {
       throw new BadRequestException('No ready nodes available for training');
@@ -250,18 +297,25 @@ export class TrainingService {
 
     await Promise.all(
       readyNodes.map((node) =>
-        this.nodesService.updateNodeStatus(node.id, 'ACTIVE'),
+        this.nodesService.update(node.id, { status: NodeStatus.TRAINING }),
       ),
     );
 
-    this.logger.log({
-      message: 'Training started, nodes marked as ACTIVE',
-      trainingRunId,
-      nodeIds: readyNodes.map((node) => node.id),
-    });
+    this.logger.log(
+      {
+        action: 'run.started',
+        runId: trainingRunId,
+        flowerRunId,
+        projectId: project.id,
+        fabId: fab.id,
+        nodeCount: readyNodes.length,
+        nodeIds: readyNodes.map((node) => node.id),
+      },
+      'Training started, nodes marked as TRAINING',
+    );
 
     const updatedTrainingRun = await this.update(trainingRunId, {
-      status: 'RUNNING',
+      status: TrainingStatus.RUNNING,
       startedAt: new Date(),
       flowerRunId,
     });
@@ -323,6 +377,32 @@ export class TrainingService {
   async getRunByFlowerId(runId: string) {
     return this.prisma.trainingRun.findFirst({
       where: { flowerRunId: runId },
+    });
+  }
+
+  async completeRun(runId: string, completedAt: Date): Promise<TrainingRun> {
+    const latestRound = await this.prisma.round.findFirst({
+      where: { runId },
+      orderBy: { number: 'desc' },
+    });
+
+    return this.prisma.trainingRun.update({
+      where: { id: runId },
+      data: {
+        status: TrainingStatus.COMPLETED,
+        completedAt,
+        metrics: latestRound?.metrics ?? Prisma.JsonNull,
+      },
+    });
+  }
+
+  async failRun(runId: string, completedAt: Date): Promise<TrainingRun> {
+    return this.prisma.trainingRun.update({
+      where: { id: runId },
+      data: {
+        status: TrainingStatus.FAILED,
+        completedAt,
+      },
     });
   }
 }

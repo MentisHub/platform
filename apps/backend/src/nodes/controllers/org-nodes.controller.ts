@@ -75,11 +75,13 @@ export class OrgNodesController {
     @Body() createNodeDto: CreateNodeDto,
     @UserPayload() jwtPayload: UserPayloadData,
   ): Promise<CreateNodeResponseDto> {
-    const { node, psk } = await this.nodesService.create(
+    const { node, psk } = await this.nodesService.create({
       organizationId,
-      jwtPayload.sub,
-      createNodeDto,
-    );
+      userId: jwtPayload.sub,
+      name: createNodeDto.name,
+      projectId: createNodeDto.projectId ?? undefined,
+      metadata: createNodeDto.metadata,
+    });
 
     return CreateNodeResponseDto.fromEntityWithPSK(node, psk);
   }

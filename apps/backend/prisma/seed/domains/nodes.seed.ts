@@ -1,94 +1,172 @@
 import { faker } from '@faker-js/faker';
 import { Node, NodeStatus, PrismaClient } from '@prisma/client';
 import { generatePSKWithHash } from '../../../src/utils/index.js';
-import { OrganizationWithMembers } from './organizations.seed.js';
-import { ProjectWithOrg } from './projects.seed.js';
+import { uuidToBase32 } from '../../../src/utils/uuid.util.js';
 
-export async function seedNodes(
+export interface ProjectNodeResult {
+  createdNodes: Node[];
+  readyNodes: Node[];
+  initializingNodes: Node[];
+  offlineNodes: Node[];
+  errorNodes: Node[];
+  createdNodePsks: Record<string, string>;
+}
+
+function nodeMetadata() {
+  return {
+    cpu: faker.number.int({ min: 2, max: 32 }),
+    memory: `${faker.number.int({ min: 4, max: 128 })}GB`,
+    gpu: faker.helpers.arrayElement([
+      null,
+      'NVIDIA RTX 3090',
+      'NVIDIA RTX 4090',
+      'NVIDIA A100',
+      'NVIDIA V100',
+      'AMD MI250',
+    ]),
+    region: faker.location.country(),
+    os: faker.helpers.arrayElement([
+      'Ubuntu 22.04',
+      'Ubuntu 20.04',
+      'Debian 11',
+      'CentOS 8',
+    ]),
+  };
+}
+
+export async function createNodesForProject(
   prisma: PrismaClient,
-  orgsWithMembers: OrganizationWithMembers[],
-  projects: ProjectWithOrg[],
-): Promise<Node[]> {
-  const nodes = await Promise.all(
-    orgsWithMembers.flatMap(({ organization, memberIds }) => {
-      const nodeCount = faker.number.int({ min: 3, max: 6 });
-      const orgProjects = projects.filter(
-        (p) => p.organizationId === organization.id,
-      );
-      const allOrgUsers = [organization.ownerId, ...memberIds];
+  projectId: string,
+  organizationId: string,
+  createdBy: string,
+): Promise<ProjectNodeResult> {
+  const createdNodes: Node[] = [];
+  const readyNodes: Node[] = [];
+  const initializingNodes: Node[] = [];
+  const offlineNodes: Node[] = [];
+  const errorNodes: Node[] = [];
+  const createdNodePsks: Record<string, string> = {};
 
-      return Array.from({ length: nodeCount }).map(() => {
-        // Realistic status distribution
-        const statusDistribution: NodeStatus[] = [
-          NodeStatus.READY, // 50% ready to use
-          NodeStatus.READY,
-          NodeStatus.READY,
-          NodeStatus.READY,
-          NodeStatus.READY,
-          NodeStatus.ACTIVE, // 20% actively training
-          NodeStatus.ACTIVE,
-          NodeStatus.CREATED, // 10% just created
-          NodeStatus.OFFLINE, // 10% offline
-          NodeStatus.ERROR, // 10% with errors
-        ];
+  // CREATED
+  const createdCount = faker.number.int({ min: 3, max: 6 });
+  for (let i = 0; i < createdCount; i++) {
+    const { psk, hash } = generatePSKWithHash();
+    const node = await prisma.node.create({
+      data: {
+        name: `node-${faker.string.alphanumeric(8)}`,
+        status: NodeStatus.CREATED,
+        pskHash: hash,
+        metadata: nodeMetadata(),
+        organizationId,
+        projectId,
+        createdById: createdBy,
+      },
+    });
+    const fullPsk = `${uuidToBase32(node.id)}.${psk}`;
+    createdNodePsks[node.id] = fullPsk;
+    createdNodes.push(node);
+  }
 
-        const status = faker.helpers.arrayElement(statusDistribution);
-        const { hash } = generatePSKWithHash();
+  // INITIALIZING
+  {
+    const { hash } = generatePSKWithHash();
+    const activatedAt = faker.date.recent({ days: 1 });
+    const node = await prisma.node.create({
+      data: {
+        name: `node-${faker.string.alphanumeric(8)}`,
+        status: NodeStatus.INITIALIZING,
+        pskHash: hash,
+        flowerNodeId: faker.string.uuid(),
+        ecPublicKey: Buffer.from(faker.string.alphanumeric(64)).toString(
+          'base64',
+        ),
+        metadata: nodeMetadata(),
+        organizationId,
+        projectId,
+        createdById: createdBy,
+        activatedAt,
+        lastActiveAt: activatedAt,
+      },
+    });
+    initializingNodes.push(node);
+    console.log(`    [NODE:INIT]      ${node.name}  →  ${node.id}`);
+  }
 
-        return prisma.node.create({
-          data: {
-            name: `node-${faker.string.alphanumeric(8)}`,
-            pskHash: hash,
-            status,
-            metadata: {
-              cpu: faker.number.int({ min: 2, max: 32 }),
-              memory: `${faker.number.int({ min: 4, max: 128 })}GB`,
-              gpu: faker.helpers.arrayElement([
-                null,
-                'NVIDIA RTX 3090',
-                'NVIDIA RTX 4090',
-                'NVIDIA A100',
-                'NVIDIA V100',
-                'AMD MI250',
-              ]),
-              region: faker.location.country(),
-              os: faker.helpers.arrayElement([
-                'Ubuntu 22.04',
-                'Ubuntu 20.04',
-                'Debian 11',
-                'CentOS 8',
-              ]),
-            },
-            organizationId: organization.id,
-            // Only assign to project if node is READY or ACTIVE
-            projectId:
-              orgProjects.length > 0 &&
-              (status === NodeStatus.READY || status === NodeStatus.ACTIVE) &&
-              faker.datatype.boolean(0.7)
-                ? faker.helpers.arrayElement(orgProjects).project.id
-                : null,
-            createdById: faker.helpers.arrayElement(allOrgUsers),
-          },
-        });
-      });
-    }),
-  );
+  // READY
+  const readyCount = faker.number.int({ min: 2, max: 4 });
+  for (let i = 0; i < readyCount; i++) {
+    const { hash } = generatePSKWithHash();
+    const activatedAt = faker.date.recent({ days: 14 });
+    const node = await prisma.node.create({
+      data: {
+        name: `node-${faker.string.alphanumeric(8)}`,
+        status: NodeStatus.READY,
+        pskHash: hash,
+        flowerNodeId: faker.string.uuid(),
+        ecPublicKey: Buffer.from(faker.string.alphanumeric(64)).toString(
+          'base64',
+        ),
+        metadata: nodeMetadata(),
+        organizationId,
+        projectId,
+        createdById: createdBy,
+        activatedAt,
+        lastActiveAt: faker.date.between({ from: activatedAt, to: new Date() }),
+      },
+    });
+    readyNodes.push(node);
+    console.log(`    [NODE:READY]     ${node.name}  →  ${node.id}`);
+  }
 
-  const statusCounts = nodes.reduce(
-    (acc, node) => {
-      acc[node.status] = (acc[node.status] || 0) + 1;
-      return acc;
-    },
-    {} as Record<NodeStatus, number>,
-  );
+  // OFFLINE
+  {
+    const { hash } = generatePSKWithHash();
+    const activatedAt = faker.date.recent({ days: 7 });
+    const node = await prisma.node.create({
+      data: {
+        name: `node-${faker.string.alphanumeric(8)}`,
+        status: NodeStatus.OFFLINE,
+        pskHash: hash,
+        flowerNodeId: faker.string.uuid(),
+        ecPublicKey: Buffer.from(faker.string.alphanumeric(64)).toString(
+          'base64',
+        ),
+        metadata: nodeMetadata(),
+        organizationId,
+        projectId,
+        createdById: createdBy,
+        activatedAt,
+        lastActiveAt: faker.date.recent({ days: 2 }),
+      },
+    });
+    offlineNodes.push(node);
+    console.log(`    [NODE:OFFLINE]   ${node.name}  →  ${node.id}`);
+  }
 
-  console.log(`  Created ${nodes.length} nodes:`);
-  console.log(
-    `  - CREATED: ${statusCounts.CREATED || 0}, READY: ${statusCounts.READY || 0}, ACTIVE: ${statusCounts.ACTIVE || 0}`,
-  );
-  console.log(
-    `  - ERROR: ${statusCounts.ERROR || 0}, OFFLINE: ${statusCounts.OFFLINE || 0}`,
-  );
+  // ERROR
+  {
+    const { hash } = generatePSKWithHash();
+    const node = await prisma.node.create({
+      data: {
+        name: `node-${faker.string.alphanumeric(8)}`,
+        status: NodeStatus.ERROR,
+        pskHash: hash,
+        metadata: nodeMetadata(),
+        organizationId,
+        projectId: null,
+        createdById: createdBy,
+      },
+    });
+    errorNodes.push(node);
+    console.log(`    [NODE:ERROR]     ${node.name}  →  ${node.id}`);
+  }
 
-  return nodes;
+  return {
+    createdNodes,
+    readyNodes,
+    initializingNodes,
+    offlineNodes,
+    errorNodes,
+    createdNodePsks,
+  };
 }

@@ -71,12 +71,12 @@ export class ProjTrainingController {
     @UserPayload() user: UserPayloadData,
     @OrgMembership() orgMembership: OrganizationMembership,
   ) {
-    const trainingRun = await this.trainingService.createTrainingRun(
-      orgMembership.organizationId,
+    const trainingRun = await this.trainingService.createTrainingRun({
+      organizationId: orgMembership.organizationId,
       projectId,
-      user.sub,
-      createTrainingDto.fabId,
-    );
+      userId: user.sub,
+      fabId: createTrainingDto.fabId,
+    });
 
     return StartTrainingResponseDto.fromEntity(trainingRun);
   }
@@ -128,11 +128,11 @@ export class ProjTrainingController {
     @UserPayload() user: UserPayloadData,
     @OrgMembership() orgMembership: OrganizationMembership,
   ): Promise<StartTrainingResponseDto> {
-    const trainingRunUpdated = await this.trainingService.deployServerApp(
-      orgMembership.organizationId,
-      trainingId,
-      user.sub,
-    );
+    const trainingRunUpdated = await this.trainingService.deployServerApp({
+      organizationId: orgMembership.organizationId,
+      trainingRunId: trainingId,
+      userId: user.sub,
+    });
 
     return StartTrainingResponseDto.fromEntity(trainingRunUpdated);
   }

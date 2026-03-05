@@ -74,11 +74,12 @@ export class OrgProjectsController {
     @Body() createProjectDto: CreateProjectDto,
     @UserPayload() user: UserPayloadData,
   ): Promise<ProjectResponseDto> {
-    const project = await this.projectsService.create(
+    const project = await this.projectsService.create({
       organizationId,
-      user.sub,
-      createProjectDto,
-    );
+      userId: user.sub,
+      name: createProjectDto.name,
+      trainingConfig: createProjectDto.trainingConfig,
+    });
 
     return ProjectResponseDto.fromEntity(project);
   }

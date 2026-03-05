@@ -38,7 +38,7 @@ export class RolesGuard implements CanActivate {
     if (!request.auth || request.auth?.kind !== TokenType.BEARER) {
       throw new UnauthorizedException({
         code: ErrorCode.AUTHENTICATION_REQUIRED,
-        message: 'Authentication required',
+        message: 'User authentication required',
       });
     }
 

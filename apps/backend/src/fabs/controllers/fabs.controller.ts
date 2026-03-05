@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Get,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -14,17 +13,9 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { NodePayload } from 'src/authentication/decorators/node.decorator';
 import { UserPayload } from 'src/authentication/decorators/user.decorator';
-import {
-  NodePayloadData,
-  UserPayloadData,
-} from 'src/authentication/interfaces/payload.interface';
-import {
-  FabPackageResponseDto,
-  FabResponseDto,
-  UploadDefaultFabDto,
-} from '../fabs.dto';
+import { UserPayloadData } from 'src/authentication/interfaces/payload.interface';
+import { FabResponseDto, UploadDefaultFabDto } from '../fabs.dto';
 import { FabsService } from '../fabs.service';
 
 @ApiTags('fabs')
@@ -63,51 +54,14 @@ export class AdminFabsController {
     @Body() dto: UploadDefaultFabDto,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<FabResponseDto> {
-    const fab = await this.fabsService.uploadDefaultFab(user.sub, dto, file);
+    const fab = await this.fabsService.uploadDefaultFab({
+      userId: user.sub,
+      description: dto.description,
+      isPublic: dto.isPublic,
+      fileBuffer: file.buffer,
+      originalname: file.originalname,
+      size: file.size,
+    });
     return FabResponseDto.fromEntity(fab);
-  }
-
-  @Get('node/info')
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Get node FAB metadata',
-    description: 'Retrieves FAB metadata for authenticated node',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'FAB metadata retrieved successfully',
-    type: FabResponseDto,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'FAB not found for this node',
-  })
-  async getNodeFabInfo(
-    @NodePayload() node: NodePayloadData,
-  ): Promise<FabResponseDto> {
-    const fab = await this.fabsService.getFabMetadataByNode(node.sub);
-    return FabResponseDto.fromEntity(fab);
-  }
-
-  @Get('node/package')
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Download node FAB package',
-    description: 'Retrieves complete FAB package for authenticated node',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'FAB package retrieved successfully',
-    type: FabPackageResponseDto,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'FAB package not found for this node',
-  })
-  async getNodeFabPackage(
-    @NodePayload() node: NodePayloadData,
-  ): Promise<FabPackageResponseDto> {
-    const fabPackage = await this.fabsService.getFabPackageByNode(node.sub);
-    return FabPackageResponseDto.fromEntity(fabPackage);
   }
 }

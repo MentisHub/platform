@@ -1,5 +1,4 @@
 import {
-  NodePayloadData,
   TokenType,
   UserPayloadData,
 } from 'src/authentication/interfaces/payload.interface';
@@ -8,9 +7,7 @@ import {
   ProjectMembership,
 } from 'src/authorization/interfaces/membership.interface';
 
-type AuthContext =
-  | { kind: TokenType.BEARER; payload: UserPayloadData }
-  | { kind: TokenType.NODE; payload: NodePayloadData };
+type AuthContext = { kind: TokenType.BEARER; payload: UserPayloadData };
 
 declare global {
   namespace Express {
