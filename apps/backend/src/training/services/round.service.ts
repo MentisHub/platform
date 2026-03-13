@@ -31,6 +31,12 @@ export class RoundService {
     });
   }
 
+  async findByNumber(runId: string, number: number) {
+    return this.prisma.round.findUnique({
+      where: { runId_number: { runId, number } },
+    });
+  }
+
   async getLatestRound(runId: string) {
     const rounds = await this.prisma.round.findMany({
       where: { runId },

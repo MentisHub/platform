@@ -61,7 +61,7 @@ export const bootstrapResponseSchema = z.object({
 });
 
 export const rotateRequestSchema = z.object({
-  nodeId: z.string().uuid().describe('Node UUID'),
+  nodeId: z.string().min(1).describe('Node UUID or base32 PSK prefix'),
   challenge: z.string().describe('Challenge string to be signed'),
   signature: z.string().describe('Base64-encoded SSH signature of the challenge'),
 });

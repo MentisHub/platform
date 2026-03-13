@@ -16,6 +16,14 @@ export class FitEventHandler {
     private readonly roundParticipantService: RoundParticipantService,
   ) {}
 
+  private async resolveRound(runId: string, metadata: Record<string, string>) {
+    const num = parseInt(metadata?.['round'] ?? '');
+    if (!isNaN(num) && num > 0) {
+      return this.roundService.findByNumber(runId, num);
+    }
+    return this.roundService.getLatestRound(runId);
+  }
+
   @OnEvent(FlowerEvents.NODE_FIT_STARTED)
   async handleNodeFitStarted({
     runId,
@@ -35,7 +43,7 @@ export class FitEventHandler {
       return;
     }
 
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {
@@ -50,15 +58,20 @@ export class FitEventHandler {
       return;
     }
 
-    await Promise.all([
+    const updates: Promise<unknown>[] = [
       this.roundParticipantService.upsert({
         roundId: round.id,
         nodeId: node.id,
         startedAt: new Date(event.timestamp * 1000),
         metrics: {},
       }),
-      this.nodeService.update(node.id, { status: NodeStatus.TRAINING }),
-    ]);
+    ];
+    if (node.status === NodeStatus.READY) {
+      updates.push(
+        this.nodeService.update(node.id, { status: NodeStatus.TRAINING }),
+      );
+    }
+    await Promise.all(updates);
   }
 
   @OnEvent(FlowerEvents.NODE_FIT_COMPLETED)
@@ -71,7 +84,7 @@ export class FitEventHandler {
       return;
     }
 
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {
@@ -104,7 +117,7 @@ export class FitEventHandler {
       return;
     }
 
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {

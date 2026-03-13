@@ -242,22 +242,18 @@ export class TrainingService {
       });
     }
 
-    const projectNodes = await this.nodesService.getNodesByProject(
-      trainingRun.projectId,
+    const [projectNodes, fab, project] = await Promise.all([
+      this.nodesService.getNodesByProject(trainingRun.projectId),
+      this.fabsService.getFabById(trainingRun.fabId),
+      this.projectsService.getProjectById(trainingRun.projectId),
+    ]);
+
+    const participantNodes = projectNodes.filter(
+      (node) =>
+        !(node.metadata as Record<string, unknown> | null)?.containerName,
     );
 
-    const initializingNodes = projectNodes.filter(
-      (node) => node.status === NodeStatus.INITIALIZING,
-    );
-
-    if (initializingNodes.length > 0) {
-      throw new BadRequestException({
-        code: ErrorCode.NODES_NOT_READY,
-        message: `${initializingNodes.length} node(s) still initializing. Wait for FAB installation to complete.`,
-      });
-    }
-
-    const trainingNodes = projectNodes.filter(
+    const trainingNodes = participantNodes.filter(
       (node) => node.status === NodeStatus.TRAINING,
     );
 
@@ -268,24 +264,28 @@ export class TrainingService {
       });
     }
 
-    const readyNodes = projectNodes.filter(
+    const readyNodes = participantNodes.filter(
       (node) => node.status === NodeStatus.READY,
     );
-
-    if (readyNodes.length === 0) {
-      throw new BadRequestException('No ready nodes available for training');
-    }
-
-    const fab = await this.fabsService.getFabById(trainingRun.fabId);
-    const project = await this.projectsService.getProjectById(
-      trainingRun.projectId,
-    );
-
-    await this.flowerService.ensureFederationExists(project.id, project.name);
 
     const config = (trainingRun.configuration ??
       project.trainingConfig ??
       {}) as Prisma.JsonObject;
+
+    const minAvailableClients =
+      typeof config['min_available_clients'] === 'number'
+        ? config['min_available_clients']
+        : 1;
+
+    if (readyNodes.length < minAvailableClients) {
+      throw new BadRequestException({
+        code: ErrorCode.NODES_NOT_READY,
+        message: `Not enough ready nodes: ${readyNodes.length} ready, ${minAvailableClients} required (min_available_clients).`,
+      });
+    }
+
+    await this.flowerService.ensureFederationExists(project.id, project.name);
+
     const fabContent = await this.fabsService.downloadFabById(fab.id);
 
     const flowerRunId = await this.flowerService.startRun({
@@ -381,6 +381,13 @@ export class TrainingService {
   }
 
   async completeRun(runId: string, completedAt: Date): Promise<TrainingRun> {
+    const existing = await this.prisma.trainingRun.findUnique({
+      where: { id: runId },
+    });
+    if (!existing || existing.status !== TrainingStatus.RUNNING) {
+      return existing as TrainingRun;
+    }
+
     const latestRound = await this.prisma.round.findFirst({
       where: { runId },
       orderBy: { number: 'desc' },
@@ -397,6 +404,13 @@ export class TrainingService {
   }
 
   async failRun(runId: string, completedAt: Date): Promise<TrainingRun> {
+    const existing = await this.prisma.trainingRun.findUnique({
+      where: { id: runId },
+    });
+    if (!existing || existing.status !== TrainingStatus.RUNNING) {
+      return existing as TrainingRun;
+    }
+
     return this.prisma.trainingRun.update({
       where: { id: runId },
       data: {

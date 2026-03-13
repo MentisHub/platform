@@ -122,6 +122,18 @@ async function createRoundsForRun(
   return rounds;
 }
 
+const DEFAULT_CONFIG = {
+  'num-rounds': 10,
+  'fraction-fit': 0.8,
+  'fraction-evaluate': 0.5,
+  'min-fit-clients': 3,
+  'min-evaluate-clients': 3,
+  'min-available-clients': 3,
+  'num-epochs': 1,
+  'batch-size': 32,
+  'num-clients': 3,
+};
+
 export async function createRunsForProject(
   prisma: PrismaClient,
   project: Project,
@@ -142,11 +154,7 @@ export async function createRunsForProject(
         projectId: project.id,
         fabId: fab?.id ?? null,
         createdBy,
-        configuration: {
-          num_rounds: 10,
-          fraction_fit: 0.8,
-          fraction_evaluate: 0.5,
-        },
+        configuration: DEFAULT_CONFIG,
       },
     });
     runs.push(run);
@@ -181,9 +189,10 @@ export async function createRunsForProject(
         fabId: fab?.id ?? null,
         createdBy,
         configuration: {
-          num_rounds: 5,
-          fraction_fit: 1.0,
-          fraction_evaluate: 1.0,
+          ...DEFAULT_CONFIG,
+          'num-rounds': 5,
+          'fraction-fit': 1.0,
+          'fraction-evaluate': 1.0,
         },
       },
     });
@@ -205,11 +214,7 @@ export async function createRunsForProject(
         flowerRunId: faker.string.uuid(),
         createdAt,
         startedAt,
-        configuration: {
-          num_rounds: 10,
-          fraction_fit: 0.8,
-          fraction_evaluate: 0.5,
-        },
+        configuration: DEFAULT_CONFIG,
       },
     });
 
@@ -256,11 +261,7 @@ export async function createRunsForProject(
           }),
           total_rounds: 10,
         },
-        configuration: {
-          num_rounds: 10,
-          fraction_fit: 0.8,
-          fraction_evaluate: 0.5,
-        },
+        configuration: DEFAULT_CONFIG,
       },
     });
 

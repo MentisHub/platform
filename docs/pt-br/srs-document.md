@@ -8,7 +8,7 @@
 
 ## RF-P01: Gerenciamento de Organizações
 
-**Dependências:** RF-P01
+**Dependências:** —
 
 ### RF-P01.1: Cadastro de Organização
 
@@ -26,7 +26,6 @@
 
 * A exclusão da organização deve ser bloqueada se existir **algum projeto ativo** associado a ela.
 * A operação deve exigir confirmação explícita do dono da organização.
-* A exclusão deve ser realizada via **soft delete** com período de retenção de 30 dias.
 
 ---
 
@@ -39,66 +38,57 @@
 * Deve ser informado o nome do nó (auto-gerado quando não fornecido).
 * No momento da criação, o sistema deve gerar um **PSK (pre-shared key)** de uso único, exibido apenas uma vez.
 * O PSK deve:
-  * ser uma string opaca adequada para autenticação segura;
-  * permitir somente a autenticação inicial do nó para emissão de certificados.
-* O sistema deve registrar a data de criação do nó, o administrador responsável e a expiração do PSK.
-* Após expiração ou uso, o PSK deve ser invalidado.
+  * ser emitido no formato `{nodeIdBase32}.{segredo}`, onde `nodeIdBase32` é o UUID do nó codificado em base32 e `segredo` é uma string aleatória de 22 caracteres em base64url (16 bytes de entropia);
+  * somente o hash SHA-256 do segredo é armazenado no banco de dados — o valor original nunca é persistido;
+  * permitir somente a autenticação inicial do nó para emissão de certificados (uso único).
+* O sistema deve registrar a data de criação do nó e o administrador responsável.
+* O PSK é invalidado após o primeiro uso (bootstrap bem-sucedido); tentativas subsequentes com o mesmo PSK são rejeitadas com erro 401.
 
 ### RF-P02.2: Edição de Nó
 
 * É permitido editar o nome do nó.
-* O sistema deve permitir **revogar certificados mTLS** emitidos para o nó.
 * Alterações de nome não devem alterar o identificador interno do nó.
-* Revogações devem ser registradas com timestamp e identificação do responsável.
 
 ### RF-P02.3: Exclusão de Nó
 
 * A exclusão deve ser bloqueada quando o nó estiver vinculado a treinamentos ativos.
-* Ao excluir um nó, o sistema deve:
-  * revogar imediatamente o certificado mTLS correspondente;
-* A exclusão é definitiva, sem necessidade de soft delete.
+* A exclusão é definitiva.
 
 ### RF-P02.4: Visualização de Nó
 
 * Para cada nó, o sistema deve exibir:
   * nome
-  * status (`running`, `online`, `offline`, `inativo`)
-  * última atividade
-  * recursos alocados (CPU, memória, GPU)
-  * consumo atual desses recursos
+  * status: `CREATED` | `INITIALIZING` | `READY` | `TRAINING` | `ERROR` | `OFFLINE`
+  * última atividade (`lastActiveAt`)
 
 ### RF-P02.5: Registro e Autenticação de Aplicações de Treinamento
 
-* Aplicações internas de treinamento, como o `ServerApp`, devem ser tratadas como nós lógicos.
-* O backend deve gerar ou renovar os certificados mTLS necessários antes de iniciar os containers correspondentes, fornecendo-os via volume ou mecanismo equivalente.
-* O `ServerApp` deve usar exclusivamente mTLS para:
-  * envio de telemetria via OTLP
-  * treinamento dos nós
-* A plataforma deve rejeitar qualquer comunicação proveniente de processos que não apresentem certificados válidos emitidos por CAs da plataforma.
+* O `ServerApp` é tratado como um nó lógico interno da plataforma.
+* O backend cria o nó do ServerApp, realiza o bootstrap internamente e injeta o PSK gerado como variável de ambiente no container antes de iniciá-lo.
+* O `ServerApp` comunica-se com o SuperLink exclusivamente via mTLS após o bootstrap.
+* A plataforma deve rejeitar qualquer comunicação de processos que não apresentem certificados válidos emitidos pela CA da plataforma.
 
 ### RF-P02.6: Processo de Bootstrap e Emissão de Certificados mTLS
 
 **Critérios de Aceitação**
 
-* O nó deve iniciar o bootstrap enviando ao backend:
-  * `node_id`
-  * `psk`
+* Antes do bootstrap, o nó deve gerar localmente um par de chaves **ECDSA P-384** (chave privada em formato OpenSSH, chave pública em formato PEM PKCS#8).
+* O nó deve iniciar o bootstrap enviando ao endpoint público `POST /nodes/activate`:
+  * `psk`: string no formato `{nodeIdBase32}.{segredo}`;
+  * `ecPublicKey`: chave pública ECDSA P-384 em PEM, codificada em base64 (linha única).
 * O backend deve validar:
-  * integridade e prazo do PSK;
-  * associação ao nó correspondente;
-  * se o PSK já foi utilizado.
-* Após validação:
-  * o nó deve gerar localmente seu par de chaves;
-  * deve gerar um **CSR** assinado pela chave privada;
-  * deve enviar o CSR ao backend.
+  * o PSK: extrair `nodeIdBase32`, converter para UUID, localizar o nó, comparar SHA-256 do segredo com o hash armazenado;
+  * se o PSK já foi utilizado (campo `activatedAt` preenchido).
+* Após validação bem-sucedida, o backend deve:
+  * registrar a chave pública no cadastro do nó;
+  * definir `activatedAt` com o timestamp atual (invalidando o PSK para reuso);
+  * emitir um certificado X.509 client com TTL de **7 dias**, assinado pela Root CA da plataforma, com `CN={nodeId}` e SAN `spiffe://mentishub/node/{nodeId}`;
+  * registrar o nó no Flower SuperLink.
 * O backend deve retornar:
-  * certificado emitido para o nó;
-  * certificado da CA intermediária da organização;
-  * certificado da Root CA.
-* Após receber os certificados, o nó deve:
-  * usar exclusivamente mTLS para todas as conexões (OTLP, RPCs, APIs internas);
-  * renovar certificados antes da expiração, enviando novos CSRs.
-* Em caso de revogação, o nó deve ser impedido de estabelecer conexões até realizar novo bootstrap.
+  * `clientCert`: certificado X.509 do nó em PEM;
+  * `rootCa`: certificado da Root CA da plataforma em PEM.
+* Após receber os certificados, o nó deve usar exclusivamente mTLS para todas as conexões com o SuperLink.
+* Renovação de certificado ocorre via `POST /nodes/rotate` com prova de posse (ver RF-P06.2).
 
 ---
 
@@ -118,15 +108,11 @@
 * É permitido editar:
   * nome
   * lista de organizações colaboradoras (participantes do projeto)
-* Alterações na lista de organizações colaboradoras (entrada ou saída de participantes, mudança de papel) devem:
-  * exigir confirmação explícita do administrador;
-  * ser registradas em log de auditoria com timestamp e identificação do responsável.
 
-### RF-P003.3: Exclusão de Projeto
+### RF-P03.3: Exclusão de Projeto
 
 * A exclusão do projeto deve ser bloqueada se houver treinamentos ativos associados a ele.
 * A ação deve exigir confirmação explícita do administrador do projeto.
-* A exclusão pode ser feita via **soft delete** com retação de 30 dias.
 
 ### RF-P03.4: Colaboração Multi-Organizacional
 
@@ -140,173 +126,143 @@
 
 ---
 
-## RF-P04: Orquestração de Treinamento
+## RF-P04: Gerenciamento de FABs
 
-**Dependências:** RF-P02, RF-P03
+**Dependências:** RF-P01, RF-P03
 
-### RF-P04.1: Configuração Padrão de Treinamento
+Um **FAB (Federated Application Bundle)** é um pacote `.fab` contendo o código da aplicação federada (ServerApp + ClientApp), gerado pelo comando `flwr build`. É identificado de forma única pelo seu hash SHA-256 de conteúdo.
 
-* O sistema deve permitir criar **configurações de treinamento reutilizáveis** (templates), contendo, por exemplo:
-  * modelo base ou referência ao modelo inicial
-  * estratégia de treinamento federado/estratégia Flower
-  * número mínimo de nós participantes
-  * políticas de timeout e retries
-* Essas configurações devem poder ser associadas a múltiplos projetos.
-* Um projeto pode definir qual configuração padrão será utilizada quando um novo treinamento for iniciado.
+### RF-P04.1: Upload de FAB
 
-### RF-P04.2: Configuração de Treinamento por Projeto e Início de Execução
+* Administradores de organização podem fazer upload de um FAB via `POST /organizations/{organizationId}/fabs` (multipart/form-data).
+* Os campos obrigatórios são: arquivo `.fab`, nome, hash SHA-256, versão (semver).
+* FABs com o mesmo hash SHA-256 são deduplicados automaticamente.
+* O arquivo é armazenado no Supabase Storage (bucket `fab`) no caminho `organizations/{organizationId}/{fabHash}-{version}.fab`.
+* Um FAB pode ser marcado como público (visível para todas as organizações) ou associado a um projeto específico.
+* Administradores da plataforma podem fazer upload de **FABs padrão** via `POST /fabs/default`, disponíveis globalmente.
 
-* Ao iniciar um treinamento, o sistema deve permitir:
-  * selecionar uma configuração padrão de treinamento (RF-P04.1);
-  * sobrescrever parâmetros específicos ao projeto/execução, como:
-    * número de rodadas
-    * parâmetros de batch/épocas locais (quando aplicável)
-* Antes de iniciar o treinamento, o sistema deve verificar:
-  * se há **nós suficientes** para atender o número mínimo definido na configuração;
-  * se esses nós estão **ativos e autenticados**.
-* Nós que estiverem offline no momento da rodada devem ser automaticamente excluídos daquela rodada.
-* Para cada rodada, o sistema deve registrar:
-  * quais nós participaram
-  * quais nós esperados falharam em participar e, se disponível, o motivo da falha
-* Cada execução de treinamento deve ser única e ser associada ao projeto correspondente.
+### RF-P04.2: Listagem e Download de FAB
 
-### RF-P04.3: Controle de Execução
-
-* Deve ser possível:
-  * pausar o treinamento
-  * retomar o treinamento pausado
-  * cancelar o treinamento
-* Em caso de pausa ou cancelamento:
-  * o sistema deve registrar o estado atual da execução;
-  * o status do treinamento deve ser atualizado adequadamente (ex.: pausado, cancelado).
-* As ações de pausa, retomada e cancelamento devem ser registradas com timestamp e identificação do usuário responsável.
-
-### RF-P04.4: Persistência de Artefatos de Treinamento
-
-* O sistema deve permitir armazenar de forma persistente, em um bucket S3 compatível:
-  * modelos globais resultantes de cada rodada de agregação;
-  * o modelo final da execução;
-  * artefatos auxiliares relevantes (ex.: checkpoints opcionais).
-* Cada artefato deve ser associado a:
-  * identificação da execução;
-  * projeto correspondente;
-  * organização dona do projeto.
-* O sistema deve permitir que usuários autorizados façam download dos artefatos.
-* O sistema deve impedir que organizações que não participam do projeto acessem os arquivos armazenados.
-* A exclusão de artefatos deve acompanhar a política de exclusão do projeto (RF-P03.3).
+* Membros da organização podem listar e baixar FABs de sua organização.
+* FABs padrão e FABs públicos são acessíveis a todas as organizações.
+* O download retorna o binário `.fab` original.
 
 ---
 
-## RF-P05: Monitoramento e Observabilidade
+## RF-P05: Orquestração de Treinamento
 
-**Dependências:** RF-P03, RF-P05
+**Dependências:** RF-P02, RF-P03, RF-P04
 
-### RF-P05.1: Monitoramento Global de Nós
+### RF-P05.1: Criação de Execução de Treinamento
 
-* O sistema deve exibir, em uma visão global de nós:
-  * status (running/online/offline/inativo)
-  * última atividade
-  * uso atual de CPU, memória e GPU (visão resumida)
-* Essa visão é independente de um treinamento específico (saúde geral do cluster / ambiente).
+* A criação de um treinamento requer a seleção de um FAB válido e acessível.
+* Uma execução de treinamento é criada com status `PENDING` e associada ao projeto correspondente.
 
-### RF-P05.2: Monitoramento de Treinamentos
+### RF-P05.2: Implantação do ServerApp
 
-* Para um treinamento selecionado, o sistema deve exibir:
-  * identificador da execução
-  * projeto associado
-  * rodada atual e total de rodadas previstas
-  * tempo decorrido e, se possível, estimativa de conclusão
-  * métricas agregadas por rodada (por exemplo, loss, accuracy)
-* Para cada rodada, deve ser possível ver:
-  * lista de nós participantes
-  * nós esperados que falharam e o motivo, quando disponível (conectividade, timeout, etc.)
-* A partir da visão do treinamento, o usuário deve poder navegar até a visão de detalhes por nó (RF-P07.3).
+* Antes de iniciar o treinamento, o sistema deve implantar o `ServerApp` via `POST /projects/{projectId}/trainings/{trainingId}/deploy`:
+  * Um nó lógico interno é criado para o ServerApp;
+  * O sistema gera um PSK para esse nó e inicia um container Docker (`mentishub/fl-serverapp:latest`) na rede `mentishub-network`, injetando o PSK como variável de ambiente;
+  * O container executa o bootstrap automaticamente ao iniciar;
+  * O status do treinamento avança: `PENDING` → `DEPLOYING` → `READY`.
+* Em caso de falha na implantação, o sistema deve realizar rollback (remover container e nó criados, retornar status a `PENDING`).
 
-### RF-P05.3: Visualização por Nó e Compartilhamento entre Organizações
+### RF-P05.3: Início da Execução de Treinamento
 
-* Para cada nó participante de um treinamento, o sistema deve exibir:
-  * métricas locais relevantes (por exemplo, loss local, tempo de treino local);
-  * gráficos de evolução dessas métricas ao longo das rodadas.
+* O treinamento é iniciado via `POST /projects/{projectId}/trainings/{trainingId}/run`:
+  * O sistema valida que há nós no status `READY` (sem nós em `INITIALIZING` ou `TRAINING`);
+  * O FAB é baixado do Supabase Storage e enviado ao Flower SuperLink via gRPC;
+  * O SuperLink inicia a execução federada; todos os nós `READY` são atualizados para `TRAINING`;
+  * O status do treinamento avança para `RUNNING`.
+* Nós offline ou em erro no momento da execução são automaticamente excluídos da rodada.
 
-### RF-P05.4 – Coleta de Telemetria via OTEL
+### RF-P05.4: Ciclo de Vida de Rodadas
 
-* A plataforma deve expor um endpoint OTLP para recebimento de:
-  * métricas, logs e traces de ClientApp;
-  * métricas, logs e traces de ServerApp;
-  * métricas, logs e traces internas da plataforma.
-* Cada dado recebido deve ser associado, quando aplicável, a:
-  * nó de origem;
-  * organização;
-  * projeto ou execução de treinamento.
-* Somente conexões autenticadas por mTLS com certificados válidos emitidos pela CA da plataforma devem ser aceitas.
+* O sistema deve registrar, para cada rodada (`Round`):
+  * número da rodada e status (`STARTED` | `FITTING` | `FIT_FAILED` | `AGGREGATING` | `EVALUATING` | `EVALUATE_AGGREGATING` | `EVALUATE_FAILED` | `FAILED` | `COMPLETED`);
+  * lista de nós participantes (`RoundParticipant`).
+* As atualizações de status são recebidas via stream de eventos do Flower SuperLink (RF-P07.2).
 
-### RF-P05.5 – Observabilidade
+### RF-P05.5: Controle de Execução
 
-* O OTel Collector da plataforma deve ser capaz de exportar:
-  * métricas para o backend de métricas (ex.: Prometheus);
-  * logs para o backend de logs (ex.: Loki);
-  * traces para o backend de traces (ex.: Tempo).
-* O backend da aplicação deve conseguir consultar essas fontes de dados para:
-  * alimentar as telas de monitoramento definidas em RF-P05.1, RF-P05.2 e RF-P05.3;
-* Em caso de indisponibilidade temporária da stack de observabilidade, o sistema deve:
-  * enfileirar ou agrupar a telemetria em memória ou armazenamento local até um limite configurável;
-  * descartar dados excedentes de forma controlada, registrando estatísticas de perda quando ocorrer.
+* Deve ser possível cancelar o treinamento.
+* O status do treinamento deve ser atualizado adequadamente (`CANCELLED`).
+
+### RF-P05.6: Status de Execução de Treinamento
+
+Os possíveis status de uma execução de treinamento são:
+`PENDING` | `DEPLOYING` | `READY` | `RUNNING` | `PAUSED` | `COMPLETED` | `FAILED` | `CANCELLED`
 
 ---
 
 ## RF-P06 – Infraestrutura de PKI e Emissão de Certificados
 
-**Dependências:** RF-P03
+**Dependências:** —
 
 ### RF-P06.1: Estrutura da PKI
 
-* A plataforma deve utilizar uma infraestrutura de PKI baseada no **HashiCorp Vault**, operando como responsável pela emissão, armazenamento seguro e gerenciamento do ciclo de vida de certificados.
-* O Vault deve manter:
-  * uma **Root CA**, utilizada exclusivamente para assinar CAs intermediárias;
-  * uma **CA intermediária por organização**, responsável pela emissão dos certificados dos nós.
-* O backend deve solicitar ao Vault a emissão de certificados, selecionando automaticamente a CA intermediária correspondente à organização.
+* A plataforma mantém uma **Root CA única**, compartilhada por toda a instalação.
+* A chave privada da Root CA é armazenada no sistema de arquivos do backend, protegida por controles de acesso do SO.
+* Não há CAs intermediárias por organização — todos os certificados de nós são emitidos diretamente pela Root CA da plataforma.
+* Certificados são gerados programaticamente usando a biblioteca `@peculiar/x509`.
 
 ### RF-P06.2: Emissão e Renovação de Certificados
 
-* Certificados de nós devem ser emitidos apenas após:
-  * validação do PSK e CSR no bootstrap (RF-P02.6), quando o nó é externo; ou
-  * requisição interna para aplicações da própria plataforma (ex.: ServerApp).
-* A renovação deve ocorrer por meio de:
-  * envio de um novo CSR assinado com a chave privada atual; e
-  * validação da assinatura pelo backend utilizando o Vault.
-* O certificado deve estar válido no momento da renovação.
-* Certificados emitidos devem incluir informações suficientes para:
-  * identificar unicamente o nó;
-  * associar o certificado à organização proprietária;
-  * permitir extração de atributos para tagging de métricas.
+* Certificados de nós são emitidos pela Root CA da plataforma após bootstrap bem-sucedido (RF-P02.6).
+* **TTL padrão:** 7 dias.
+* Certificados incluem:
+  * `CN={nodeId}` como subject;
+  * `spiffe://mentishub/node/{nodeId}` como SAN URI;
+  * extensões `KeyUsage: digitalSignature | keyEncipherment` e `ExtendedKeyUsage: clientAuth`.
+* **Renovação** ocorre via `POST /nodes/rotate` com prova de posse:
+  * O nó envia: `nodeId`, `challenge` (formato `timestamp:nonce`), `signature` (assinatura OpenSSH do challenge com a chave privada ECDSA P-384 do nó);
+  * O backend verifica a assinatura ECDSA usando a chave pública registrada no bootstrap;
+  * Se válida, um novo certificado é emitido com o mesmo TTL.
+* Não há revogação explícita de certificados individuais; o controle de acesso é feito via status do nó no banco de dados.
 
-### RF-P06.3: Revogação de Certificados
+### RF-P06.3: Ciclo de Vida e Expiração
 
-* A revogação deve ser solicitada pelo backend ao Vault e registrada com timestamp e identificação do responsável.
-* Após a revogação:
-  * conexões mTLS utilizando o certificado revogado devem ser rejeitadas imediatamente;
-  * o nó deve ser obrigado a executar novamente o processo de bootstrap para obter novos certificados.
+* O backend é a fonte de verdade para datas de emissão dos certificados (armazenadas no cadastro do nó).
+* Nós que não renovarem seus certificados dentro do prazo devem ser marcados como `OFFLINE` ou `ERROR`.
 
-### RF-P06.4: Armazenamento Seguro das Chaves das CAs
+---
 
-* A **Root CA** e todas as **CAs intermediárias** devem ter:
-  * suas chaves privadas armazenadas exclusivamente dentro do Vault;
-  * proteção criptográfica e controles de acesso adequados;
-  * política de acesso restrita apenas ao backend da plataforma.
-* A rotação e criação de novas CAs intermediárias deve ocorrer sem afetar organizações existentes.
-* Nenhuma chave privada deve ser exposta ao backend, aos nós ou a qualquer serviço fora do Vault.
+## RF-P07: Monitoramento e Observabilidade
 
-### RF-P06.5: Ciclo de Vida e Expiração
+**Dependências:** RF-P03, RF-P05
 
-* Certificados emitidos devem possuir validade definida pela plataforma.
-* O Vault deve ser a fonte de verdade para:
-  * datas de expiração;
-  * listas de certificados válidos;
-  * certificados revogados.
-* O backend deve:
-  * notificar nós com certificados próximos da expiração;
-  * rejeitar conexões mTLS estabelecidas com certificados expirados ou revogados.
-* Nós que não renovarem seus certificados dentro do prazo devem ser marcados como inativos.
+### RF-P07.1: Monitoramento Global de Nós
+
+* O sistema deve exibir, em uma visão global de nós:
+  * status (`CREATED` | `INITIALIZING` | `READY` | `TRAINING` | `ERROR` | `OFFLINE`)
+  * última atividade (`lastActiveAt`)
+* Essa visão é independente de um treinamento específico.
+
+### RF-P07.2: Stream de Eventos do Flower
+
+* O backend deve manter uma conexão gRPC persistente com o SuperLink (`StreamEvents`) para receber eventos de ciclo de vida em tempo real.
+* Os eventos recebidos devem disparar atualizações internas via `EventEmitter2` e refletir no status de `TrainingRun`, `Round` e `Node` no banco de dados.
+* Tipos de eventos mapeados:
+  * **Execução:** `RUN_STARTED`, `RUN_COMPLETED`, `RUN_FAILED`
+  * **Rodada:** `ROUND_STARTED`, `ROUND_FIT_STARTED`, `ROUND_FIT_AGGREGATED`, `ROUND_FIT_FAILED`, `ROUND_EVALUATE_STARTED`, `ROUND_EVALUATE_AGGREGATED`, `ROUND_EVALUATE_FAILED`, `ROUND_COMPLETED`, `ROUND_FAILED`
+  * **Nó:** `NODE_FIT_STARTED`, `NODE_FIT_COMPLETED`, `NODE_FIT_FAILED`, `NODE_EVALUATE_STARTED`, `NODE_EVALUATE_COMPLETED`, `NODE_EVALUATE_FAILED`, `NODE_CONNECTED`, `NODE_DISCONNECTED`
+* A conexão deve se reconectar automaticamente em caso de encerramento (5 s se limpo, 10 s se por erro).
+
+### RF-P07.3: Monitoramento de Treinamentos
+
+* Para um treinamento selecionado, o sistema deve exibir:
+  * identificador da execução e projeto associado
+  * status atual, rodada atual e total de rodadas previstas
+  * métricas agregadas por rodada (loss, accuracy)
+* Para cada rodada, deve ser possível ver:
+  * lista de nós participantes e seus status
+
+### RF-P07.4: Coleta de Telemetria via OTEL
+
+* A plataforma deve expor um endpoint OTLP-gRPC (porta 4317) com mTLS obrigatório para recebimento de métricas, logs e traces de ClientApp, ServerApp e do próprio backend.
+* Somente conexões com certificados válidos emitidos pela CA da plataforma devem ser aceitas.
+* O OTel Collector exporta métricas para Prometheus (porta 8889).
+* Prometheus é consultado pelo Grafana para visualização dos dashboards.
 
 ---
 
@@ -337,5 +293,16 @@
 ---
 
 # 4. Glossário
+
+| Termo | Definição |
+|---|---|
+| **FAB** | Federated Application Bundle — pacote `.fab` contendo ServerApp + ClientApp, gerado por `flwr build` e identificado pelo hash SHA-256 do conteúdo. |
+| **PSK** | Pre-Shared Key — credencial de uso único emitida pela plataforma no formato `{nodeIdBase32}.{segredo}`, usada somente no bootstrap do nó. |
+| **SuperLink** | Componente central do Flower responsável por coordenar a federação entre ServerApp e ClientApps via gRPC/mTLS. |
+| **ServerApp** | Processo que executa a estratégia de aprendizado federado (ex.: FedAvg). Gerenciado pela plataforma como container Docker. |
+| **ClientApp** | Processo executado em cada nó participante, responsável pelo treinamento local. |
+| **Bootstrap** | Processo de ativação de um nó: geração de par de chaves ECDSA P-384 + envio ao backend + recebimento do certificado mTLS. |
+| **mTLS** | Mutual TLS — autenticação mútua via certificados X.509, usada nas conexões nó ↔ SuperLink e backend ↔ OTEL Collector. |
+| **Root CA** | Autoridade certificadora raiz da plataforma, responsável pela emissão de todos os certificados de nós. |
 
 # 5. Referências

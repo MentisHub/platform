@@ -20,6 +20,7 @@ export interface FixtureFAB {
   version: string;
   hash: string;
   sizeBytes: bigint;
+  description: string | null;
 }
 
 async function loadFixtureFABs(): Promise<FixtureFAB[]> {
@@ -39,6 +40,7 @@ async function loadFixtureFABs(): Promise<FixtureFAB[]> {
       version: parsed.version,
       hash: parsed.hash,
       sizeBytes: metadata.sizeBytes,
+      description: metadata.description,
     });
   }
 
@@ -74,7 +76,9 @@ export async function seedDefaultFabs(
         data: {
           name: fixture.name,
           publisherName: fixture.publisher,
-          description: `Default system FAB — available to all organizations`,
+          description:
+            fixture.description ??
+            `Default system FAB — available to all organizations`,
           version: fixture.version,
           fabHash: fixture.hash,
           storagePath,
@@ -112,7 +116,9 @@ export async function createOrgFab(
       data: {
         name: fixture.name,
         publisherName: fixture.publisher,
-        description: `Org-scoped FAB for "${organization.name}" — accessible to all its projects`,
+        description:
+          fixture.description ??
+          `Org-scoped FAB for "${organization.name}" — accessible to all its projects`,
         version: fixture.version,
         fabHash: hash,
         storagePath,
@@ -149,7 +155,8 @@ export async function createProjectFab(
       data: {
         name: fixture.name,
         publisherName: fixture.publisher,
-        description: `Project-scoped FAB for "${project.name}"`,
+        description:
+          fixture.description ?? `Project-scoped FAB for "${project.name}"`,
         version: fixture.version,
         fabHash: hash,
         storagePath,

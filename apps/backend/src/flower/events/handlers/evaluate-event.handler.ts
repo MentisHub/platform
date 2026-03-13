@@ -16,6 +16,14 @@ export class EvaluateEventHandler {
     private readonly roundParticipantService: RoundParticipantService,
   ) {}
 
+  private async resolveRound(runId: string, metadata: Record<string, string>) {
+    const num = parseInt(metadata?.['round'] ?? '');
+    if (!isNaN(num) && num > 0) {
+      return this.roundService.findByNumber(runId, num);
+    }
+    return this.roundService.getLatestRound(runId);
+  }
+
   @OnEvent(FlowerEvents.NODE_EVALUATE_STARTED)
   async handleNodeEvaluateStarted({
     runId,
@@ -26,7 +34,7 @@ export class EvaluateEventHandler {
       return;
     }
 
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {
@@ -59,7 +67,7 @@ export class EvaluateEventHandler {
       return;
     }
 
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {
@@ -95,7 +103,7 @@ export class EvaluateEventHandler {
       return;
     }
 
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {

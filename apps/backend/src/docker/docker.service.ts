@@ -51,10 +51,10 @@ export class DockerService implements OnModuleInit {
 
     const container = await this.docker.createContainer({
       name: containerName,
-      Image: 'mentishub/fl-serverapp:latest',
+      Image: 'mentishub/fl-app:latest',
       Env: [
         `NODE_PSK=${nodePsk}`,
-        `BACKEND_URL=${this.backendInternalUrl}`,
+        `BACKEND_URL=${this.backendInternalUrl}/v1`,
         `OTEL_EXPORTER_OTLP_ENDPOINT=${this.otelInternalUrl}`,
       ],
       Cmd: [

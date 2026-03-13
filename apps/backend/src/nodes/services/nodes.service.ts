@@ -203,9 +203,10 @@ export class NodesService {
 
     if (node.flowerNodeId && node.project) {
       try {
-        await this.flowerService.removeNodesFromFederation(node.project.id, [
+        await this.flowerService.removeNodeFromFederation(
+          node.project.id,
           node.flowerNodeId,
-        ]);
+        );
       } catch (error) {
         this.logger.warn(
           {
@@ -275,7 +276,11 @@ export class NodesService {
       });
     }
 
-    if (node.activatedAt) {
+    if (
+      node.activatedAt &&
+      node.ecPublicKey &&
+      node.ecPublicKey !== ecPublicKey
+    ) {
       throw new UnauthorizedException({
         code: ErrorCode.INVALID_NODE_CREDENTIALS,
         message: 'PSK already used',
@@ -295,16 +300,37 @@ export class NodesService {
         );
         const publicKeyBuffer = Buffer.from(pemPublicKey, 'utf-8');
 
-        flowerNodeId = await this.flowerService.registerNode(publicKeyBuffer);
+        try {
+          flowerNodeId = await this.flowerService.registerNode(publicKeyBuffer);
+        } catch (registerError) {
+          if (
+            registerError instanceof Error &&
+            registerError.message?.includes('Public key already in use') &&
+            node.flowerNodeId
+          ) {
+            flowerNodeId = node.flowerNodeId;
+            this.logger.log(
+              {
+                action: 'node.reusing_flower_id',
+                nodeId: node.id,
+                flowerNodeId,
+              },
+              'Public key already registered in Flower, reusing existing node ID',
+            );
+          } else {
+            throw registerError;
+          }
+        }
 
         await this.flowerService.ensureFederationExists(
           node.project.id,
           node.project.name,
         );
 
-        await this.flowerService.addNodesToFederation(node.project.id, [
+        await this.flowerService.addNodeToFederation(
+          node.project.id,
           flowerNodeId,
-        ]);
+        );
 
         this.logger.log(
           {
@@ -340,7 +366,9 @@ export class NodesService {
     await this.prisma.node.update({
       where: { id: node.id },
       data: {
-        status: 'INITIALIZING',
+        // Server apps don't connect to Flower as SuperNodes, so they never receive
+        // a NODE_CONNECTED event. Transition them to READY immediately.
+        status: isServerApp ? 'READY' : 'INITIALIZING',
         flowerNodeId,
         ecPublicKey,
         activatedAt: new Date(),
@@ -365,8 +393,9 @@ export class NodesService {
     challenge: string,
     signature: string,
   ): Promise<NodeCertificateBundle> {
+    const resolvedId = nodeId.includes('-') ? nodeId : base32ToUuid(nodeId);
     const node = await this.prisma.node.findUnique({
-      where: { id: nodeId },
+      where: { id: resolvedId },
       select: { id: true, ecPublicKey: true, activatedAt: true },
     });
 

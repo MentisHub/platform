@@ -10,6 +10,14 @@ export class RoundEventHandler {
 
   constructor(private readonly roundService: RoundService) {}
 
+  private async resolveRound(runId: string, metadata: Record<string, string>) {
+    const num = parseInt(metadata?.['round'] ?? '');
+    if (!isNaN(num) && num > 0) {
+      return this.roundService.findByNumber(runId, num);
+    }
+    return this.roundService.getLatestRound(runId);
+  }
+
   @OnEvent(FlowerEvents.ROUND_STARTED)
   async handleRoundStarted({
     runId,
@@ -47,8 +55,11 @@ export class RoundEventHandler {
   }
 
   @OnEvent(FlowerEvents.ROUND_FIT_STARTED)
-  async handleRoundFitStarted({ runId }: FlowerRunEventPayload): Promise<void> {
-    const round = await this.roundService.getLatestRound(runId);
+  async handleRoundFitStarted({
+    runId,
+    event,
+  }: FlowerRunEventPayload): Promise<void> {
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {
@@ -61,6 +72,8 @@ export class RoundEventHandler {
       return;
     }
 
+    if (round.status !== RoundStatus.STARTED) return;
+
     await this.roundService.updateRound(round.id, {
       status: RoundStatus.FITTING,
     });
@@ -71,7 +84,7 @@ export class RoundEventHandler {
     runId,
     event,
   }: FlowerRunEventPayload): Promise<void> {
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {
@@ -83,6 +96,8 @@ export class RoundEventHandler {
       );
       return;
     }
+
+    if (round.status !== RoundStatus.FITTING) return;
 
     const numResults = parseInt(event.metadata['num_results'] || '0');
     const numFailures = parseInt(event.metadata['num_failures'] || '0');
@@ -112,7 +127,7 @@ export class RoundEventHandler {
     runId,
     event,
   }: FlowerRunEventPayload): Promise<void> {
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {
@@ -124,6 +139,12 @@ export class RoundEventHandler {
       );
       return;
     }
+
+    if (
+      round.status !== RoundStatus.STARTED &&
+      round.status !== RoundStatus.FITTING
+    )
+      return;
 
     await this.roundService.updateRound(round.id, {
       status: RoundStatus.FIT_FAILED,
@@ -146,8 +167,9 @@ export class RoundEventHandler {
   @OnEvent(FlowerEvents.ROUND_EVALUATE_STARTED)
   async handleRoundEvaluateStarted({
     runId,
+    event,
   }: FlowerRunEventPayload): Promise<void> {
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {
@@ -160,6 +182,8 @@ export class RoundEventHandler {
       return;
     }
 
+    if (round.status !== RoundStatus.AGGREGATING) return;
+
     await this.roundService.updateRound(round.id, {
       status: RoundStatus.EVALUATING,
     });
@@ -170,7 +194,7 @@ export class RoundEventHandler {
     runId,
     event,
   }: FlowerRunEventPayload): Promise<void> {
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {
@@ -182,6 +206,8 @@ export class RoundEventHandler {
       );
       return;
     }
+
+    if (round.status !== RoundStatus.EVALUATING) return;
 
     await this.roundService.updateRound(round.id, {
       status: RoundStatus.EVALUATE_AGGREGATING,
@@ -205,7 +231,7 @@ export class RoundEventHandler {
     runId,
     event,
   }: FlowerRunEventPayload): Promise<void> {
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {
@@ -217,6 +243,8 @@ export class RoundEventHandler {
       );
       return;
     }
+
+    if (round.status !== RoundStatus.EVALUATING) return;
 
     await this.roundService.updateRound(round.id, {
       status: RoundStatus.EVALUATE_FAILED,
@@ -240,7 +268,7 @@ export class RoundEventHandler {
     runId,
     event,
   }: FlowerRunEventPayload): Promise<void> {
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {
@@ -252,6 +280,12 @@ export class RoundEventHandler {
       );
       return;
     }
+
+    if (
+      round.status === RoundStatus.COMPLETED ||
+      round.status === RoundStatus.FAILED
+    )
+      return;
 
     await this.roundService.updateRound(round.id, {
       status: RoundStatus.COMPLETED,
@@ -274,7 +308,7 @@ export class RoundEventHandler {
     runId,
     event,
   }: FlowerRunEventPayload): Promise<void> {
-    const round = await this.roundService.getLatestRound(runId);
+    const round = await this.resolveRound(runId, event.metadata);
     if (!round) {
       this.logger.warn(
         {
@@ -286,6 +320,12 @@ export class RoundEventHandler {
       );
       return;
     }
+
+    if (
+      round.status === RoundStatus.COMPLETED ||
+      round.status === RoundStatus.FAILED
+    )
+      return;
 
     await this.roundService.updateRound(round.id, {
       status: RoundStatus.FAILED,

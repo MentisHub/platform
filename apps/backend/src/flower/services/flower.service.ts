@@ -82,7 +82,7 @@ export class FlowerService implements OnModuleInit {
   ): Promise<Federation | undefined> {
     return new Promise((resolve, reject) => {
       this.controlClient.createFederation(
-        { name: projectId, description: description || '' },
+        { federationName: projectId, description: description || '' },
         new Metadata(),
         (error, response) => {
           if (error) {
@@ -101,65 +101,52 @@ export class FlowerService implements OnModuleInit {
     description?: string,
   ): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
-      this.controlClient.showFederation(
-        { federationName: projectId },
+      this.controlClient.createFederation(
+        { federationName: projectId, description: description || '' },
         new Metadata(),
-        (error) => {
-          if (error) {
-            this.controlClient.createFederation(
-              { name: projectId, description: description || '' },
-              new Metadata(),
-              (createError, response) => {
-                if (createError) {
-                  reject(createError);
-                  return;
-                }
-
-                resolve(response.federation?.name);
-              },
-            );
+        (createError, response) => {
+          if (createError) {
+            // Treat "already exists" as success
+            if (createError.message?.includes('already exists')) {
+              resolve(projectId);
+              return;
+            }
+            reject(createError);
             return;
           }
 
-          resolve(projectId);
+          resolve(response.federation?.name);
         },
       );
     });
   }
 
-  async addNodesToFederation(
+  async addNodeToFederation(
     federationName: string,
-    nodeIds: string[],
+    nodeId: string,
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       this.controlClient.addNodeToFederation(
-        {
-          federationName,
-          nodeIds: nodeIds,
-        },
+        { federationName, nodeId },
         new Metadata(),
         (error) => {
           if (error) {
             reject(error);
             return;
           }
-
           resolve();
         },
       );
     });
   }
 
-  async removeNodesFromFederation(
+  async removeNodeFromFederation(
     federationName: string,
-    nodeIds: string[],
+    nodeId: string,
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       this.controlClient.removeNodeFromFederation(
-        {
-          federationName,
-          nodeIds,
-        },
+        { federationName, nodeId },
         new Metadata(),
         (error) => {
           if (error) {
@@ -170,6 +157,22 @@ export class FlowerService implements OnModuleInit {
         },
       );
     });
+  }
+
+  private toScalarMap(
+    config: Record<string, unknown>,
+  ): Record<string, object> {
+    const result: Record<string, object> = {};
+    for (const [key, value] of Object.entries(config)) {
+      if (typeof value === 'boolean') {
+        result[key] = { bool: value };
+      } else if (typeof value === 'number') {
+        result[key] = { double: value };
+      } else if (typeof value === 'string') {
+        result[key] = { string: value };
+      }
+    }
+    return result;
   }
 
   async startRun(options: StartRunOptions): Promise<string> {
@@ -179,7 +182,7 @@ export class FlowerService implements OnModuleInit {
         content: new Uint8Array(options.fabContent),
         verifications: {},
       },
-      overrideConfig: options.overrideConfig || {},
+      overrideConfig: this.toScalarMap(options.overrideConfig || {}),
       federation: options.federation || '@none/default',
       appSpec: '',
       federationOptions: undefined,

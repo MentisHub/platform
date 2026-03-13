@@ -23,7 +23,7 @@ services:
       JWT_PRIVATE_KEY_PATH: /usr/src/app/certs/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /usr/src/app/certs/jwt_public.pem
       BACKEND_INTERNAL_URL: http://platform-backend:3000
-      OTEL_INTERNAL_URL: https://otel-collector:4317
+      OTEL_INTERNAL_URL: http://otel-collector:4318
       SUPERLINK_HOST: superlink
       BACKEND_CERT_PATH: /usr/src/app/certs/server.crt
       BACKEND_KEY_PATH: /usr/src/app/certs/server.key

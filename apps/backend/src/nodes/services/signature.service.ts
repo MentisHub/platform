@@ -52,6 +52,7 @@ export class NodeSignatureService {
       [, offset] = readBytes(blob, offset); // skip public_key string
       const [namespace, nsOffset] = readBytes(blob, offset);
       offset = nsOffset;
+      [, offset] = readBytes(blob, offset); // skip reserved (empty string)
       const [hashAlgBuf, hashOffset] = readBytes(blob, offset);
       offset = hashOffset;
       const hashAlg = hashAlgBuf.toString();

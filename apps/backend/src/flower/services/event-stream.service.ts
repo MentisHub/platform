@@ -23,6 +23,7 @@ export class FlowerEventStreamService implements OnModuleInit, OnModuleDestroy {
   private isStreamActive = false;
   private restartTimeout?: NodeJS.Timeout;
   private streamHadError = false;
+  private lastTimestamp = 0;
 
   constructor(
     private readonly flowerService: FlowerService,
@@ -59,11 +60,14 @@ export class FlowerEventStreamService implements OnModuleInit, OnModuleDestroy {
     );
     this.isStreamActive = true;
 
-    const stream = this.flowerService.streamEvents();
+    const stream = this.flowerService.streamEvents(this.lastTimestamp);
 
     stream.on(
       'data',
       (response: { events: Event[]; latestTimestamp: number }) => {
+        if (response.latestTimestamp > this.lastTimestamp) {
+          this.lastTimestamp = response.latestTimestamp;
+        }
         if (response.events?.length > 0) {
           for (const event of response.events) {
             void this.processEvent(event);

@@ -1,19 +1,3 @@
-```sh
-docker compose -f docker/compose/docker-compose.dev.yml --env-file docker/env/.env.dev up
-```
-
-```sh
-docker exec -it platform-backend bash
-```
-
-```sh
-cd apps/backend && pnpm prisma:deploy && pnpm db:seed
-```
-
-```sh
-docker exec -i supabase-db psql -U postgres -d postgres -c "SELECT id FROM platform.projects WHERE organization_id = 'dff63f6e-220e-4898-b9e7-b28fdee05ff5';"
-```
-
 ## Como testar
 
 ### 1. Preparar banco de dados e obter credenciais
@@ -43,27 +27,27 @@ export ACCESS_TOKEN="seu_token_aqui"
 
 **a) Obter organização:**
 ```bash
-GET /organizations
+GET /v1/organizations
 # Pegue o ID da organização onde você é dono
 export ORG_ID="organization-id"
 ```
 
 **b) Obter projeto:**
 ```bash
-GET /organizations/{organizationId}/projects
+GET /v1/organizations/{organizationId}/projects
 # Pegue o ID do projeto criado no seed
 export PROJECT_ID="project-id"
 ```
 
 **c) Criar nodes associados ao projeto:**
 ```bash
-POST /organizations/{organizationId}/nodes
+POST /v1/organizations/{organizationId}/nodes
 {
   "name": "client-node-1",
   "projectId": "{projectId}"  # ← Associa automaticamente à federação do projeto
 }
 
-POST /organizations/{organizationId}/nodes
+POST /v1/organizations/{organizationId}/nodes
 {
   "name": "client-node-2",
   "projectId": "{projectId}"
@@ -74,7 +58,7 @@ POST /organizations/{organizationId}/nodes
 
 **d) Criar training run:**
 ```bash
-POST /projects/{projectId}/trainings
+POST /v1/projects/{projectId}/trainings
 {
   "fabId": "{fabId do seed}"
 }
@@ -94,7 +78,7 @@ docker run \
   -e NODE_PSK="SEU_PSK_1_AQUI" \
   -e OTEL_EXPORTER_OTLP_ENDPOINT="otel-collector:4318" \
   -v client-1-certs:/app/certs \
-  mentishub/fl-clientapp:latest \
+  mentishub/fl-app:latest \
   flower-supernode \
   --isolation subprocess \
   --health-server-address 0.0.0.0:9099 \
@@ -112,7 +96,7 @@ docker run \
   -e NODE_PSK="SEU_PSK_2_AQUI" \
   -e OTEL_EXPORTER_OTLP_ENDPOINT="otel-collector:4318" \
   -v client-2-certs:/app/certs \
-  mentishub/fl-clientapp:latest \
+  mentishub/fl-app:latest \
   flower-supernode \
   --isolation subprocess \
   --health-server-address 0.0.0.0:9099 \
@@ -126,7 +110,7 @@ docker run \
 
 **a) Deploy ServerApp:**
 ```bash
-POST /projects/{projectId}/trainings/{trainingId}/deploy
+POST /v1/projects/{projectId}/trainings/{trainingId}/deploy
 ```
 
 **b) Aguardar inicialização:**
@@ -135,7 +119,7 @@ POST /projects/{projectId}/trainings/{trainingId}/deploy
 
 **c) Iniciar treinamento:**
 ```bash
-POST /projects/{projectId}/trainings/{trainingId}/run
+POST /v1/projects/{projectId}/trainings/{trainingId}/run
 ```
 
 **Pronto!** O treinamento federado começará automaticamente com todos os nodes READY do projeto.
