@@ -6,3 +6,4 @@ export * from './projects';
 export * from './nodes';
 export * from './training';
 export * from './fabs';
+export * from './metrics';

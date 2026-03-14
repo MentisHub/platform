@@ -7,6 +7,7 @@ import { AuthorizationModule } from './authorization/auth.module';
 import { FabsModule } from './fabs/fabs.module';
 import { FlowerModule, FlowerSyncModule } from './flower/flower.module';
 import { HealthController } from './health/health.controller';
+import { MetricsModule } from './metrics/metrics.module';
 import { LoggingModule } from './logging/logging.module';
 import { NodesModule } from './nodes/nodes.module';
 import { OrganizationsModule } from './organizations/organizations.module';
@@ -29,6 +30,7 @@ import { TrainingModule } from './training/training.module';
     FlowerModule,
     FlowerSyncModule,
     FabsModule,
+    MetricsModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -323,6 +323,19 @@ export class TrainingService {
     return updatedTrainingRun;
   }
 
+  async getTrainingRunIdsByProject(
+    projectId: string,
+    trainingRunId?: string,
+  ): Promise<string[]> {
+    const runs = await this.prisma.trainingRun.findMany({
+      where: trainingRunId ? { id: trainingRunId, projectId } : { projectId },
+      select: { id: true },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    return runs.map((r) => r.id);
+  }
+
   async getTrainingRun(trainingRunId: string) {
     const trainingRun = await this.prisma.trainingRun.findUnique({
       where: { id: trainingRunId },
