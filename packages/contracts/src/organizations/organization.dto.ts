@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paginatedResponseSchema } from '../common';
 import {
   createOrganizationSchema,
   listOrganizationsQuerySchema,

@@ -1,21 +1,26 @@
 import { QueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { ApiError } from "@/lib/api/client";
 
 function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 60 * 1000, // 1 min — avoids refetch on every mount
+        staleTime: 60 * 1000,
         retry: (failureCount, error: unknown) => {
-          // Don't retry on 4xx client errors
           if (
-            error instanceof Error &&
-            "status" in error &&
-            typeof (error as { status: number }).status === "number" &&
-            (error as { status: number }).status < 500
+            error instanceof ApiError &&
+            error.status < 500
           ) {
             return false;
           }
           return failureCount < 2;
+        },
+      },
+      mutations: {
+        onError: (error) => {
+          const message = error instanceof ApiError ? error.message : "Something went wrong";
+          toast.error(message);
         },
       },
     },

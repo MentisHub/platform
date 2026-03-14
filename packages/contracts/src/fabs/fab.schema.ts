@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { paginationQuerySchema, sortOrderSchema } from '../common/pagination.dto';
+import { paginatedResponseSchema, paginationQuerySchema, sortOrderSchema } from '../common/pagination.dto';
 
 export const fabBaseSchema = z.object({
   name: z
@@ -56,3 +56,6 @@ export const listFabsQuerySchema = paginationQuerySchema.extend({
   sortBy: z.enum(['name', 'createdAt', 'version']).default('createdAt').describe('Field to sort results by'),
   order: sortOrderSchema,
 });
+
+export const paginatedFabsResponseSchema =
+  paginatedResponseSchema(fabResponseSchema);

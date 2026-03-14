@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { paginationQuerySchema, sortOrderSchema } from '../common/pagination.dto';
+import { paginatedResponseSchema, paginationQuerySchema, sortOrderSchema } from '../common/pagination.dto';
 
 export const projectBaseSchema = z.object({
   name: z
@@ -26,3 +26,6 @@ export const listProjectsQuerySchema = paginationQuerySchema.extend({
   sortBy: z.enum(['name', 'createdAt', 'updatedAt']).default('createdAt').describe('Field to sort results by'),
   order: sortOrderSchema,
 });
+
+export const paginatedProjectsResponseSchema =
+  paginatedResponseSchema(projectResponseSchema);

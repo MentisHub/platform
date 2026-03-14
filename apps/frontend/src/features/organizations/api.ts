@@ -8,7 +8,7 @@ import type {
 } from "@platform/contracts";
 
 export const organizationsApi = {
-  list: (params?: ListOrganizationsQuery) =>
+  list: (params?: Partial<ListOrganizationsQuery>) =>
     api.get<PaginatedResponse<OrganizationResponse>>("/organizations", params),
 
   get: (id: string) =>

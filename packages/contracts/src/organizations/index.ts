@@ -1,17 +1,2 @@
-export {
-  organizationBaseSchema,
-  createOrganizationSchema,
-  updateOrganizationSchema,
-  replaceOrganizationSchema,
-  organizationResponseSchema,
-  listOrganizationsQuerySchema,
-  paginatedOrganizationsResponseSchema,
-} from './organization.schema';
-
-export type {
-  CreateOrganizationInput,
-  UpdateOrganizationInput,
-  ReplaceOrganizationInput,
-  OrganizationResponse,
-  ListOrganizationsQuery,
-} from './organization.dto';
+export * from './organization.schema';
+export * from './organization.dto';

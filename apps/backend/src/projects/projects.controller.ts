@@ -17,6 +17,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { PaginatedResponse, ProjectResponse } from '@platform/contracts';
 import { OrgRole } from '@prisma/client';
 import { UserPayload } from 'src/authentication/decorators/user.decorator';
 import { UserPayloadData } from 'src/authentication/interfaces/payload.interface';
@@ -24,7 +25,6 @@ import { RequireOrgRole } from 'src/authorization/decorators/roles.decorator';
 import {
   CreateProjectDto,
   ListProjectsQueryDto,
-  PaginatedProjectsResponse,
   PaginatedProjectsResponseDto,
   ProjectResponseDto,
   UpdateProjectDto,
@@ -116,7 +116,7 @@ export class OrgProjectsController {
   async findAll(
     @Param('organizationId') organizationId: string,
     @Query() query: ListProjectsQueryDto,
-  ): Promise<PaginatedProjectsResponse> {
+  ): Promise<PaginatedResponse<ProjectResponse>> {
     const projects = await this.projectsService.findAll(organizationId);
 
     return {

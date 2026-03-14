@@ -32,5 +32,3 @@ export class ProjectResponseDto extends createZodDto(projectResponseSchema) {
 export class PaginatedProjectsResponseDto extends createZodDto(
   paginatedProjectsResponseSchema,
 ) {}
-
-export type { PaginatedProjectsResponse } from '@platform/contracts';

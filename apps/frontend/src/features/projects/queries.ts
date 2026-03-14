@@ -9,18 +9,18 @@ import type {
   ListProjectsQuery,
 } from "@platform/contracts";
 
-export function useProjects(orgId: string, params?: ListProjectsQuery) {
+export function useProjects(orgId: string | undefined, params?: Partial<ListProjectsQuery>) {
   return useQuery({
-    queryKey: queryKeys.projects.list(orgId, params),
-    queryFn: () => projectsApi.list(orgId, params),
+    queryKey: queryKeys.projects.list(orgId!, params),
+    queryFn: () => projectsApi.list(orgId!, params),
     enabled: !!orgId,
   });
 }
 
-export function useProject(orgId: string, projectId: string) {
+export function useProject(orgId: string | undefined, projectId: string) {
   return useQuery({
     queryKey: queryKeys.projects.detail(projectId),
-    queryFn: () => projectsApi.get(orgId, projectId),
+    queryFn: () => projectsApi.get(orgId!, projectId),
     enabled: !!orgId && !!projectId,
   });
 }

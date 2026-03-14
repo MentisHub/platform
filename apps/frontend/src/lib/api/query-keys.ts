@@ -9,7 +9,7 @@ export const queryKeys = {
   organizations: {
     all: ["organizations"] as const,
     lists: () => [...queryKeys.organizations.all, "list"] as const,
-    list: (params?: ListOrganizationsQuery) =>
+    list: (params?: Partial<ListOrganizationsQuery>) =>
       [...queryKeys.organizations.lists(), params] as const,
     details: () => [...queryKeys.organizations.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.organizations.details(), id] as const,
@@ -18,7 +18,7 @@ export const queryKeys = {
   projects: {
     all: ["projects"] as const,
     lists: () => [...queryKeys.projects.all, "list"] as const,
-    list: (orgId: string, params?: ListProjectsQuery) =>
+    list: (orgId: string, params?: Partial<ListProjectsQuery>) =>
       [...queryKeys.projects.lists(), orgId, params] as const,
     details: () => [...queryKeys.projects.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.projects.details(), id] as const,

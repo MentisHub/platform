@@ -22,4 +22,4 @@ export const paginatedResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =
     data: z.array(dataSchema),
     meta: paginationMetaSchema,
   });
-export type PaginatedResponse = z.infer<typeof paginatedResponseSchema>;
+export type PaginatedResponse<T> = { data: T[]; meta: PaginationMeta };

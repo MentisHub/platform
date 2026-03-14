@@ -1,15 +1,15 @@
 import { api } from "@/lib/api/client";
 import type {
-  ProjectResponse,
   CreateProjectInput,
-  UpdateProjectInput,
   ListProjectsQuery,
-  PaginatedProjectsResponse,
+  PaginatedResponse,
+  ProjectResponse,
+  UpdateProjectInput,
 } from "@platform/contracts";
 
 export const projectsApi = {
-  list: (orgId: string, params?: ListProjectsQuery) =>
-    api.get<PaginatedProjectsResponse>(
+  list: (orgId: string, params?: Partial<ListProjectsQuery>) =>
+    api.get<PaginatedResponse<ProjectResponse>>(
       `/organizations/${orgId}/projects`,
       params,
     ),

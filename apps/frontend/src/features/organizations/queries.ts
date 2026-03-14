@@ -9,7 +9,7 @@ import type {
   ListOrganizationsQuery,
 } from "@platform/contracts";
 
-export function useOrganizations(params?: ListOrganizationsQuery) {
+export function useOrganizations(params?: Partial<ListOrganizationsQuery>) {
   return useQuery({
     queryKey: queryKeys.organizations.list(params),
     queryFn: () => organizationsApi.list(params),

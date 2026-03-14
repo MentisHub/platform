@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { paginationQuerySchema, sortOrderSchema } from '../common/pagination.dto';
+import { paginatedResponseSchema, paginationQuerySchema, sortOrderSchema } from '../common/pagination.dto';
 
 export const nodeStatusSchema = z.enum([
   'CREATED',      // Node just created, waiting for bootstrap (certificate issuance)
@@ -70,3 +70,6 @@ export const rotateResponseSchema = z.object({
   rootCa: z.string().describe('Root Certificate Authority certificate (PEM format)'),
   clientCert: z.string().describe('New node client certificate signed by the CA (PEM format, 7-day TTL)'),
 });
+
+export const paginatedNodesResponseSchema =
+  paginatedResponseSchema(nodeResponseSchema);
