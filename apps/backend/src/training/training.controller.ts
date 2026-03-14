@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Param, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -14,17 +7,17 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ProjectRole } from '@prisma/client';
+import { UserPayload } from 'src/authentication/decorators/user.decorator';
+import { UserPayloadData } from 'src/authentication/interfaces/payload.interface';
 import { OrgMembership } from 'src/authorization/decorators/membership.decorator';
 import { RequireProjectRole } from 'src/authorization/decorators/roles.decorator';
 import { OrganizationMembership } from 'src/authorization/interfaces/membership.interface';
+import { TrainingService } from './services/training.service';
 import {
   CreateTrainingDto,
   StartTrainingResponseDto,
   TrainingRunResponseDto,
 } from './training.dto';
-import { TrainingService } from './services/training.service';
-import { UserPayload } from 'src/authentication/decorators/user.decorator';
-import { UserPayloadData } from 'src/authentication/interfaces/payload.interface';
 
 @ApiTags('training')
 @ApiBearerAuth()
@@ -161,8 +154,7 @@ export class ProjTrainingController {
   })
   @ApiResponse({
     status: 400,
-    description:
-      'Training cannot be started (invalid state or no nodes ready)',
+    description: 'Training cannot be started (invalid state or no nodes ready)',
   })
   @ApiResponse({
     status: 401,
