@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <defs>
+
+    <linearGradient id="sulcoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#f0a818"/>
+      <stop offset="48%"  stop-color="#ffc840"/>
+      <stop offset="100%" stop-color="#e09010"/>
+    </linearGradient>
+
+    <linearGradient id="brainGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#c8a860"/>
+      <stop offset="100%" stop-color="#906820"/>
+    </linearGradient>
+
+    <filter id="gSulco" x="-80%" y="-5%" width="260%" height="110%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="gNode" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="gHub" x="-180%" y="-180%" width="460%" height="460%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <clipPath id="clipLeft">
+      <ellipse cx="210" cy="250" rx="87" ry="117"/>
+    </clipPath>
+    <clipPath id="clipRight">
+      <ellipse cx="290" cy="250" rx="87" ry="117"/>
+    </clipPath>
+
+  </defs>
+
+  <!-- Hemisférios: fill transparente, só contorno -->
+  <ellipse cx="210" cy="250" rx="88" ry="118"
+    fill="none" stroke="url(#brainGrad)" stroke-width="2.2" opacity="0.9"/>
+  <ellipse cx="290" cy="250" rx="88" ry="118"
+    fill="none" stroke="url(#brainGrad)" stroke-width="2.2" opacity="0.9"/>
+  <path d="M222,364 Q250,382 278,364"
+    fill="none" stroke="url(#brainGrad)" stroke-width="2.2"
+    stroke-linecap="round" opacity="0.9"/>
+
+  <!-- Sulco -->
+  <line x1="250" y1="134" x2="250" y2="364"
+    stroke="#f0a818" stroke-width="8" stroke-linecap="round"
+    opacity="0.15" filter="url(#gSulco)"/>
+  <line x1="250" y1="134" x2="250" y2="364"
+    stroke="url(#sulcoGrad)" stroke-width="2"
+    stroke-linecap="round" filter="url(#gSulco)" opacity="0.9"/>
+
+  <!-- Circuitos esquerdo -->
+  <g clip-path="url(#clipLeft)"
+     stroke="#c8943a" stroke-width="1.5"
+     stroke-linecap="round" stroke-linejoin="round"
+     fill="none">
+    <path d="M158,188 L200,188 L200,210 L156,210"/>
+    <path d="M152,232 L200,232 L200,258 L160,258 L160,278"/>
+    <path d="M162,298 L200,298 L200,318 L168,318"/>
+    <line x1="200" y1="210" x2="200" y2="232"/>
+    <line x1="200" y1="258" x2="200" y2="298"/>
+  </g>
+
+  <!-- Circuitos direito -->
+  <g clip-path="url(#clipRight)"
+     stroke="#d4a848" stroke-width="1.5"
+     stroke-linecap="round" stroke-linejoin="round"
+     fill="none">
+    <path d="M342,188 L300,188 L300,210 L344,210"/>
+    <path d="M348,232 L300,232 L300,258 L340,258 L340,278"/>
+    <path d="M338,298 L300,298 L300,318 L332,318"/>
+    <line x1="300" y1="210" x2="300" y2="232"/>
+    <line x1="300" y1="258" x2="300" y2="298"/>
+  </g>
+
+  <!-- Nós -->
+  <g filter="url(#gNode)">
+    <circle cx="158" cy="188" r="5" fill="#f0c060"/>
+    <circle cx="152" cy="232" r="5" fill="#f0c060"/>
+    <circle cx="160" cy="278" r="5" fill="#f0c060"/>
+    <circle cx="162" cy="298" r="5" fill="#f0c060"/>
+    <circle cx="342" cy="188" r="5" fill="#f0c060"/>
+    <circle cx="348" cy="232" r="5" fill="#f0c060"/>
+    <circle cx="340" cy="278" r="5" fill="#f0c060"/>
+    <circle cx="338" cy="298" r="5" fill="#f0c060"/>
+    <circle cx="156" cy="210" r="3" fill="#c8943a"/>
+    <circle cx="160" cy="258" r="3" fill="#c8943a"/>
+    <circle cx="168" cy="318" r="3" fill="#c8943a"/>
+    <circle cx="344" cy="210" r="3" fill="#c8943a"/>
+    <circle cx="340" cy="258" r="3" fill="#c8943a"/>
+    <circle cx="332" cy="318" r="3" fill="#c8943a"/>
+  </g>
+
+  <!-- Hub central -->
+  <circle cx="250" cy="250" r="26"
+    fill="#f0a818" opacity="0.08" filter="url(#gHub)"/>
+  <circle cx="250" cy="250" r="14"
+    fill="none" stroke="#f0a818" stroke-width="1.2" opacity="0.45"/>
+  <circle cx="250" cy="250" r="8"
+    fill="#ffc840" filter="url(#gHub)" opacity="0.95"/>
+  <circle cx="250" cy="250" r="3" fill="#fff8ee"/>
+
+  <g stroke="#f0a818" stroke-width="1.4" stroke-linecap="round" opacity="0.5">
+    <line x1="237" y1="250" x2="222" y2="250"/>
+    <line x1="263" y1="250" x2="278" y2="250"/>
+    <line x1="250" y1="237" x2="250" y2="220"/>
+    <line x1="250" y1="263" x2="250" y2="280"/>
+  </g>
+
+</svg>
