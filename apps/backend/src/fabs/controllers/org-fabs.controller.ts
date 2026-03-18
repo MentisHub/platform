@@ -88,6 +88,7 @@ export class FabsController {
       userId: user.sub,
       description: dto.description,
       isPublic: dto.isPublic,
+      tags: dto.tags,
       projectId: dto.projectId,
       fileBuffer: file.buffer,
       originalname: file.originalname,
@@ -128,6 +129,7 @@ export class FabsController {
     const fabs = await this.fabsService.listFabs(
       organizationId,
       query.projectId,
+      query.tags,
     );
 
     return {

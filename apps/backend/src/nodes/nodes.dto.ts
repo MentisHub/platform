@@ -30,6 +30,7 @@ export class NodeResponseDto extends createZodDto(nodeResponseSchema) {
       organizationId: entity.organizationId,
       projectId: entity.projectId,
       createdById: entity.createdById,
+      flowerNodeId: entity.flowerNodeId ?? null,
     });
   }
 }

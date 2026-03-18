@@ -27,6 +27,7 @@ export class FabResponseDto extends createZodDto(fabResponseSchema) {
       sizeBytes: fab.sizeBytes.toString(),
       isDefault: fab.isDefault,
       isPublic: fab.isPublic,
+      tags: fab.tags,
       organizationId: fab.organizationId,
       projectId: fab.projectId,
       createdAt: fab.createdAt.toISOString(),

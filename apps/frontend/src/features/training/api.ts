@@ -6,6 +6,12 @@ import type {
 } from "@platform/contracts";
 
 export const trainingApi = {
+  list: (projectId: string) =>
+    api.get<TrainingRunResponse[]>(`/projects/${projectId}/trainings`),
+
+  get: (projectId: string, trainingId: string) =>
+    api.get<TrainingRunResponse>(`/projects/${projectId}/trainings/${trainingId}`),
+
   create: (projectId: string, data: CreateTraining) =>
     api.post<StartTrainingResponse>(`/projects/${projectId}/trainings`, data),
 

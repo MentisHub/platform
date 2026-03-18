@@ -3,6 +3,7 @@ export interface CreateTrainingRunInput {
   projectId: string;
   userId: string;
   fabId: string;
+  configuration?: Record<string, unknown>;
 }
 
 export interface DeployServerAppInput {

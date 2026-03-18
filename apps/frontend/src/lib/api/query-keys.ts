@@ -27,7 +27,7 @@ export const queryKeys = {
   nodes: {
     all: ["nodes"] as const,
     lists: () => [...queryKeys.nodes.all, "list"] as const,
-    list: (orgId: string, params?: ListNodesQuery) =>
+    list: (orgId: string, params?: Partial<ListNodesQuery>) =>
       [...queryKeys.nodes.lists(), orgId, params] as const,
     details: () => [...queryKeys.nodes.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.nodes.details(), id] as const,
@@ -35,6 +35,8 @@ export const queryKeys = {
 
   training: {
     all: ["training"] as const,
+    lists: () => [...queryKeys.training.all, "list"] as const,
+    list: (projectId: string) => [...queryKeys.training.lists(), projectId] as const,
     details: () => [...queryKeys.training.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.training.details(), id] as const,
   },

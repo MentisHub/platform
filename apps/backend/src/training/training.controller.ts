@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -24,6 +24,53 @@ import {
 @Controller('projects/:projectId/trainings')
 export class ProjTrainingController {
   constructor(private readonly trainingService: TrainingService) {}
+
+  @Get()
+  @RequireProjectRole(ProjectRole.MEMBER)
+  @ApiOperation({
+    summary: 'List training runs',
+    description:
+      'Returns all training runs for the project in descending order',
+  })
+  @ApiParam({ name: 'projectId', description: 'Project UUID', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Training runs returned',
+    type: [TrainingRunResponseDto],
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  async list(
+    @Param('projectId') projectId: string,
+  ): Promise<TrainingRunResponseDto[]> {
+    const runs = await this.trainingService.listProjectTrainingRuns(projectId);
+    return runs.map(TrainingRunResponseDto.fromEntity);
+  }
+
+  @Get(':trainingId')
+  @RequireProjectRole(ProjectRole.MEMBER)
+  @ApiOperation({
+    summary: 'Get training run',
+    description: 'Returns a single training run by ID',
+  })
+  @ApiParam({ name: 'projectId', description: 'Project UUID', type: String })
+  @ApiParam({
+    name: 'trainingId',
+    description: 'Training run UUID',
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Training run returned',
+    type: TrainingRunResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Training run not found' })
+  async getOne(
+    @Param('trainingId') trainingId: string,
+  ): Promise<TrainingRunResponseDto> {
+    const run = await this.trainingService.getTrainingRun(trainingId);
+    return TrainingRunResponseDto.fromEntity(run);
+  }
 
   @Post()
   @RequireProjectRole(ProjectRole.ADMIN)
@@ -69,6 +116,7 @@ export class ProjTrainingController {
       projectId,
       userId: user.sub,
       fabId: createTrainingDto.fabId,
+      configuration: createTrainingDto.configuration,
     });
 
     return StartTrainingResponseDto.fromEntity(trainingRun);

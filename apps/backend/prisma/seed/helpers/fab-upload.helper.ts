@@ -6,6 +6,7 @@ export interface FABFileMetadata {
   fileName: string;
   sizeBytes: bigint;
   description: string | null;
+  tags: string[];
 }
 
 export async function extractFABMetadata(
@@ -18,22 +19,30 @@ export async function extractFABMetadata(
 
   const fileName = basename(fabFilePath);
   const sizeBytes = BigInt(stats.size);
-  const description = extractDescriptionFromFAB(fileBuffer);
+  const { description, tags } = extractMetadataFromFAB(fileBuffer);
 
-  return { fileName, sizeBytes, description };
+  return { fileName, sizeBytes, description, tags };
 }
 
-function extractDescriptionFromFAB(buffer: Buffer): string | null {
+function extractMetadataFromFAB(buffer: Buffer): { description: string | null; tags: string[] } {
   try {
     const files = unzipSync(new Uint8Array(buffer));
     const toml = files['pyproject.toml'];
-    if (!toml) return null;
+    if (!toml) return { description: null, tags: [] };
 
     const content = new TextDecoder().decode(toml);
-    const match = content.match(/^\s*description\s*=\s*"([^"]+)"/m);
-    return match?.[1] ?? null;
+
+    const descMatch = content.match(/^\s*description\s*=\s*"([^"]+)"/m);
+    const description = descMatch?.[1] ?? null;
+
+    const tagsMatch = content.match(/\[tool\.mentishub\][^\[]*tags\s*=\s*\[([^\]]*)\]/s);
+    const tags = tagsMatch
+      ? tagsMatch[1].match(/"([^"]+)"/g)?.map((t) => t.replace(/"/g, '')) ?? []
+      : [];
+
+    return { description, tags };
   } catch {
-    return null;
+    return { description: null, tags: [] };
   }
 }
 

@@ -32,6 +32,7 @@ export class TrainingRunResponseDto extends createZodDto(
       id: entity.id,
       status: entity.status,
       projectId: entity.projectId,
+      configuration: (entity.configuration as Record<string, unknown>) ?? null,
       createdAt: entity.createdAt.toISOString(),
       startedAt: entity.startedAt?.toISOString() ?? null,
       completedAt: entity.completedAt?.toISOString() ?? null,

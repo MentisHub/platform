@@ -69,25 +69,18 @@ export class CertificateService implements OnModuleInit {
     const cert = await x509.X509CertificateGenerator.create({
       serialNumber: serial,
       subject: `CN=${nodeId}`,
-      issuer: this.caCert.subject,
+      issuer: this.caCert.subjectName,
       notBefore,
       notAfter,
       signingAlgorithm: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
       publicKey: nodePublicKey,
       signingKey: this.caKey,
       extensions: [
-        new x509.KeyUsagesExtension(
-          x509.KeyUsageFlags.digitalSignature |
-            x509.KeyUsageFlags.keyEncipherment,
-          true,
-        ),
+        new x509.KeyUsagesExtension(x509.KeyUsageFlags.digitalSignature, true),
         new x509.ExtendedKeyUsageExtension(
           [x509.ExtendedKeyUsage.clientAuth],
           false,
         ),
-        new x509.SubjectAlternativeNameExtension([
-          { type: 'url', value: `spiffe://mentishub/node/${nodeId}` },
-        ]),
         await x509.AuthorityKeyIdentifierExtension.create(this.caCert, false),
       ],
     });

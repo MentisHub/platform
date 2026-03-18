@@ -97,6 +97,7 @@ export class FabsService {
         sizeBytes: BigInt(input.size),
         isDefault: false,
         isPublic: input.isPublic ?? false,
+        tags: input.tags ?? [],
         organizationId: input.organizationId,
         projectId: input.projectId ?? null,
         uploadedBy: input.userId,
@@ -156,6 +157,7 @@ export class FabsService {
         sizeBytes: BigInt(input.size),
         isDefault: true,
         isPublic: input.isPublic ?? true,
+        tags: input.tags ?? [],
         organizationId: null,
         projectId: null,
         uploadedBy: input.userId,
@@ -179,10 +181,15 @@ export class FabsService {
     return fab;
   }
 
-  async listFabs(organizationId: string, projectId?: string): Promise<Fab[]> {
+  async listFabs(
+    organizationId: string,
+    projectId?: string,
+    tags?: string[],
+  ): Promise<Fab[]> {
     return this.prisma.fab.findMany({
       where: {
         OR: buildFabAccessFilter(organizationId, projectId),
+        ...(tags && tags.length > 0 ? { tags: { hasSome: tags } } : {}),
       },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
     });

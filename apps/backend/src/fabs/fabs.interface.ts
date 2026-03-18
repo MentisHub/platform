@@ -3,6 +3,7 @@ export interface UploadFabInput {
   userId: string;
   description?: string;
   isPublic?: boolean;
+  tags?: string[];
   projectId?: string;
   fileBuffer: Buffer;
   originalname: string;
@@ -13,6 +14,7 @@ export interface UploadDefaultFabInput {
   userId: string;
   description?: string;
   isPublic?: boolean;
+  tags?: string[];
   fileBuffer: Buffer;
   originalname: string;
   size: number;

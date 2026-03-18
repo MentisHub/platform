@@ -32,13 +32,16 @@ export class MetricsService {
     private readonly trainingService: TrainingService,
     private readonly config: ConfigService,
   ) {
-    this.prometheusUrl = this.config.getOrThrow<string>('PROMETHEUS_URL');
+    this.prometheusUrl = this.config.getOrThrow<string>(
+      'PROMETHEUS_URL',
+      'http://prometheus:9090',
+    );
   }
 
   private buildLabelFilter(ids: string[]): string {
     return ids.length === 1
-      ? `training_run_id="${ids[0]}"`
-      : `training_run_id=~"${ids.join('|')}"`;
+      ? `run_id="${ids[0]}"`
+      : `run_id=~"${ids.join('|')}"`;
   }
 
   async getProjectMetrics(
@@ -46,7 +49,7 @@ export class MetricsService {
     query: MetricsQueryDto,
   ): Promise<MetricsResponseDto> {
     const now = Math.floor(Date.now() / 1000);
-    const resolvedStart = query.start ?? String(now - 3600);
+    const resolvedStart = query.start ?? String(now - 86_400);
     const resolvedEnd = query.end ?? String(now);
     const resolvedStep = query.step ?? '1m';
 

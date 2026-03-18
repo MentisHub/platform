@@ -35,6 +35,7 @@ export const nodeResponseSchema = z.object({
   organizationId: z.uuid().describe('Organization UUID this node belongs to'),
   projectId: z.uuid().nullable().describe('Project UUID this node is assigned to'),
   createdById: z.uuid().describe('User ID who created the node'),
+  flowerNodeId: z.string().nullable().describe('Flower federation node ID (uint64 string)'),
 });
 
 export const createNodeResponseSchema = nodeResponseSchema.extend({

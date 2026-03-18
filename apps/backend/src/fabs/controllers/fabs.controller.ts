@@ -58,6 +58,7 @@ export class AdminFabsController {
       userId: user.sub,
       description: dto.description,
       isPublic: dto.isPublic,
+      tags: dto.tags,
       fileBuffer: file.buffer,
       originalname: file.originalname,
       size: file.size,

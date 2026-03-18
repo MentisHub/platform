@@ -28,6 +28,7 @@ CREATE TABLE "platform"."fabs" (
     "size_bytes" BIGINT NOT NULL,
     "is_default" BOOLEAN NOT NULL DEFAULT false,
     "is_public" BOOLEAN NOT NULL DEFAULT false,
+    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "organization_id" UUID,
     "project_id" UUID,
     "uploaded_by_id" UUID NOT NULL,
@@ -178,6 +179,9 @@ CREATE UNIQUE INDEX "fabs_fab_hash_key" ON "platform"."fabs"("fab_hash");
 CREATE INDEX "fabs_fab_hash_idx" ON "platform"."fabs"("fab_hash");
 
 -- CreateIndex
+CREATE INDEX "fabs_tags_idx" ON "platform"."fabs" USING GIN ("tags" array_ops);
+
+-- CreateIndex
 CREATE INDEX "organizations_owner_id_idx" ON "platform"."organizations"("owner_id");
 
 -- CreateIndex
@@ -260,7 +264,6 @@ ALTER TABLE "platform"."round_participants" ADD CONSTRAINT "round_participants_n
 
 -- AddForeignKey
 ALTER TABLE "platform"."round_participants" ADD CONSTRAINT "round_participants_round_id_fkey" FOREIGN KEY ("round_id") REFERENCES "platform"."rounds"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
 
 -- Function to handle user creation - sync auth.users to platform.users
 CREATE OR REPLACE FUNCTION public.handle_new_user()

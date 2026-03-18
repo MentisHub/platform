@@ -30,10 +30,11 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, cleanupOpenApiDoc(document));
+  SwaggerModule.setup('docs', app, cleanupOpenApiDoc(document));
 
   app.enableCors({
-    origin: appConfigService.get<string>('CORS_ORIGIN') ?? 'http://localhost:3001',
+    origin:
+      appConfigService.get<string>('CORS_ORIGIN') ?? 'http://localhost:3001',
     credentials: true,
   });
 

@@ -21,6 +21,7 @@ export interface FixtureFAB {
   hash: string;
   sizeBytes: bigint;
   description: string | null;
+  tags: string[];
 }
 
 async function loadFixtureFABs(): Promise<FixtureFAB[]> {
@@ -41,6 +42,7 @@ async function loadFixtureFABs(): Promise<FixtureFAB[]> {
       hash: parsed.hash,
       sizeBytes: metadata.sizeBytes,
       description: metadata.description,
+      tags: metadata.tags,
     });
   }
 
@@ -85,6 +87,7 @@ export async function seedDefaultFabs(
           sizeBytes: fixture.sizeBytes,
           isDefault: true,
           isPublic: true,
+          tags: fixture.tags,
           uploadedBy: uploaderId,
         },
       });
@@ -125,6 +128,7 @@ export async function createOrgFab(
         sizeBytes: fixture.sizeBytes,
         isDefault: false,
         isPublic: false,
+        tags: fixture.tags,
         organizationId: organization.id,
         uploadedBy: organization.ownerId,
       },
@@ -163,6 +167,7 @@ export async function createProjectFab(
         sizeBytes: fixture.sizeBytes,
         isDefault: false,
         isPublic: false,
+        tags: fixture.tags,
         organizationId,
         projectId: project.id,
         uploadedBy: orgOwner,

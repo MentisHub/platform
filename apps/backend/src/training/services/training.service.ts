@@ -48,6 +48,7 @@ export class TrainingService {
         status: TrainingStatus.PENDING,
         fabId: input.fabId,
         createdBy: input.userId,
+        ...(input.configuration ? { configuration: input.configuration as Prisma.InputJsonValue } : {}),
       },
     });
 
@@ -323,17 +324,26 @@ export class TrainingService {
     return updatedTrainingRun;
   }
 
+  async listProjectTrainingRuns(projectId: string): Promise<TrainingRun[]> {
+    return this.prisma.trainingRun.findMany({
+      where: { projectId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async getTrainingRunIdsByProject(
     projectId: string,
     trainingRunId?: string,
   ): Promise<string[]> {
     const runs = await this.prisma.trainingRun.findMany({
       where: trainingRunId ? { id: trainingRunId, projectId } : { projectId },
-      select: { id: true },
+      select: { flowerRunId: true },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
-    return runs.map((r) => r.id);
+    return runs
+      .map((r) => r.flowerRunId)
+      .filter((id): id is string => id !== null);
   }
 
   async getTrainingRun(trainingRunId: string) {

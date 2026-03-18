@@ -5,7 +5,7 @@ import { queryKeys } from "@/lib/api/query-keys";
 import { nodesApi } from "./api";
 import type { CreateNodeInput, UpdateNodeInput, ListNodesQuery } from "@platform/contracts";
 
-export function useNodes(orgId: string, params?: ListNodesQuery) {
+export function useNodes(orgId: string, params?: Partial<ListNodesQuery>) {
   return useQuery({
     queryKey: queryKeys.nodes.list(orgId, params),
     queryFn: () => nodesApi.list(orgId, params),

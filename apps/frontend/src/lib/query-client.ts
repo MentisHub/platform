@@ -1,26 +1,24 @@
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryCache } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api/client";
 
 function makeQueryClient() {
   return new QueryClient({
+    queryCache: new QueryCache({
+      onError: (error) => {
+        const message = error instanceof ApiError ? error.message : "Something went wrong";
+        toast.error(message, { id: "query-error" });
+      },
+    }),
     defaultOptions: {
       queries: {
         staleTime: 60 * 1000,
-        retry: (failureCount, error: unknown) => {
-          if (
-            error instanceof ApiError &&
-            error.status < 500
-          ) {
-            return false;
-          }
-          return failureCount < 2;
-        },
+        retry: false,
       },
       mutations: {
         onError: (error) => {
           const message = error instanceof ApiError ? error.message : "Something went wrong";
-          toast.error(message);
+          toast.error(message, { id: "query-error" });
         },
       },
     },

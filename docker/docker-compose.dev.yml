@@ -11,7 +11,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ../../docker:/usr/src/app/platform/docker:ro
       - ../../certs:/usr/src/app/certs:ro
-      - ../../flower/framework/proto/flwr:/opt/flower-proto/flwr:ro  # Mount local Flower protos
+      - ../../flower/framework/proto/flwr:/opt/flower-proto/flwr:ro # Mount local Flower protos
     ports:
       - "3000:3000"
     environment:
@@ -20,8 +20,6 @@ services:
       SUPABASE_URL: http://supabase-kong:8000
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       JWT_SECRET: ${JWT_SECRET}
-      JWT_PRIVATE_KEY_PATH: /usr/src/app/certs/jwt_private.pem
-      JWT_PUBLIC_KEY_PATH: /usr/src/app/certs/jwt_public.pem
       BACKEND_INTERNAL_URL: http://platform-backend:3000
       OTEL_INTERNAL_URL: http://otel-collector:4318
       SUPERLINK_HOST: superlink
@@ -38,7 +36,15 @@ services:
       supabase-auth:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000/health",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10

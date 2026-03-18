@@ -1,16 +1,16 @@
 import { api } from "@/lib/api/client";
 import type {
-  NodeResponse,
   CreateNodeInput,
-  UpdateNodeInput,
   CreateNodeResponse,
   ListNodesQuery,
-  PaginatedNodesResponse,
+  NodeResponse,
+  PaginatedResponse,
+  UpdateNodeInput,
 } from "@platform/contracts";
 
 export const nodesApi = {
-  list: (orgId: string, params?: ListNodesQuery) =>
-    api.get<PaginatedNodesResponse>(
+  list: (orgId: string, params?: Partial<ListNodesQuery>) =>
+    api.get<PaginatedResponse<NodeResponse>>(
       `/organizations/${orgId}/nodes`,
       params,
     ),

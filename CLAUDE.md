@@ -1,26 +1,28 @@
 # CLAUDE.md — platform/
 
-NestJS + Next.js monorepo. pnpm + Turbo. Node.js 25, pnpm 10.19.0.
-Full documentation in `docs/pt-br/`.
+Full documentation in docs/pt-br/srs-document.md (**read this for business logic implementations**)
+Docker compose: docker/docker-compose.dev.yml
 
-## Commands
-```bash
-pnpm dev && pnpm test && pnpm lint
-pnpm prisma:deploy   # migrations (production-safe)
-pnpm prisma:generate # regenerate Prisma client after schema changes
-pnpm db:seed
-```
+## Backend NestJS (apps/backend/)
+
+- **DB models:** prisma/schema/**.prisma, use snake_case columns to camelCase in code
+- **Auth:** `APP_GUARD` protects all routes globally. `@Public()` skips it, never add without explicit security review.
+- **Service Domain:** never access Prisma models that belong to another domain directly
+- **API:** URI versioning, default v1 for all routes implicitly. Swagger at `GET /docs`
+- **Logs:** Use structured logging with context-rich fields: `logger.log({ action: 'node.activated', nodeId, federationId, orgId }, 'Node activated')`
+  - **Layer principle:** Log at the outermost service layer for maximum context
+  - **Boundaries:** HTTP requests/responses, gRPC calls, federated learning round transitions
+  - **Levels:** `logger.debug` (verbose data), `logger.warn` (expected failures), `logger.error` + `err` field (exceptions)
+  - **Avoid:** Logging inside loops, deep nested calls without business context
+
+## Frontend Next.js (apps/frontend/)
+
+- **Architecture:** Feature-driven structure (src/features/) with domain-specific components and logic
+- **UI Components:** shadcn/ui design system in src/components/ui/ for consistent styling
+- **Organization:** Create subfolders when domain has >3 related components
+- **Hooks:** Separate hooks/ folder for custom hooks, features/*/hooks/ for domain-specific hooks when >2 hooks exist
+- **Pages:** App Router pages compose feature components, never contain full UI implementations
 
 ## Constraints
 
-- **Types:** always from `@platform/contracts` using zod — never duplicate in app code
-- **DB models:** `@@schema("platform")`, UUID PKs, snake_case columns → camelCase in code (non-default Prisma behavior)
-- **Auth:** `APP_GUARD` protects all routes globally. `@Public()` skips it — never add without explicit security review. Node bootstrap (`POST /nodes/activate`) is `@Public()` by design; PSK is the auth mechanism
-- **Events vs gRPC:** `EventEmitter2` for internal platform events only; `@grpc/grpc-js` exclusively for Flower SuperLink. Never use gRPC internally
-- **Proto generation:** runs inside Docker (`Dockerfile.dev` installs `protoc` via apt). Don't run `pnpm flower:proto` on host unless `protoc` is installed locally
-- **API:** URI versioning, default v1 — all routes implicitly `/v1/...`. Swagger at `GET /api/docs`
-- **Logs:** never log auth tokens, passwords, or PSK fields. Use structured logging via PinoLogger:
-  prefer `logger.log({ nodeId, federationId }, 'node activated')` over string interpolation —
-  keeps fields queryable in Grafana/Loki. Log at boundaries (HTTP in/out, gRPC calls, FL round
-  start/end), not inside loops. Use `logger.debug` for verbose data, `logger.warn` for expected
-  failures (cert expired, PSK invalid), `logger.error` + `err` field for unexpected exceptions.
+- **Types:** always from packages/contracts/ using zod, never duplicate in app code
