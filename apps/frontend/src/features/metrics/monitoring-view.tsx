@@ -64,8 +64,7 @@ export function MonitoringView({ projectId }: MonitoringViewProps) {
 
   const { data: rangeData, isLoading: rangeLoading } = useQuery({
     queryKey: ["metrics", "range", projectId, activeRunId],
-    queryFn: () =>
-      metricsApi.range(projectId, { trainingRunId: activeRunId, step: "1m" }),
+    queryFn: () => metricsApi.range(projectId, activeRunId!, { step: "1m" }),
     enabled: !!activeRunId,
     refetchInterval: false,
     staleTime: 30_000,

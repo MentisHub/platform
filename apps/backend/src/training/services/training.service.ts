@@ -22,6 +22,7 @@ import { ProjectsService } from '../../projects/projects.service';
 import {
   CreateTrainingRunInput,
   DeployServerAppInput,
+  type RunMetrics,
 } from '../training.interface';
 
 @Injectable()
@@ -48,7 +49,9 @@ export class TrainingService {
         status: TrainingStatus.PENDING,
         fabId: input.fabId,
         createdBy: input.userId,
-        ...(input.configuration ? { configuration: input.configuration as Prisma.InputJsonValue } : {}),
+        ...(input.configuration
+          ? { configuration: input.configuration as Prisma.InputJsonValue }
+          : {}),
       },
     });
 
@@ -331,19 +334,20 @@ export class TrainingService {
     });
   }
 
-  async getTrainingRunIdsByProject(
+  async getRunForMetrics(
     projectId: string,
-    trainingRunId?: string,
-  ): Promise<string[]> {
-    const runs = await this.prisma.trainingRun.findMany({
-      where: trainingRunId ? { id: trainingRunId, projectId } : { projectId },
-      select: { flowerRunId: true },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
+    trainingRunId: string,
+  ): Promise<RunMetrics | null> {
+    const run = await this.prisma.trainingRun.findUnique({
+      where: { id: trainingRunId, projectId },
+      select: { flowerRunId: true, startedAt: true, completedAt: true },
     });
-    return runs
-      .map((r) => r.flowerRunId)
-      .filter((id): id is string => id !== null);
+    if (!run?.flowerRunId) return null;
+    return {
+      flowerRunId: run.flowerRunId,
+      startedAt: run.startedAt,
+      completedAt: run.completedAt,
+    };
   }
 
   async getTrainingRun(trainingRunId: string) {

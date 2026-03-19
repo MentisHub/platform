@@ -11,3 +11,9 @@ export interface DeployServerAppInput {
   trainingRunId: string;
   userId: string;
 }
+
+export interface RunMetrics {
+  flowerRunId: string;
+  startedAt: Date | null;
+  completedAt: Date | null;
+}

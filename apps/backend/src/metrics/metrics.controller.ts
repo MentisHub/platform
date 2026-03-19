@@ -18,49 +18,31 @@ import { ProjectRole } from '@prisma/client';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { RequireProjectRole } from 'src/authorization/decorators/roles.decorator';
-import {
-  MetricsQueryDto,
-  MetricsResponseDto,
-  MetricsStreamQueryDto,
-} from './metrics.dto';
+import { MetricsQueryDto, MetricsResponseDto } from './metrics.dto';
 import { MetricsService } from './metrics.service';
 
 @ApiTags('metrics')
 @ApiBearerAuth()
-@Controller('projects/:projectId/metrics')
+@Controller('projects/:projectId/runs/:runId/metrics')
 export class ProjMetricsController {
   constructor(private readonly metricsService: MetricsService) {}
 
   @Get()
   @RequireProjectRole(ProjectRole.MEMBER)
   @ApiOperation({
-    summary: 'Query project FL metrics',
+    summary: 'Query FL metrics for a training run',
     description:
-      'Returns time series data from Prometheus for all training runs in the project. ' +
-      'Any metric emitted by a FAB that includes a `training_run_id` label matching a run ' +
-      'in this project is returned — custom metrics are fully supported with no reserved names.',
+      'Returns time series data from Prometheus for a specific training run. ' +
+      "The time range is derived from the run's startedAt and completedAt timestamps. " +
+      'Any metric emitted by the FAB with a matching run_id label is returned — custom metrics are fully supported.',
   })
   @ApiParam({ name: 'projectId', description: 'Project UUID', type: String })
-  @ApiQuery({
-    name: 'start',
-    required: false,
-    description: 'Start time — ISO8601 or unix seconds (default: 1 hour ago)',
-  })
-  @ApiQuery({
-    name: 'end',
-    required: false,
-    description: 'End time — ISO8601 or unix seconds (default: now)',
-  })
+  @ApiParam({ name: 'runId', description: 'Training run UUID', type: String })
   @ApiQuery({
     name: 'step',
     required: false,
     description:
       'Resolution step as a Prometheus duration string, e.g. "30s", "5m" (default: 1m)',
-  })
-  @ApiQuery({
-    name: 'trainingRunId',
-    required: false,
-    description: 'Restrict results to a single training run UUID',
   })
   @ApiResponse({
     status: 200,
@@ -72,12 +54,13 @@ export class ProjMetricsController {
     status: 403,
     description: 'Insufficient permissions — requires project membership',
   })
-  @ApiResponse({ status: 404, description: 'Project not found' })
+  @ApiResponse({ status: 404, description: 'Training run not found' })
   async getMetrics(
     @Param('projectId') projectId: string,
+    @Param('runId') runId: string,
     @Query() query: MetricsQueryDto,
   ): Promise<MetricsResponseDto> {
-    return this.metricsService.getProjectMetrics(projectId, query);
+    return await this.metricsService.getMetrics(projectId, runId, query);
   }
 
   @Sse('stream')
@@ -86,15 +69,10 @@ export class ProjMetricsController {
     summary: 'Stream live FL metrics (SSE)',
     description:
       'Opens a Server-Sent Events connection that emits an instant metric snapshot every 5 s. ' +
-      'Each event contains the current value of every series tagged with a training run that ' +
-      'belongs to this project. Custom FAB metrics are included automatically.',
+      'Custom FAB metrics are included automatically.',
   })
   @ApiParam({ name: 'projectId', description: 'Project UUID', type: String })
-  @ApiQuery({
-    name: 'trainingRunId',
-    required: false,
-    description: 'Restrict the stream to a single training run UUID',
-  })
+  @ApiParam({ name: 'runId', description: 'Training run UUID', type: String })
   @ApiResponse({
     status: 200,
     description: 'SSE stream — emits MetricsStreamEvent every 5 s',
@@ -106,10 +84,10 @@ export class ProjMetricsController {
   })
   streamMetrics(
     @Param('projectId') projectId: string,
-    @Query() query: MetricsStreamQueryDto,
+    @Param('runId') runId: string,
   ): Observable<MessageEvent> {
     return this.metricsService
-      .streamProjectMetrics(projectId, query.trainingRunId)
+      .streamMetrics(projectId, runId)
       .pipe(map((data) => ({ data })));
   }
 }

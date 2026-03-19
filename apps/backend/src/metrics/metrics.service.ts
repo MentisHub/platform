@@ -2,6 +2,7 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -38,40 +39,33 @@ export class MetricsService {
     );
   }
 
-  private buildLabelFilter(ids: string[]): string {
-    return ids.length === 1
-      ? `run_id="${ids[0]}"`
-      : `run_id=~"${ids.join('|')}"`;
-  }
-
-  async getProjectMetrics(
+  async getMetrics(
     projectId: string,
+    runId: string,
     query: MetricsQueryDto,
   ): Promise<MetricsResponseDto> {
     const now = Math.floor(Date.now() / 1000);
-    const resolvedStart = query.start ?? String(now - 86_400);
-    const resolvedEnd = query.end ?? String(now);
-    const resolvedStep = query.step ?? '1m';
+    const run = await this.trainingService.getRunForMetrics(projectId, runId);
+    if (!run) {
+      throw new NotFoundException('Training run not found');
+    }
 
+    const resolvedStart = run.startedAt
+      ? String(Math.floor(run.startedAt.getTime() / 1000))
+      : String(now - 86_400);
+    const resolvedEnd = run.completedAt
+      ? String(Math.floor(run.completedAt.getTime() / 1000))
+      : String(now);
+    const resolvedStep = query.step ?? '1m';
     const timeRange = {
       start: resolvedStart,
       end: resolvedEnd,
       step: resolvedStep,
     };
 
-    const ids = await this.trainingService.getTrainingRunIdsByProject(
-      projectId,
-      query.trainingRunId,
-    );
-    if (ids.length === 0) {
-      return metricsResponseSchema.parse({ projectId, timeRange, series: [] });
-    }
-
     const params = new URLSearchParams({
-      query: `{${this.buildLabelFilter(ids)}}`,
-      start: resolvedStart,
-      end: resolvedEnd,
-      step: resolvedStep,
+      query: `{run_id="${run.flowerRunId}"}`,
+      ...timeRange,
     });
 
     let body: PrometheusRangeResponse;
@@ -81,7 +75,7 @@ export class MetricsService {
       );
       if (!res.ok) {
         this.logger.warn(
-          { projectId, status: res.status },
+          { projectId, runId, status: res.status },
           'Prometheus returned non-2xx response',
         );
         throw new InternalServerErrorException('Failed to query metrics');
@@ -89,13 +83,13 @@ export class MetricsService {
       body = (await res.json()) as PrometheusRangeResponse;
     } catch (err: unknown) {
       if (err instanceof InternalServerErrorException) throw err;
-      this.logger.error({ err, projectId }, 'Prometheus request failed');
+      this.logger.error({ err, projectId, runId }, 'Prometheus request failed');
       throw new InternalServerErrorException('Failed to query metrics');
     }
 
     if (body.status !== 'success') {
       this.logger.warn(
-        { projectId, error: body.error },
+        { projectId, runId, error: body.error },
         'Prometheus query failed',
       );
       throw new InternalServerErrorException('Metrics query failed');
@@ -111,14 +105,11 @@ export class MetricsService {
 
   private async pollInstantMetrics(
     projectId: string,
-    trainingRunId?: string,
+    runId: string,
   ): Promise<MetricsStreamEventDto> {
-    const ids = await this.trainingService.getTrainingRunIdsByProject(
-      projectId,
-      trainingRunId,
-    );
+    const run = await this.trainingService.getRunForMetrics(projectId, runId);
 
-    if (ids.length === 0) {
+    if (!run) {
       return metricsStreamEventSchema.parse({
         projectId,
         timestamp: Math.floor(Date.now() / 1000),
@@ -127,7 +118,7 @@ export class MetricsService {
     }
 
     const params = new URLSearchParams({
-      query: `{${this.buildLabelFilter(ids)}}`,
+      query: `{run_id="${run.flowerRunId}"}`,
     });
 
     const res = await fetch(
@@ -156,15 +147,15 @@ export class MetricsService {
     });
   }
 
-  streamProjectMetrics(
+  streamMetrics(
     projectId: string,
-    trainingRunId?: string,
+    runId: string,
   ): Observable<MetricsStreamEventDto> {
     return interval(STREAM_INTERVAL_MS).pipe(
       startWith(0),
       switchMap(() =>
         new Observable<MetricsStreamEventDto>((sub) => {
-          this.pollInstantMetrics(projectId, trainingRunId)
+          this.pollInstantMetrics(projectId, runId)
             .then((event) => {
               sub.next(event);
               sub.complete();
@@ -172,7 +163,10 @@ export class MetricsService {
             .catch((err: unknown) => sub.error(err));
         }).pipe(
           catchError((err: unknown) => {
-            this.logger.warn({ projectId, err }, 'Metrics stream poll failed');
+            this.logger.warn(
+              { projectId, runId, err },
+              'Metrics stream poll failed',
+            );
             return EMPTY;
           }),
         ),

@@ -10,7 +10,6 @@ export function useTrainingRuns(projectId: string) {
     queryKey: queryKeys.training.list(projectId),
     queryFn: () => trainingApi.list(projectId),
     enabled: !!projectId,
-    refetchInterval: 8_000,
   });
 }
 

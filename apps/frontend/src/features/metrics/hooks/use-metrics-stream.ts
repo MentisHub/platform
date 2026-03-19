@@ -3,16 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { MetricsStreamEvent } from "@platform/contracts";
+import { metricsApi } from "../api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/v1";
-
-export function useMetricsStream(projectId: string, trainingRunId?: string) {
+export function useMetricsStream(projectId: string, runId: string | undefined) {
   const [event, setEvent] = useState<MetricsStreamEvent | null>(null);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
+    if (!runId) return;
     mountedRef.current = true;
     const ctrl = new AbortController();
 
@@ -21,11 +21,8 @@ export function useMetricsStream(projectId: string, trainingRunId?: string) {
       const token = data.session?.access_token;
       if (!token || !mountedRef.current) return;
 
-      const url = new URL(`${API_BASE}/projects/${projectId}/metrics/stream`);
-      if (trainingRunId) url.searchParams.set("trainingRunId", trainingRunId);
-
       try {
-        const res = await fetch(url.toString(), {
+        const res = await fetch(metricsApi.streamUrl(projectId, runId!), {
           headers: { Authorization: `Bearer ${token}` },
           signal: ctrl.signal,
         });
@@ -40,7 +37,9 @@ export function useMetricsStream(projectId: string, trainingRunId?: string) {
           setError(null);
         }
 
-        const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+        const reader = res.body
+          .pipeThrough(new TextDecoderStream())
+          .getReader();
         let buf = "";
 
         while (mountedRef.current) {
@@ -74,7 +73,7 @@ export function useMetricsStream(projectId: string, trainingRunId?: string) {
       mountedRef.current = false;
       ctrl.abort();
     };
-  }, [projectId, trainingRunId]);
+  }, [projectId, runId]);
 
   return { event, connected, error };
 }
