@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentOrg } from "@/features/organizations/use-current-org";
 import { Plus } from "lucide-react";
-import { ProjectCard } from "./project-card";
+import { ProjectCard } from "./components/project-card";
 import { useProjects } from "./queries";
 
 function ProjectCardSkeleton() {

@@ -54,17 +54,19 @@ export function buildDefaultFabStoragePath(
 export function buildFabAccessFilter(
   organizationId: string,
   projectId?: string,
+  includeDefault = true,
+  includePublic = true,
 ) {
-  const filters: Prisma.FabWhereInput[] = [
-    { isDefault: true },
-    { isPublic: true },
-  ];
+  const filters: Prisma.FabWhereInput[] = [];
 
   if (projectId) {
-    filters.unshift({ organizationId, projectId });
+    filters.push({ organizationId, projectId });
   } else {
-    filters.unshift({ organizationId });
+    filters.push({ organizationId });
   }
+
+  if (includeDefault) filters.push({ isDefault: true });
+  if (includePublic) filters.push({ isPublic: true });
 
   return filters;
 }

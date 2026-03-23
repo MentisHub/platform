@@ -19,6 +19,7 @@ import {
 } from './metrics.dto';
 import {
   PrometheusInstantResponse,
+  PrometheusMetadataResponse,
   PrometheusRangeResponse,
 } from './metrics.interface';
 
@@ -69,20 +70,15 @@ export class MetricsService {
     });
 
     let body: PrometheusRangeResponse;
+    let metaBody: PrometheusMetadataResponse;
     try {
-      const res = await fetch(
-        `${this.prometheusUrl}/api/v1/query_range?${params.toString()}`,
-      );
-      if (!res.ok) {
-        this.logger.warn(
-          { projectId, runId, status: res.status },
-          'Prometheus returned non-2xx response',
-        );
-        throw new InternalServerErrorException('Failed to query metrics');
-      }
-      body = (await res.json()) as PrometheusRangeResponse;
+      [body, metaBody] = (await Promise.all([
+        fetch(
+          `${this.prometheusUrl}/api/v1/query_range?${params.toString()}`,
+        ).then((r) => r.json()),
+        fetch(`${this.prometheusUrl}/api/v1/metadata`).then((r) => r.json()),
+      ])) as [PrometheusRangeResponse, PrometheusMetadataResponse];
     } catch (err: unknown) {
-      if (err instanceof InternalServerErrorException) throw err;
       this.logger.error({ err, projectId, runId }, 'Prometheus request failed');
       throw new InternalServerErrorException('Failed to query metrics');
     }
@@ -95,10 +91,22 @@ export class MetricsService {
       throw new InternalServerErrorException('Metrics query failed');
     }
 
-    const series = (body.data?.result ?? []).map((item) => ({
-      metric: item.metric,
-      values: item.values,
-    }));
+    const metaMap = new Map(
+      Object.entries(metaBody.data ?? {}).map(([name, entries]) => [
+        name,
+        entries[0],
+      ]),
+    );
+
+    const series = (body.data?.result ?? []).map((item) => {
+      const fullName = item.metric.__name__;
+      const meta = fullName ? metaMap.get(fullName) : undefined;
+      return {
+        metric: item.metric,
+        values: item.values,
+        ...(meta && { metadata: { type: meta.type, help: meta.help } }),
+      };
+    });
 
     return metricsResponseSchema.parse({ projectId, timeRange, series });
   }

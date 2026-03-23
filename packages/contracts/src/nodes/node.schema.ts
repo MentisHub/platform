@@ -53,6 +53,7 @@ export const listNodesQuerySchema = paginationQuerySchema.extend({
 export const bootstrapRequestSchema = z.object({
   psk: z.string().describe('Pre-shared key issued during node creation'),
   ecPublicKey: z.string().describe('Elliptic Curve public key for secure communication'),
+  metadata: z.record(z.string(), z.any()).optional().describe('Device hardware specifications reported by the node'),
 });
 
 export const bootstrapResponseSchema = z.object({

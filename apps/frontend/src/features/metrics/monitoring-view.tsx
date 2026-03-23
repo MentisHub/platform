@@ -3,6 +3,7 @@
 import { usePushCrumb } from "@/components/layout/nav/breadcrumb/breadcrumb-context";
 import { Header } from "@/components/layout/header";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type ChartConfig } from "@/components/ui/chart";
 import { useTrainingRuns } from "@/features/training/queries";
@@ -15,7 +16,7 @@ import type { TrainingRunResponse } from "@platform/contracts";
 import { WifiOff } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useLiveMetrics } from "./hooks/use-live-metrics";
-import { stripPrefix } from "./utils";
+import { stripPrefix, formatMetricName, metricCategory, fmtNum } from "./utils";
 import { ServerOverview } from "./components/server-overview";
 import { RoundProgress } from "./components/round-progress";
 import { NodeCard } from "./components/node-card";
@@ -23,21 +24,39 @@ import { TrendChart, type RoundMarker } from "./components/trend-chart";
 import { buildRoundMetrics, RoundCardsStrip } from "./components/round-cards";
 import { EmptyState } from "./components/empty-state";
 import { RunSelector } from "./components/run-selector";
+import { NODE_COLORS } from "../nodes/utils";
+import type { HistoryPoint } from "./types";
+
+function prefersRoundAxis(name: string): boolean {
+  return name.includes("_duration") || name.includes("_seconds");
+}
+
+const SERVER_LIVE: Record<string, (h: HistoryPoint) => number | null> = {
+  fl_server_aggregated_accuracy: (h) => h.aggAccuracy,
+  fl_server_aggregated_train_loss: (h) => h.aggTrainLoss,
+  fl_server_aggregated_eval_loss: (h) => h.aggEvalLoss,
+};
 
 // ── Main view ──────────────────────────────────────────────────────────────────
 
 interface MonitoringViewProps {
   projectId: string;
+  initialRunId?: string;
 }
 
-export function MonitoringView({ projectId }: MonitoringViewProps) {
+export function MonitoringView({
+  projectId,
+  initialRunId,
+}: MonitoringViewProps) {
   usePushCrumb({ label: "Monitoring" });
 
-  const [selectedRunId, setSelectedRunId] = useState<string | undefined>();
+  const [selectedRunId, setSelectedRunId] = useState<string | undefined>(
+    initialRunId,
+  );
 
   const { org } = useCurrentOrg();
   const { data: runs, isLoading: runsLoading } = useTrainingRuns(projectId);
-  const { data: nodesData } = useNodes(org?.id ?? "", { projectId });
+  const { data: nodesData } = useNodes(org?.id, { projectId });
 
   const nodeNameMap = useMemo<Map<string, string>>(() => {
     const m = new Map<string, string>();
@@ -59,7 +78,11 @@ export function MonitoringView({ projectId }: MonitoringViewProps) {
   const totalRounds = cfg?.["num-rounds"] ? Number(cfg["num-rounds"]) : null;
   const totalEpochs = cfg?.["num-epochs"] ? Number(cfg["num-epochs"]) : null;
 
-  const { event, connected } = useMetricsStream(projectId, activeRunId);
+  const isRunLive = activeRun ? !activeRun.completedAt : false;
+  const { event, connected } = useMetricsStream(
+    projectId,
+    isRunLive ? activeRunId : undefined,
+  );
   const { live, rev: liveRev } = useLiveMetrics(event, nodeNameMap);
 
   const { data: rangeData, isLoading: rangeLoading } = useQuery({
@@ -106,106 +129,96 @@ export function MonitoringView({ projectId }: MonitoringViewProps) {
       .sort((a, b) => a.round - b.round);
   }, [rangeData]);
 
-  const accuracyData = useMemo(() => {
-    const historical = (rangeData?.series ?? [])
-      .filter(
-        (s) =>
-          stripPrefix(s.metric.__name__ ?? "") ===
-            "fl_server_aggregated_accuracy" && !s.metric.node_id,
-      )
-      .flatMap((s) =>
-        s.values.map(([t, v]) => ({ t, accuracy: parseFloat(v) })),
-      )
-      .filter((p) => Number.isFinite(p.accuracy));
-    const live_ = live.history.map((h) => ({
-      t: h.t,
-      accuracy: h.aggAccuracy,
-    }));
-    const merged = new Map<number, { t: number; accuracy: number | null }>();
-    for (const p of historical) merged.set(p.t, p);
-    for (const p of live_)
-      if (p.accuracy !== null)
-        merged.set(p.t, { t: p.t, accuracy: p.accuracy });
-    return Array.from(merged.values()).sort((a, b) => a.t - b.t);
+  // Auto-discover server-level metrics — split by type: charts vs stat cards
+  const { serverCharts, serverStats } = useMemo(() => {
+    type Meta = { type?: string; help?: string };
+    const seriesMap = new Map<string, [number, string][]>();
+    const metaMap = new Map<string, Meta>();
+    for (const s of rangeData?.series ?? []) {
+      if (s.metric.node_id) continue;
+      const name = stripPrefix(s.metric.__name__ ?? "");
+      if (!name) continue;
+      if (s.metadata) metaMap.set(name, s.metadata);
+      if (metricCategory(name, metaMap.get(name)) === "skip") continue;
+      const existing = seriesMap.get(name) ?? [];
+      seriesMap.set(name, existing.concat(s.values));
+    }
+
+    const charts: {
+      name: string;
+      title: string;
+      data: { t: number; value: number }[];
+      lines: { key: string; color: string }[];
+      config: ChartConfig;
+      xAxis: "time" | "round";
+    }[] = [];
+    const stats: { name: string; title: string; value: string }[] = [];
+
+    for (const [name, values] of seriesMap.entries()) {
+      const cat = metricCategory(name, metaMap.get(name));
+      if (cat === "skip") continue;
+
+      const nums = values
+        .map(([t, v]) => [t, parseFloat(v)] as [number, number])
+        .filter(([, n]) => Number.isFinite(n));
+
+      if (cat === "stat") {
+        const last = nums[nums.length - 1];
+        if (last)
+          stats.push({
+            name,
+            title: formatMetricName(name),
+            value: fmtNum(last[1]),
+          });
+        continue;
+      }
+
+      // chart
+      const map = new Map<number, number>(nums);
+      const liveField = SERVER_LIVE[name];
+      if (liveField) {
+        for (const h of live.history) {
+          const v = liveField(h);
+          if (v !== null) map.set(h.t, v);
+        }
+      }
+      const data = Array.from(map.entries())
+        .sort(([a], [b]) => a - b)
+        .map(([t, value]) => ({ t, value }));
+      if (data.length < 2) continue;
+      const title = formatMetricName(name);
+      charts.push({
+        name,
+        title,
+        data,
+        lines: [{ key: "value", color: "#10b981" }],
+        config: { value: { label: title, color: "#10b981" } } as ChartConfig,
+        xAxis: prefersRoundAxis(name) ? ("round" as const) : ("time" as const),
+      });
+    }
+
+    return { serverCharts: charts, serverStats: stats };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeData, liveRev]);
 
-  const lossData = useMemo(() => {
-    const aggTrainSeries = (rangeData?.series ?? []).find(
-      (s) =>
-        stripPrefix(s.metric.__name__ ?? "") ===
-          "fl_server_aggregated_train_loss" && !s.metric.node_id,
-    );
-    const aggEvalSeries = (rangeData?.series ?? []).find(
-      (s) =>
-        stripPrefix(s.metric.__name__ ?? "") ===
-          "fl_server_aggregated_eval_loss" && !s.metric.node_id,
-    );
-    const tsMap = new Map<
-      number,
-      { t: number; trainLoss: number | null; evalLoss: number | null }
-    >();
-    for (const [t, v] of aggTrainSeries?.values ?? []) {
-      const n = parseFloat(v);
-      if (Number.isFinite(n)) tsMap.set(t, { t, trainLoss: n, evalLoss: null });
+  // Auto-discover client-level metrics (has node_id), one chart per metric with one line per node
+  const clientCharts = useMemo(() => {
+    const seriesMap = new Map<string, Map<string, [number, string][]>>();
+    for (const s of rangeData?.series ?? []) {
+      const nid = s.metric.node_id;
+      if (!nid) continue;
+      const name = stripPrefix(s.metric.__name__ ?? "");
+      if (!name || metricCategory(name, s.metadata ?? undefined) !== "chart")
+        continue;
+      if (!seriesMap.has(name)) seriesMap.set(name, new Map());
+      seriesMap.get(name)!.set(nid, s.values);
     }
-    for (const [t, v] of aggEvalSeries?.values ?? []) {
-      const n = parseFloat(v);
-      if (Number.isFinite(n)) {
-        const e = tsMap.get(t) ?? { t, trainLoss: null, evalLoss: null };
-        e.evalLoss = n;
-        tsMap.set(t, e);
-      }
-    }
-    for (const h of live.history) {
-      if (h.aggTrainLoss !== null || h.aggEvalLoss !== null) {
-        tsMap.set(h.t, {
-          t: h.t,
-          trainLoss: h.aggTrainLoss,
-          evalLoss: h.aggEvalLoss,
-        });
-      }
-    }
-    return Array.from(tsMap.values()).sort((a, b) => a.t - b.t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rangeData, liveRev]);
-
-  const accuracyConfig: ChartConfig = {
-    accuracy: { label: "Agg. Accuracy", color: "#10b981" },
-  };
-  const lossConfig: ChartConfig = {
-    trainLoss: { label: "Train Loss", color: "var(--amber-primary)" },
-    evalLoss: { label: "Eval Loss", color: "#f97316" },
-  };
-
-  const NODE_COLORS = [
-    "var(--amber-primary)",
-    "#10b981",
-    "#a78bfa",
-    "#38bdf8",
-    "#f97316",
-    "#fb7185",
-  ];
-
-  const buildNodeSeries = useMemo(
-    () => (metricName: string) => {
-      const series = (rangeData?.series ?? []).filter(
-        (s) =>
-          stripPrefix(s.metric.__name__ ?? "") === metricName &&
-          s.metric.node_id,
-      );
-      if (series.length === 0)
-        return {
-          data: [],
-          lines: [] as { key: string; color: string }[],
-          config: {} as ChartConfig,
-        };
-      const nodeIds = Array.from(new Set(series.map((s) => s.metric.node_id)));
+    return Array.from(seriesMap.entries()).flatMap(([name, nodeMap]) => {
+      const nodeIds = Array.from(nodeMap.keys());
       const tsMap = new Map<number, Record<string, number>>();
-      for (const s of series) {
-        const nid = s.metric.node_id;
+      for (const nid of nodeIds) {
         const key = `node_${nid.slice(-6)}`;
-        for (const [t, v] of s.values) {
+        for (const [t, v] of nodeMap.get(nid)!) {
           const n = parseFloat(v);
           if (!Number.isFinite(n)) continue;
           const entry = tsMap.get(t) ?? {};
@@ -216,50 +229,35 @@ export function MonitoringView({ projectId }: MonitoringViewProps) {
       const data = Array.from(tsMap.entries())
         .sort(([a], [b]) => a - b)
         .map(([t, v]) => ({ t, ...v }));
+      if (data.length < 2) return [];
       const lines = nodeIds.map((nid, i) => ({
         key: `node_${nid.slice(-6)}`,
         color: NODE_COLORS[i % NODE_COLORS.length],
       }));
       const config: ChartConfig = Object.fromEntries(
-        nodeIds.map((nid, i) => {
-          const key = `node_${nid.slice(-6)}`;
-          const label = nodeNameMap.get(nid) ?? `node-${nid.slice(-6)}`;
-          return [key, { label, color: NODE_COLORS[i % NODE_COLORS.length] }];
-        }),
+        nodeIds.map((nid, i) => [
+          `node_${nid.slice(-6)}`,
+          {
+            label: nodeNameMap.get(nid) ?? `node-${nid.slice(-6)}`,
+            color: NODE_COLORS[i % NODE_COLORS.length],
+          },
+        ]),
       );
-      return { data, lines, config };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    },
-    [rangeData, nodeNameMap],
-  );
+      return [
+        {
+          name,
+          title: formatMetricName(name),
+          data,
+          lines,
+          config,
+          xAxis: prefersRoundAxis(name)
+            ? ("round" as const)
+            : ("time" as const),
+        },
+      ];
+    });
+  }, [rangeData, nodeNameMap]);
 
-  const clientTrainLoss = useMemo(
-    () => buildNodeSeries("fl_client_train_loss"),
-    [buildNodeSeries],
-  );
-  const clientEvalLoss = useMemo(
-    () => buildNodeSeries("fl_client_eval_loss"),
-    [buildNodeSeries],
-  );
-  const clientTrainAcc = useMemo(
-    () => buildNodeSeries("fl_client_train_accuracy"),
-    [buildNodeSeries],
-  );
-  const clientEvalAcc = useMemo(
-    () => buildNodeSeries("fl_client_eval_accuracy"),
-    [buildNodeSeries],
-  );
-  const clientTrainDuration = useMemo(
-    () => buildNodeSeries("fl_client_train_duration_seconds_sum"),
-    [buildNodeSeries],
-  );
-  const clientEvalDuration = useMemo(
-    () => buildNodeSeries("fl_client_eval_duration_seconds_sum"),
-    [buildNodeSeries],
-  );
-
-  const hasClientCharts =
-    clientTrainLoss.data.length >= 2 || clientTrainAcc.data.length >= 2;
   const hasRuns = (runs?.length ?? 0) > 0;
 
   return (
@@ -292,6 +290,7 @@ export function MonitoringView({ projectId }: MonitoringViewProps) {
                 <ServerOverview
                   server={live.server}
                   totalRounds={totalRounds}
+                  extraStats={serverStats.map((s) => ({ label: s.title, value: s.value }))}
                 />
                 {totalRounds !== null && live.server.round > 0 && (
                   <RoundProgress
@@ -301,7 +300,9 @@ export function MonitoringView({ projectId }: MonitoringViewProps) {
                 )}
                 {nodes.length > 0 && (
                   <>
-                    <Label>Clients</Label>
+                    <Label className="text-[9px] font-mono uppercase tracking-[0.1em] text-muted-foreground">
+                      Clients
+                    </Label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {nodes.map((n) => (
                         <NodeCard
@@ -320,7 +321,9 @@ export function MonitoringView({ projectId }: MonitoringViewProps) {
             {/* Rounds */}
             {!rangeLoading && roundMetrics.length > 0 && (
               <>
-                <Label>Rounds</Label>
+                <Label className="text-[9px] font-mono uppercase tracking-[0.1em] text-muted-foreground">
+                  Rounds
+                </Label>
                 <RoundCardsStrip
                   rounds={roundMetrics}
                   currentRound={currentRound}
@@ -328,7 +331,6 @@ export function MonitoringView({ projectId }: MonitoringViewProps) {
               </>
             )}
 
-            {/* Trend charts (range data + live merged) */}
             {rangeLoading && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {Array.from({ length: 4 }).map((_, i) => (
@@ -336,95 +338,73 @@ export function MonitoringView({ projectId }: MonitoringViewProps) {
                 ))}
               </div>
             )}
-            {!rangeLoading &&
-              (accuracyData.length >= 2 || lossData.length >= 2) && (
-                <>
-                  <Label sub="Global model performance after aggregation">
+
+            {/* Server stat cards — shown when no live stream (completed runs) */}
+            {!hasLiveData && !rangeLoading && serverStats.length > 0 && (
+              <div className="flex gap-px rounded-sm overflow-hidden border w-fit" style={{ borderColor: "var(--border-subtle)" }}>
+                {serverStats.map((s) => (
+                  <div key={s.name} className="flex flex-col gap-0.5 px-4 py-3" style={{ background: "var(--surface-1)" }}>
+                    <span className="font-mono text-[9px] tracking-[0.08em] uppercase" style={{ color: "var(--text-secondary)" }}>
+                      {s.title}
+                    </span>
+                    <span className="font-mono tabular-nums font-bold text-[15px]" style={{ color: "var(--text-primary)", lineHeight: 1.1 }}>
+                      {s.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Server-level charts (auto-discovered) */}
+            {!rangeLoading && serverCharts.length > 0 && (
+              <>
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-[9px] font-mono uppercase tracking-[0.1em] text-muted-foreground">
                     Aggregated trends
                   </Label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <TrendChart
-                      title="Accuracy"
-                      description="Aggregated accuracy across all clients"
-                      data={accuracyData}
-                      lines={[{ key: "accuracy", color: "#10b981" }]}
-                      config={accuracyConfig}
-                      roundMarkers={roundMarkers}
-                    />
-                    <TrendChart
-                      title="Loss"
-                      description="Train and eval loss after aggregation"
-                      data={lossData}
-                      lines={[
-                        { key: "trainLoss", color: "var(--amber-primary)" },
-                        { key: "evalLoss", color: "#f97316" },
-                      ]}
-                      config={lossConfig}
-                      roundMarkers={roundMarkers}
-                    />
-                  </div>
-                </>
-              )}
-            {!rangeLoading && hasClientCharts && (
-              <>
-                <Label sub="Individual node performance per round">
-                  Per-client metrics
-                </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Global model performance after aggregation
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {clientTrainLoss.data.length >= 2 && (
+                  {serverCharts.map((chart) => (
                     <TrendChart
-                      title="Train Loss"
-                      data={clientTrainLoss.data}
-                      lines={clientTrainLoss.lines}
-                      config={clientTrainLoss.config}
+                      key={chart.name}
+                      title={chart.title}
+                      data={chart.data}
+                      lines={chart.lines}
+                      config={chart.config}
                       roundMarkers={roundMarkers}
+                      xAxis={chart.xAxis}
                     />
-                  )}
-                  {clientEvalLoss.data.length >= 2 && (
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Per-client charts (auto-discovered) */}
+            {!rangeLoading && clientCharts.length > 0 && (
+              <>
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-[9px] font-mono uppercase tracking-[0.1em] text-muted-foreground">
+                    Per-client metrics
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Individual node performance per round
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {clientCharts.map((chart) => (
                     <TrendChart
-                      title="Eval Loss"
-                      data={clientEvalLoss.data}
-                      lines={clientEvalLoss.lines}
-                      config={clientEvalLoss.config}
+                      key={chart.name}
+                      title={chart.title}
+                      data={chart.data}
+                      lines={chart.lines}
+                      config={chart.config}
                       roundMarkers={roundMarkers}
+                      xAxis={chart.xAxis}
                     />
-                  )}
-                  {clientTrainAcc.data.length >= 2 && (
-                    <TrendChart
-                      title="Train Accuracy"
-                      data={clientTrainAcc.data}
-                      lines={clientTrainAcc.lines}
-                      config={clientTrainAcc.config}
-                      roundMarkers={roundMarkers}
-                    />
-                  )}
-                  {clientEvalAcc.data.length >= 2 && (
-                    <TrendChart
-                      title="Eval Accuracy"
-                      data={clientEvalAcc.data}
-                      lines={clientEvalAcc.lines}
-                      config={clientEvalAcc.config}
-                      roundMarkers={roundMarkers}
-                    />
-                  )}
-                  {clientTrainDuration.data.length >= 2 && (
-                    <TrendChart
-                      title="Train Duration (s)"
-                      data={clientTrainDuration.data}
-                      lines={clientTrainDuration.lines}
-                      config={clientTrainDuration.config}
-                      roundMarkers={roundMarkers}
-                    />
-                  )}
-                  {clientEvalDuration.data.length >= 2 && (
-                    <TrendChart
-                      title="Eval Duration (s)"
-                      data={clientEvalDuration.data}
-                      lines={clientEvalDuration.lines}
-                      config={clientEvalDuration.config}
-                      roundMarkers={roundMarkers}
-                    />
-                  )}
+                  ))}
                 </div>
               </>
             )}
@@ -432,8 +412,9 @@ export function MonitoringView({ projectId }: MonitoringViewProps) {
             {/* Waiting state — run selected but no data yet */}
             {!rangeLoading &&
               !hasLiveData &&
-              accuracyData.length < 2 &&
-              lossData.length < 2 && (
+              serverCharts.length === 0 &&
+              serverStats.length === 0 &&
+              clientCharts.length === 0 && (
                 <div
                   className="flex items-center gap-2 font-mono text-[11px]"
                   style={{ color: "var(--text-secondary)" }}
@@ -446,28 +427,5 @@ export function MonitoringView({ projectId }: MonitoringViewProps) {
         )}
       </div>
     </>
-  );
-}
-
-// ── Small helpers ──────────────────────────────────────────────────────────────
-
-function Label({ children, sub }: { children: React.ReactNode; sub?: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <p
-        className="font-mono text-[9px] tracking-[0.1em] uppercase"
-        style={{ color: "var(--text-secondary)", opacity: 0.6 }}
-      >
-        {children}
-      </p>
-      {sub && (
-        <p
-          className="font-mono text-[8px]"
-          style={{ color: "var(--text-secondary)", opacity: 0.4 }}
-        >
-          {sub}
-        </p>
-      )}
-    </div>
   );
 }

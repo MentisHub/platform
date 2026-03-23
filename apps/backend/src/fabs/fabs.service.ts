@@ -5,11 +5,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ErrorCode } from '@platform/contracts';
-import type { Fab } from '@prisma/client';
+import { Prisma, type Fab } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
 import { SupabaseService } from '../supabase/supabase.service';
-import type { UploadDefaultFabInput, UploadFabInput } from './fabs.interface';
+import type {
+  ListFabsOptions,
+  UploadDefaultFabInput,
+  UploadFabInput,
+} from './fabs.interface';
 import {
   buildDefaultFabStoragePath,
   buildFabAccessFilter,
@@ -183,16 +187,67 @@ export class FabsService {
 
   async listFabs(
     organizationId: string,
-    projectId?: string,
-    tags?: string[],
-  ): Promise<Fab[]> {
-    return this.prisma.fab.findMany({
-      where: {
-        OR: buildFabAccessFilter(organizationId, projectId),
-        ...(tags && tags.length > 0 ? { tags: { hasSome: tags } } : {}),
-      },
-      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
-    });
+    options: ListFabsOptions = {},
+  ): Promise<{ data: Fab[]; total: number }> {
+    const {
+      projectId,
+      tags,
+      search,
+      includeDefault = true,
+      includePublic = true,
+      sortBy = 'createdAt',
+      order = 'desc',
+      page = 1,
+      limit = 10,
+    } = options;
+
+    const where: Prisma.FabWhereInput = {
+      AND: [
+        {
+          OR: buildFabAccessFilter(
+            organizationId,
+            projectId,
+            includeDefault,
+            includePublic,
+          ),
+        },
+        ...(tags && tags.length > 0 ? [{ tags: { hasSome: tags } }] : []),
+        ...(search
+          ? [
+              {
+                OR: [
+                  { name: { contains: search, mode: 'insensitive' as const } },
+                  {
+                    publisherName: {
+                      contains: search,
+                      mode: 'insensitive' as const,
+                    },
+                  },
+                ],
+              },
+            ]
+          : []),
+      ],
+    };
+
+    const orderBy: Prisma.FabOrderByWithRelationInput[] =
+      sortBy === 'name'
+        ? [{ name: order }]
+        : sortBy === 'version'
+          ? [{ version: order }]
+          : [{ isDefault: 'desc' }, { createdAt: order }];
+
+    const [data, total] = await Promise.all([
+      this.prisma.fab.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.fab.count({ where }),
+    ]);
+
+    return { data, total };
   }
 
   async getFab(fabId: string, organizationId: string): Promise<Fab> {

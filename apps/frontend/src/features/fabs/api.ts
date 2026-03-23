@@ -3,12 +3,12 @@ import type {
   FabResponse,
   UploadFabInput,
   ListFabsQuery,
-  PaginatedFabsResponse,
+  PaginatedResponse,
 } from "@platform/contracts";
 
 export const fabsApi = {
-  list: (orgId: string, params?: ListFabsQuery) =>
-    api.get<PaginatedFabsResponse>(
+  list: (orgId: string, params?: Partial<ListFabsQuery>) =>
+    api.get<PaginatedResponse<FabResponse>>(
       `/organizations/${orgId}/fabs`,
       params,
     ),
@@ -20,7 +20,7 @@ export const fabsApi = {
     const form = new FormData();
     form.append("file", file);
     if (data.description) form.append("description", data.description);
-    if (data.projectId)   form.append("projectId",   data.projectId);
+    if (data.projectId) form.append("projectId", data.projectId);
     form.append("isPublic", String(data.isPublic ?? false));
     return api.post<FabResponse>(`/organizations/${orgId}/fabs`, form);
   },

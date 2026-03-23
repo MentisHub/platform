@@ -243,6 +243,7 @@ export class NodesService {
   async activate(
     psk: string,
     ecPublicKey: string,
+    metadata?: Record<string, unknown>,
   ): Promise<NodeCertificateBundle> {
     const pskParts = psk.split('.');
     if (pskParts.length !== 2) {
@@ -373,6 +374,9 @@ export class NodesService {
         ecPublicKey,
         activatedAt: new Date(),
         lastActiveAt: new Date(),
+        ...(metadata && {
+          metadata: { ...(node.metadata as Record<string, unknown> ?? {}), ...metadata } as Prisma.InputJsonValue,
+        }),
       },
     });
 

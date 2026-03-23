@@ -18,7 +18,8 @@ async function getToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
-type Params = Record<string, string | number | boolean | undefined | null>;
+type ParamValue = string | number | boolean | undefined | null | string[];
+type Params = Record<string, ParamValue>;
 
 async function request<T>(
   path: string,
@@ -30,7 +31,12 @@ async function request<T>(
   const url = new URL(`${API_BASE_URL}${path}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
-      if (v != null) url.searchParams.set(k, String(v));
+      if (v == null) return;
+      if (Array.isArray(v)) {
+        v.forEach((item) => url.searchParams.append(k, item));
+      } else {
+        url.searchParams.set(k, String(v));
+      }
     });
   }
 

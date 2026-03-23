@@ -126,19 +126,28 @@ export class FabsController {
     @Param('organizationId') organizationId: string,
     @Query() query: ListFabsQueryDto,
   ): Promise<PaginatedFabsResponseDto> {
-    const fabs = await this.fabsService.listFabs(
-      organizationId,
-      query.projectId,
-      query.tags,
-    );
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+
+    const { data, total } = await this.fabsService.listFabs(organizationId, {
+      projectId: query.projectId,
+      tags: query.tags,
+      search: query.search,
+      includeDefault: query.includeDefault,
+      includePublic: query.includePublic,
+      sortBy: query.sortBy,
+      order: query.order,
+      page,
+      limit,
+    });
 
     return {
-      data: fabs.map((fab) => FabResponseDto.fromEntity(fab)),
+      data: data.map((fab) => FabResponseDto.fromEntity(fab)),
       meta: {
-        page: query.page ?? 1,
-        limit: query.limit ?? 10,
-        total: fabs.length,
-        totalPages: Math.ceil(fabs.length / (query.limit ?? 10)),
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
     };
   }

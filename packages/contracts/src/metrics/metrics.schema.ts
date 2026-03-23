@@ -9,6 +9,14 @@ export const metricsQuerySchema = z.object({
     ),
 });
 
+export const metricMetadataSchema = z.object({
+  type: z
+    .enum(["gauge", "counter", "histogram", "summary", "untyped"])
+    .optional()
+    .describe("Prometheus instrument type"),
+  help: z.string().optional().describe("Metric description from the FAB"),
+});
+
 export const metricsSeriesSchema = z.object({
   metric: z
     .record(z.string(), z.string())
@@ -20,6 +28,9 @@ export const metricsSeriesSchema = z.object({
     .describe(
       "Time series data points as [unix_timestamp_seconds, value] pairs",
     ),
+  metadata: metricMetadataSchema.optional().describe(
+    "Prometheus metadata for this metric — type and help text",
+  ),
 });
 
 export const metricsResponseSchema = z.object({

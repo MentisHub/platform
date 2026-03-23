@@ -35,6 +35,7 @@ export class NodesController {
     const bundle = await this.nodesService.activate(
       bootstrapDto.psk,
       bootstrapDto.ecPublicKey,
+      bootstrapDto.metadata,
     );
     return BootstrapResponseDto.fromEntity(bundle);
   }

@@ -1,14 +1,20 @@
+"use client";
+
+import { useState } from "react";
+import { getPageNumbers } from "@/lib/utils";
 import type { RoundMetrics } from "../types";
 import { stripPrefix, fmtPct, fmtLoss, fmtNum } from "../utils";
+
+const PAGE_SIZE = 10;
 
 export function buildRoundMetrics(
   series: { metric: Record<string, string>; values: [number, string][] }[],
 ): RoundMetrics[] {
-  const roundSeries   = series.find((s) => stripPrefix(s.metric.__name__ ?? "") === "fl_server_round_current"          && !s.metric.node_id);
-  const accSeries     = series.find((s) => stripPrefix(s.metric.__name__ ?? "") === "fl_server_aggregated_accuracy"    && !s.metric.node_id);
-  const trainLossSeries = series.find((s) => stripPrefix(s.metric.__name__ ?? "") === "fl_server_aggregated_train_loss" && !s.metric.node_id);
-  const evalLossSeries  = series.find((s) => stripPrefix(s.metric.__name__ ?? "") === "fl_server_aggregated_eval_loss"  && !s.metric.node_id);
-  const examplesSeries  = series.find((s) => stripPrefix(s.metric.__name__ ?? "") === "fl_server_train_examples_total"  && !s.metric.node_id);
+  const roundSeries     = series.find((s) => stripPrefix(s.metric.__name__ ?? "") === "fl_server_round_current"          && !s.metric.node_id);
+  const accSeries       = series.find((s) => stripPrefix(s.metric.__name__ ?? "") === "fl_server_aggregated_accuracy"    && !s.metric.node_id);
+  const trainLossSeries = series.find((s) => stripPrefix(s.metric.__name__ ?? "") === "fl_server_aggregated_train_loss"  && !s.metric.node_id);
+  const evalLossSeries  = series.find((s) => stripPrefix(s.metric.__name__ ?? "") === "fl_server_aggregated_eval_loss"   && !s.metric.node_id);
+  const examplesSeries  = series.find((s) => stripPrefix(s.metric.__name__ ?? "") === "fl_server_train_examples_total"   && !s.metric.node_id);
 
   if (!roundSeries) return [];
 
@@ -17,23 +23,21 @@ export function buildRoundMetrics(
     for (const [t, v] of s?.values ?? []) { const n = parseFloat(v); if (Number.isFinite(n)) m.set(t, n); }
     return m;
   };
-  const accMap      = lookup(accSeries);
-  const trainLossMap= lookup(trainLossSeries);
-  const evalLossMap = lookup(evalLossSeries);
-  const examplesMap = lookup(examplesSeries);
+  const accMap       = lookup(accSeries);
+  const trainLossMap = lookup(trainLossSeries);
+  const evalLossMap  = lookup(evalLossSeries);
+  const examplesMap  = lookup(examplesSeries);
 
   const roundMap = new Map<number, RoundMetrics>();
   for (const [ts, val] of roundSeries.values) {
     const round = Math.round(parseFloat(val));
     if (!Number.isFinite(round) || round <= 0) continue;
-
     const get = (m: Map<number, number>) => m.get(ts) ?? null;
-
     roundMap.set(round, {
       round,
-      acc:          get(accMap),
-      trainLoss:    get(trainLossMap),
-      evalLoss:     get(evalLossMap),
+      acc:           get(accMap),
+      trainLoss:     get(trainLossMap),
+      evalLoss:      get(evalLossMap),
       trainExamples: get(examplesMap),
     });
   }
@@ -91,12 +95,41 @@ function RoundCard({ data, isCurrent }: { data: RoundMetrics; isCurrent: boolean
 }
 
 export function RoundCardsStrip({ rounds, currentRound }: { rounds: RoundMetrics[]; currentRound: number }) {
+  const [page, setPage] = useState(1);
   if (rounds.length === 0) return null;
+
+  const descending = [...rounds].reverse();
+  const totalPages = Math.ceil(descending.length / PAGE_SIZE);
+  const visible = descending.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-      {rounds.map((r) => (
-        <RoundCard key={r.round} data={r} isCurrent={r.round === currentRound} />
-      ))}
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-2 pb-1" style={{ scrollbarWidth: "none" }}>
+        {visible.map((r) => (
+          <RoundCard key={r.round} data={r} isCurrent={r.round === currentRound} />
+        ))}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center gap-2.5">
+          {getPageNumbers(page, totalPages).map((p, i) =>
+            p === "…" ? (
+              <span key={`ellipsis-${i}`} className="font-mono text-[10px]" style={{ color: "var(--text-secondary)", opacity: 0.4 }}>
+                …
+              </span>
+            ) : (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className="font-mono text-[10px] tabular-nums transition-colors"
+                style={{ color: p === page ? "var(--amber-primary)" : "var(--text-secondary)", opacity: p === page ? 1 : 0.5 }}
+              >
+                {p}
+              </button>
+            ),
+          )}
+        </div>
+      )}
     </div>
   );
 }

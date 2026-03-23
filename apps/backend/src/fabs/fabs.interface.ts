@@ -10,6 +10,18 @@ export interface UploadFabInput {
   size: number;
 }
 
+export interface ListFabsOptions {
+  projectId?: string;
+  tags?: string[];
+  search?: string;
+  includeDefault?: boolean;
+  includePublic?: boolean;
+  sortBy?: 'name' | 'createdAt' | 'version';
+  order?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+}
+
 export interface UploadDefaultFabInput {
   userId: string;
   description?: string;

@@ -10,6 +10,11 @@ export interface PrometheusRangeResponse {
   };
 }
 
+export interface PrometheusMetadataResponse {
+  status: 'success' | 'error';
+  data?: Record<string, Array<{ type: string; help: string; unit: string }>>;
+}
+
 export interface PrometheusInstantResponse {
   status: 'success' | 'error';
   error?: string;

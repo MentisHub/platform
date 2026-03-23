@@ -5,7 +5,7 @@ import { queryKeys } from "@/lib/api/query-keys";
 import { fabsApi } from "./api";
 import type { UploadFabInput, ListFabsQuery } from "@platform/contracts";
 
-export function useFabs(orgId: string, params?: ListFabsQuery) {
+export function useFabs(orgId: string, params?: Partial<ListFabsQuery>) {
   return useQuery({
     queryKey: queryKeys.fabs.list(orgId, params),
     queryFn: () => fabsApi.list(orgId, params),

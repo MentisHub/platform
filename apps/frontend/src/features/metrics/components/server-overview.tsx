@@ -1,14 +1,25 @@
 import type { ServerState } from "../types";
-import { fmtPct, fmtLoss, fmtNum } from "../utils";
+import { fmtPct, fmtLoss } from "../utils";
 
-export function ServerOverview({ server, totalRounds }: { server: ServerState; totalRounds: number | null }) {
+export function ServerOverview({
+  server,
+  totalRounds,
+  extraStats = [],
+}: {
+  server: ServerState;
+  totalRounds: number | null;
+  extraStats?: { label: string; value: string }[];
+}) {
   const stats = [
-    { label: "Round", value: totalRounds ? `${server.round} / ${totalRounds}` : String(server.round), big: true },
+    {
+      label: "Round",
+      value: totalRounds ? `${server.round} / ${totalRounds}` : String(server.round),
+      big: true,
+    },
     { label: "Agg. Accuracy", value: fmtPct(server.aggAccuracy), big: true, color: "#10b981" },
     { label: "Agg. Train Loss", value: fmtLoss(server.aggTrainLoss) },
-    { label: "Agg. Eval Loss",  value: fmtLoss(server.aggEvalLoss) },
-    { label: "Train Examples", value: fmtNum(server.trainExamples) },
-    { label: "Eval Examples",  value: fmtNum(server.evalExamples) },
+    { label: "Agg. Eval Loss", value: fmtLoss(server.aggEvalLoss) },
+    ...extraStats.map((s) => ({ label: s.label, value: s.value })),
   ];
 
   return (
@@ -22,7 +33,10 @@ export function ServerOverview({ server, totalRounds }: { server: ServerState; t
           className="flex flex-col gap-0.5 px-4 py-3"
           style={{ background: "var(--surface-1)" }}
         >
-          <span className="font-mono text-[9px] tracking-[0.08em] uppercase" style={{ color: "var(--text-secondary)" }}>
+          <span
+            className="font-mono text-[9px] tracking-[0.08em] uppercase"
+            style={{ color: "var(--text-secondary)" }}
+          >
             {s.label}
           </span>
           <span

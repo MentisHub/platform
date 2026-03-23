@@ -3,7 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { BreadcrumbTrail } from "./breadcrumb/breadcrumb";
-import { usePushCrumb, type BreadcrumbItem } from "./breadcrumb/breadcrumb-context";
+import {
+  usePushCrumb,
+  type BreadcrumbItem,
+} from "./breadcrumb/breadcrumb-context";
 import { OrgDropdown } from "@/features/organizations/org-dropdown";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -21,7 +24,12 @@ export function Topbar() {
         href="/"
         className="w-14 h-10 flex items-center justify-center shrink-0 border-r border-border-subtle hover:bg-surface-2 transition-colors"
       >
-        <Image src="/mentishub-icon.svg" alt="MentisHub Icon" width={120} height={120} />
+        <Image
+          src="/mentishub-icon.svg"
+          alt="MentisHub Icon"
+          width={38}
+          height={38}
+        />
       </Link>
 
       <div className="flex items-center gap-1 flex-1 min-w-0 px-3">

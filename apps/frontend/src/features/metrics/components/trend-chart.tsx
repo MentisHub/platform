@@ -11,6 +11,15 @@ export interface RoundMarker {
   round: number;
 }
 
+function tsToRound(t: number, markers: RoundMarker[]): number | null {
+  let result: number | null = null;
+  for (const m of markers) {
+    if (t >= m.t) result = m.round;
+    else break;
+  }
+  return result;
+}
+
 export function TrendChart({
   title,
   description,
@@ -18,6 +27,7 @@ export function TrendChart({
   lines,
   config,
   roundMarkers,
+  xAxis = "time",
 }: {
   title: string;
   description?: string;
@@ -25,10 +35,25 @@ export function TrendChart({
   lines: { key: string; color: string }[];
   config: ChartConfig;
   roundMarkers?: RoundMarker[];
+  xAxis?: "time" | "round";
 }) {
   if (data.length < 2) return null;
 
-  const roundAtTs = roundMarkers
+  const useRounds = xAxis === "round" && (roundMarkers?.length ?? 0) > 0;
+
+  const chartData = (() => {
+    if (!useRounds) return data;
+    // Deduplicate: last value per round
+    const roundMap = new Map<number, Record<string, number | null | string>>();
+    for (const point of data) {
+      const round = tsToRound(Number(point.t), roundMarkers!);
+      if (round === null) continue;
+      roundMap.set(round, { ...point, _round: round });
+    }
+    return Array.from(roundMap.values()).sort((a, b) => Number(a._round) - Number(b._round));
+  })();
+
+  const roundAtTs = !useRounds && roundMarkers
     ? new Map(roundMarkers.map((m) => [m.t, m.round]))
     : undefined;
 
@@ -48,9 +73,9 @@ export function TrendChart({
         )}
       </div>
       <ChartContainer config={config} className="h-32 w-full">
-        <LineChart data={data} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
+        <LineChart data={chartData} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--border-subtle)" strokeOpacity={0.3} />
-          {roundMarkers?.map(({ t, round }) => (
+          {!useRounds && roundMarkers?.map(({ t, round }) => (
             <ReferenceLine
               key={`r-${round}`}
               x={t}
@@ -67,10 +92,13 @@ export function TrendChart({
             />
           ))}
           <XAxis
-            dataKey="t"
-            tickFormatter={(v: number) => new Date(v * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            dataKey={useRounds ? "_round" : "t"}
+            tickFormatter={useRounds
+              ? (v: number) => `R${v}`
+              : (v: number) => new Date(v * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+            }
             tick={{ fontSize: 9, fill: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}
-            tickLine={false} axisLine={false} minTickGap={60}
+            tickLine={false} axisLine={false} minTickGap={useRounds ? 20 : 60}
           />
           <YAxis
             tick={{ fontSize: 9, fill: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}
@@ -81,6 +109,7 @@ export function TrendChart({
             content={
               <ChartTooltipContent
                 labelFormatter={(v) => {
+                  if (useRounds) return `Round ${v}`;
                   const ts = Number(v);
                   if (!Number.isFinite(ts) || ts < 1_000_000_000) return String(v);
                   const time = new Date(ts * 1000).toLocaleTimeString();
