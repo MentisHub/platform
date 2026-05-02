@@ -124,14 +124,15 @@ async function createRoundsForRun(
 
 const DEFAULT_CONFIG = {
   'num-rounds': 10,
-  'fraction-fit': 0.8,
-  'fraction-evaluate': 0.5,
+  'fraction-fit': 1.0,
+  'fraction-evaluate': 1.0,
   'min-fit-clients': 3,
   'min-evaluate-clients': 3,
   'min-available-clients': 3,
   'num-epochs': 1,
   'batch-size': 32,
   'num-clients': 3,
+  'corrupt-partition-id': 2,
 };
 
 export async function createRunsForProject(
