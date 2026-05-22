@@ -1,3 +1,9 @@
+## Screenshots
+
+![Monitoramento — visão geral](docs/platform_monitoring.png)
+
+![Monitoramento — métricas por cliente](docs/platform-monitoring-2.png)
+
 ## Como testar
 
 ### 1. Preparar banco de dados e obter credenciais
