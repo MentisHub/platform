@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useMemo, useState } from "react";
 import { getPageNumbers } from "@/lib/utils";
 import type { RoundMetrics } from "../types";
 import { stripPrefix, fmtPct, fmtLoss, fmtNum } from "../utils";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 8;
 
 export function buildRoundMetrics(
   series: { metric: Record<string, string>; values: [number, string][] }[],
@@ -48,7 +49,7 @@ export function buildRoundMetrics(
 function RoundCard({ data, isCurrent }: { data: RoundMetrics; isCurrent: boolean }) {
   return (
     <div
-      className="flex flex-col gap-2.5 p-3 rounded-sm border shrink-0 w-40 relative overflow-hidden transition-colors"
+      className="relative flex w-full min-w-0 flex-col gap-2.5 overflow-hidden rounded-sm border p-3 transition-colors"
       style={{
         background: "var(--surface-1)",
         borderColor: isCurrent ? "var(--amber-primary)" : "var(--border-subtle)",
@@ -96,38 +97,76 @@ function RoundCard({ data, isCurrent }: { data: RoundMetrics; isCurrent: boolean
 
 export function RoundCardsStrip({ rounds, currentRound }: { rounds: RoundMetrics[]; currentRound: number }) {
   const [page, setPage] = useState(1);
+  const descending = useMemo(() => [...rounds].reverse(), [rounds]);
+  const totalPages = Math.ceil(descending.length / PAGE_SIZE);
+  const activePage = Math.max(1, Math.min(page, totalPages || 1));
+
   if (rounds.length === 0) return null;
 
-  const descending = [...rounds].reverse();
-  const totalPages = Math.ceil(descending.length / PAGE_SIZE);
-  const visible = descending.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const visible = descending.slice((activePage - 1) * PAGE_SIZE, activePage * PAGE_SIZE);
+  const firstVisible = (activePage - 1) * PAGE_SIZE + 1;
+  const lastVisible = Math.min(activePage * PAGE_SIZE, descending.length);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex gap-2 pb-1" style={{ scrollbarWidth: "none" }}>
+    <div className="flex flex-col gap-2.5">
+      <div
+        key={activePage}
+        className="grid grid-cols-1 gap-2 pb-1 transition-all duration-300 ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8"
+      >
         {visible.map((r) => (
           <RoundCard key={r.round} data={r} isCurrent={r.round === currentRound} />
         ))}
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center gap-2.5">
-          {getPageNumbers(page, totalPages).map((p, i) =>
-            p === "…" ? (
-              <span key={`ellipsis-${i}`} className="font-mono text-[10px]" style={{ color: "var(--text-secondary)", opacity: 0.4 }}>
-                …
-              </span>
-            ) : (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className="font-mono text-[10px] tabular-nums transition-colors"
-                style={{ color: p === page ? "var(--amber-primary)" : "var(--text-secondary)", opacity: p === page ? 1 : 0.5 }}
-              >
-                {p}
-              </button>
-            ),
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="font-mono text-[9px] uppercase tabular-nums" style={{ color: "var(--text-secondary)" }}>
+            {firstVisible}-{lastVisible} / {descending.length}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              aria-label="Previous rounds"
+              disabled={activePage === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="flex size-7 items-center justify-center rounded-sm border transition-colors disabled:cursor-not-allowed disabled:opacity-30"
+              style={{ borderColor: "var(--border-subtle)", color: "var(--text-secondary)" }}
+            >
+              <ChevronLeft className="size-3.5" />
+            </button>
+            {getPageNumbers(activePage, totalPages).map((p, i) =>
+              p === "…" ? (
+                <span key={`ellipsis-${i}`} className="px-1 font-mono text-[10px]" style={{ color: "var(--text-secondary)", opacity: 0.4 }}>
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPage(p)}
+                  className="h-7 min-w-7 rounded-sm border px-2 font-mono text-[10px] tabular-nums transition-colors"
+                  style={{
+                    background: p === activePage ? "var(--surface-2)" : "transparent",
+                    borderColor: p === activePage ? "var(--amber-primary)" : "var(--border-subtle)",
+                    color: p === activePage ? "var(--amber-primary)" : "var(--text-secondary)",
+                    opacity: p === activePage ? 1 : 0.65,
+                  }}
+                >
+                  {p}
+                </button>
+              ),
+            )}
+            <button
+              type="button"
+              aria-label="Next rounds"
+              disabled={activePage === totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="flex size-7 items-center justify-center rounded-sm border transition-colors disabled:cursor-not-allowed disabled:opacity-30"
+              style={{ borderColor: "var(--border-subtle)", color: "var(--text-secondary)" }}
+            >
+              <ChevronRight className="size-3.5" />
+            </button>
+          </div>
         </div>
       )}
     </div>

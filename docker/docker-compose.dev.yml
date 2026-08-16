@@ -43,7 +43,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:3000/health",
+          "http://localhost:3000/v1/health",
         ]
       interval: 5s
       timeout: 5s
@@ -64,6 +64,7 @@ services:
     environment:
       NEXT_PUBLIC_BACKEND_URL: http://localhost:3000
       NEXT_PUBLIC_SUPABASE_URL: http://localhost:8000
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
     networks:
       - mentishub-network
     depends_on:
